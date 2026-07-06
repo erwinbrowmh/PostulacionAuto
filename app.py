@@ -24,9 +24,32 @@ CURRENT_PROFILE = parse_cv(DEFAULT_PDF_PATH)
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/api/profile', methods=['GET'])
-def get_profile():
+@app.route('/api/profile', methods=['GET', 'POST'])
+def handle_profile():
     global CURRENT_PROFILE
+    if request.method == 'POST':
+        try:
+            data = request.json
+            if not data:
+                return jsonify({"status": "error", "message": "No data provided"}), 400
+            
+            # Simple validation to ensure it has basic fields
+            if "name" not in data or "skills" not in data:
+                return jsonify({"status": "error", "message": "Formato de perfil inválido"}), 400
+                
+            CURRENT_PROFILE = data
+            return jsonify({
+                "status": "success",
+                "message": "Perfil actualizado dinámicamente",
+                "data": CURRENT_PROFILE
+            })
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 500
+            
+    # GET method
     return jsonify({
         "status": "success",
         "data": CURRENT_PROFILE
