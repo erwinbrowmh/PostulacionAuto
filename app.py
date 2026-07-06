@@ -117,10 +117,16 @@ def search():
         keywords = None
         
     try:
+        import time
+        t0 = time.time()
         jobs = search_jobs(profile=CURRENT_PROFILE, keywords=keywords, location=location, max_results=max_results)
+        elapsed = round(time.time() - t0, 2)
+        avg_score = round(sum(j.get("match_score", 0) for j in jobs) / len(jobs), 1) if jobs else 0
         return jsonify({
             "status": "success",
             "count": len(jobs),
+            "search_time_s": elapsed,
+            "avg_match_score": avg_score,
             "data": jobs
         })
     except Exception as e:
@@ -128,6 +134,16 @@ def search():
             "status": "error",
             "message": str(e)
         }), 500
+
+
+@app.route('/api/search/suggestions', methods=['GET'])
+def search_suggestions():
+    """Returns keyword suggestions based on the active profile's top skills."""
+    global CURRENT_PROFILE
+    skills = CURRENT_PROFILE.get("all_skills_flat", [])
+    title  = CURRENT_PROFILE.get("title", "")
+    suggestions = list(dict.fromkeys(skills[:8] + [w for w in title.split() if len(w) >= 3]))[:10]
+    return jsonify({"status": "success", "suggestions": suggestions})
 
 @app.route('/api/export', methods=['POST'])
 def export_jobs():

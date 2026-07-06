@@ -1,1024 +1,1252 @@
-document.addEventListener("DOMContentLoaded", () => {
-    // API base URL
-    const API_URL = "";
+/**
+ * PostulacionAuto Hub v2.0 — Main Controller
+ * - ATS Search Engine v2
+ * - Advanced client-side filters (chips, sort, live search)
+ * - Toast notification system
+ * - Onboarding wizard
+ * - Header live metrics
+ * - Skeleton screens
+ * - Skills editor with recalc
+ * - ATS Analysis tab
+ * - Cover letter generator
+ */
 
-    // DOM Elements
-    const searchBtn = document.getElementById("search-btn");
-    const exportBtn = document.getElementById("export-btn");
-    const resultsActionsBar = document.getElementById("results-actions-bar");
-    const jobsContainer = document.getElementById("jobs-container");
-    const emptyState = document.getElementById("empty-state");
-    const searchLoader = document.getElementById("search-loader");
-    const resultsSummary = document.getElementById("results-summary");
-    const rangeSlider = document.getElementById("max-results");
-    const rangeVal = document.getElementById("range-val");
-    
-    // Advanced UI Filters & Stats DOM
-    const filtersCard = document.getElementById("advanced-filters-card");
-    const statsCard = document.getElementById("results-stats-card");
+(function () {
+  "use strict";
 
-    // Modal Elements
-    const jobModal = document.getElementById("job-modal");
-    const modalClose = document.getElementById("modal-close");
-    const modalTitle = document.getElementById("modal-title");
-    const modalCompany = document.getElementById("modal-company");
-    const modalLocation = document.getElementById("modal-location");
-    const modalSalary = document.getElementById("modal-salary");
-    const modalDate = document.getElementById("modal-date");
-    const modalScore = document.getElementById("modal-score");
-    const modalMatchedSkills = document.getElementById("modal-matched-skills");
-    const modalDescText = document.getElementById("modal-desc-text");
-    const modalApplyLink = document.getElementById("modal-apply-link");
-    const modalSourceBadge = document.getElementById("modal-source-badge");
+  const API_URL = "";       // Flask same-origin
+  const STORAGE_PROFILE  = "pah_profile_v2";
+  const STORAGE_SAVED    = "pah_saved_jobs";
+  const STORAGE_DISCARDED = "pah_discarded_jobs";
+  const STORAGE_OB       = "pah_onboarding_done";
 
-    // Local State
-    let currentJobs = [];
-    let activeProfile = null;
-    let currentModalJob = null;
-    let stepTimer = null;
-    
-    let savedJobIds = JSON.parse(localStorage.getItem("saved_jobs") || "[]");
-    let discardedJobIds = JSON.parse(localStorage.getItem("discarded_jobs") || "[]");
+  // ── State ─────────────────────────────────────────────────
+  let activeProfile = null;
+  let currentJobs = [];
+  let currentModalJob = null;
+  let savedJobIds = [];
+  let discardedJobIds = [];
+  let activeChips = { modality: ["remoto","hibrido","presencial"], level: ["junior","semi","senior","lead"] };
 
-    // Initialize Range Slider value display
-    rangeSlider.addEventListener("input", (e) => {
-        rangeVal.textContent = e.target.value;
+  // ── DOM refs ──────────────────────────────────────────────
+  const searchBtn      = document.getElementById("search-btn");
+  const searchKeywords = document.getElementById("search-keywords");
+  const searchType     = document.getElementById("search-type");
+  const searchLoc      = document.getElementById("search-loc-input");
+  const maxResults     = document.getElementById("max-results");
+  const rangeVal       = document.getElementById("range-val");
+  const searchLoader   = document.getElementById("search-loader");
+  const emptyState     = document.getElementById("empty-state");
+  const jobsContainer  = document.getElementById("jobs-container");
+  const resultsSummary = document.getElementById("results-summary");
+  const resultsActionsBar = document.getElementById("results-actions-bar");
+  const exportBtn      = document.getElementById("export-btn");
+  const jobModal       = document.getElementById("job-modal");
+  const modalClose     = document.getElementById("modal-close");
+  const modalTitle     = document.getElementById("modal-title");
+  const modalCompany   = document.getElementById("modal-company");
+  const modalLocation  = document.getElementById("modal-location");
+  const modalSalary    = document.getElementById("modal-salary");
+  const modalDate      = document.getElementById("modal-date");
+  const modalScore     = document.getElementById("modal-score");
+  const modalDescText  = document.getElementById("modal-desc-text");
+  const modalApplyLink = document.getElementById("modal-apply-link");
+  const modalSourceBadge = document.getElementById("modal-source-badge");
+  const modalMatchedSkills = document.getElementById("modal-matched-skills");
+  const modalSaveBtn   = document.getElementById("modal-save-btn");
+
+  const filterScore    = document.getElementById("filter-score");
+  const filterScoreVal = document.getElementById("filter-score-val");
+  const filterSalary   = document.getElementById("filter-salary");
+  const filterSort     = document.getElementById("filter-sort");
+  const filterLiveSearch = document.getElementById("filter-live-search");
+  const toggleHideDiscarded = document.getElementById("toggle-hide-discarded");
+  const toggleOnlySaved     = document.getElementById("toggle-only-saved");
+
+  const statsCard      = document.getElementById("results-stats-card");
+  const statTotal      = document.getElementById("stat-total");
+  const statAvgMatch   = document.getElementById("stat-avg-match");
+  const statHighMatch  = document.getElementById("stat-high-match");
+  const statSkillsCount = document.getElementById("stat-skills-count");
+  const statsBars      = document.getElementById("stats-dist-bars");
+
+  const hmJobsCount    = document.getElementById("hm-jobs-count");
+  const hmAvgScore     = document.getElementById("hm-avg-score");
+  const hmSavedCount   = document.getElementById("hm-saved-count");
+
+  const candName       = document.getElementById("cand-name");
+  const candTitle      = document.getElementById("cand-title");
+  const candEmail      = document.getElementById("cand-email");
+  const candPhone      = document.getElementById("cand-phone");
+  const candLocation   = document.getElementById("cand-location");
+  const candLinkedin   = document.getElementById("cand-linkedin");
+  const candGithub     = document.getElementById("cand-github");
+  const skillsContainer = document.getElementById("skills-container");
+  const cvUploadZone   = document.getElementById("cv-upload-zone");
+  const cvFileInput    = document.getElementById("cv-file-input");
+  const toggleEditSkillsBtn = document.getElementById("toggle-edit-skills");
+  const addSkillForm   = document.getElementById("add-skill-form");
+  const addSkillBtn    = document.getElementById("add-skill-btn");
+  const newSkillName   = document.getElementById("new-skill-name");
+  const newSkillCategory = document.getElementById("new-skill-category");
+
+  // ══════════════════════════════════════════════════════════
+  //  TOAST SYSTEM
+  // ══════════════════════════════════════════════════════════
+  const toastContainer = document.getElementById("toast-container");
+
+  function showToast(type, title, msg, duration = 4000) {
+    const icons = { success: "fa-check-circle", error: "fa-circle-xmark", info: "fa-circle-info", warning: "fa-triangle-exclamation" };
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <div class="toast-icon"><i class="fa-solid ${icons[type] || icons.info}"></i></div>
+      <div class="toast-body">
+        <div class="toast-title">${title}</div>
+        ${msg ? `<div class="toast-msg">${msg}</div>` : ''}
+      </div>`;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("removing");
+      toast.addEventListener("animationend", () => toast.remove());
+    }, duration);
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  SKELETON SCREENS
+  // ══════════════════════════════════════════════════════════
+  function showSkeletonCards(count = 6) {
+    jobsContainer.innerHTML = "";
+    jobsContainer.classList.remove("hidden");
+    emptyState.classList.add("hidden");
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement("div");
+      s.className = "skeleton-card";
+      s.style.animationDelay = `${i * 60}ms`;
+      s.innerHTML = `
+        <div class="skel-header">
+          <div class="skel-title">
+            <div class="skeleton skel-line w-80"></div>
+            <div class="skeleton skel-line w-55"></div>
+          </div>
+          <div class="skeleton skel-score"></div>
+        </div>
+        <div class="skel-meta">
+          <div class="skeleton skel-chip w-30"></div>
+          <div class="skeleton skel-chip w-20"></div>
+          <div class="skeleton skel-chip w-25"></div>
+        </div>
+        <div class="skeleton skel-line w-80" style="height: 10px;"></div>
+        <div class="skeleton skel-line w-40" style="height: 10px;"></div>`;
+      jobsContainer.appendChild(s);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  PROFILE RENDERING
+  // ══════════════════════════════════════════════════════════
+  function renderProfile(profile) {
+    if (!profile) return;
+    activeProfile = profile;
+    candName.textContent      = profile.name || "Sin nombre";
+    candTitle.textContent     = profile.title || "Sin título";
+    candEmail.textContent     = profile.email || "Sin email";
+    candPhone.textContent     = profile.phone || "Sin teléfono";
+    candLocation.textContent  = profile.location || "Sin ubicación";
+
+    if (profile.linkedin) {
+      candLinkedin.href = profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`;
+    }
+    if (profile.github) {
+      candGithub.href = profile.github.startsWith("http") ? profile.github : `https://github.com/${profile.github}`;
+    }
+
+    renderSkills(profile.skills || {});
+    saveProfileToStorage(profile);
+    updateStatSkillsCount(profile);
+  }
+
+  function updateStatSkillsCount(profile) {
+    const flat = profile.all_skills_flat || [];
+    if (statSkillsCount) statSkillsCount.textContent = flat.length;
+  }
+
+  function renderSkills(skillsObj) {
+    const catLabels = {
+      languages: "Lenguajes", backend: "Backend / Frameworks",
+      infrastructure: "Infraestructura", security: "Seguridad",
+      iot: "IoT / Hardware", management: "Gestión"
+    };
+    skillsContainer.innerHTML = "";
+    for (const [cat, skills] of Object.entries(skillsObj)) {
+      if (!skills || skills.length === 0) continue;
+      const catEl = document.createElement("div");
+      catEl.className = "skill-category-box";
+      catEl.innerHTML = `<div class="category-name">${catLabels[cat] || cat}</div>`;
+      const badgesEl = document.createElement("div");
+      badgesEl.className = "skills-badges";
+      skills.forEach(skill => {
+        const b = document.createElement("span");
+        b.className = "badge";
+        b.textContent = skill;
+        b.dataset.skill = skill;
+        b.dataset.cat = cat;
+        if (skillsContainer.classList.contains("edit-mode")) {
+          b.addEventListener("click", () => removeSkill(cat, skill));
+        }
+        badgesEl.appendChild(b);
+      });
+      catEl.appendChild(badgesEl);
+      skillsContainer.appendChild(catEl);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  SKILLS EDITOR
+  // ══════════════════════════════════════════════════════════
+  function initSkillsEditor() {
+    toggleEditSkillsBtn.addEventListener("click", () => {
+      const isEdit = skillsContainer.classList.toggle("edit-mode");
+      toggleEditSkillsBtn.classList.toggle("active", isEdit);
+      addSkillForm.classList.toggle("hidden", !isEdit);
+      if (isEdit) {
+        toggleEditSkillsBtn.title = "Salir del modo edición";
+        renderSkillsEditMode();
+      } else {
+        toggleEditSkillsBtn.title = "Editar habilidades";
+        renderSkills(activeProfile.skills || {});
+      }
     });
 
-    // Close Modal handler
-    modalClose.addEventListener("click", () => {
-        jobModal.style.display = "none";
+    addSkillBtn.addEventListener("click", () => {
+      const skill = newSkillName.value.trim();
+      const cat   = newSkillCategory.value;
+      if (!skill) return;
+      if (!activeProfile.skills[cat]) activeProfile.skills[cat] = [];
+      if (!activeProfile.skills[cat].includes(skill)) {
+        activeProfile.skills[cat].push(skill);
+        activeProfile.all_skills_flat = flattenSkills(activeProfile.skills);
+        newSkillName.value = "";
+        renderSkillsEditMode();
+        saveProfileToStorage(activeProfile);
+        syncProfileToBackend();
+        recalculateMatchScoresClientSide();
+        showToast("success", "Habilidad añadida", `"${skill}" agregada a ${cat}. Los match scores se actualizaron.`);
+      } else {
+        showToast("warning", "Ya existe", `"${skill}" ya está en tu perfil.`);
+      }
     });
 
-    window.addEventListener("click", (e) => {
-        if (e.target === jobModal) {
-            jobModal.style.display = "none";
-        }
+    newSkillName.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addSkillBtn.click();
     });
+  }
 
-    // Handle Search Type (Presencial / Remoto) Change to swap place defaults
-    const searchTypeSelect = document.getElementById("search-type");
-    const searchLocInput = document.getElementById("search-loc-input");
-    
-    searchTypeSelect.addEventListener("change", (e) => {
-        if (e.target.value === "presencial") {
-            searchLocInput.value = "Veracruz, Veracruz";
-            searchLocInput.placeholder = "Ej. Veracruz, Monterrey, Puebla";
-        } else {
-            searchLocInput.value = "México";
-            searchLocInput.placeholder = "Ej. México, USA, LatAm, Global";
-        }
+  function renderSkillsEditMode() {
+    const catLabels = {
+      languages: "Lenguajes", backend: "Backend / Frameworks",
+      infrastructure: "Infraestructura", security: "Seguridad",
+      iot: "IoT / Hardware", management: "Gestión"
+    };
+    skillsContainer.innerHTML = "";
+    for (const [cat, skills] of Object.entries(activeProfile.skills || {})) {
+      if (!skills || skills.length === 0) continue;
+      const catEl = document.createElement("div");
+      catEl.className = "skill-category-box";
+      catEl.innerHTML = `<div class="category-name">${catLabels[cat] || cat}</div>`;
+      const badgesEl = document.createElement("div");
+      badgesEl.className = "skills-badges";
+      skills.forEach(skill => {
+        const b = document.createElement("span");
+        b.className = "badge";
+        b.textContent = skill;
+        b.style.cursor = "pointer";
+        b.addEventListener("click", () => removeSkill(cat, skill));
+        badgesEl.appendChild(b);
+      });
+      catEl.appendChild(badgesEl);
+      skillsContainer.appendChild(catEl);
+    }
+    skillsContainer.classList.add("edit-mode");
+  }
+
+  function removeSkill(cat, skill) {
+    if (!activeProfile.skills[cat]) return;
+    activeProfile.skills[cat] = activeProfile.skills[cat].filter(s => s !== skill);
+    activeProfile.all_skills_flat = flattenSkills(activeProfile.skills);
+    renderSkillsEditMode();
+    saveProfileToStorage(activeProfile);
+    syncProfileToBackend();
+    recalculateMatchScoresClientSide();
+    showToast("info", "Habilidad eliminada", `"${skill}" removida del perfil.`);
+  }
+
+  function flattenSkills(skillsObj) {
+    return Object.values(skillsObj).flat();
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  PROFILE PERSISTENCE & SYNC
+  // ══════════════════════════════════════════════════════════
+  function saveProfileToStorage(profile) {
+    try { localStorage.setItem(STORAGE_PROFILE, JSON.stringify(profile)); } catch (e) {}
+  }
+
+  function loadProfileFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PROFILE);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  async function syncProfileToBackend() {
+    if (!activeProfile) return;
+    try {
+      await fetch(`${API_URL}/api/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activeProfile)
+      });
+    } catch (e) { /* fail silently */ }
+  }
+
+  async function loadProfile() {
+    // 1. Try localStorage
+    const cached = loadProfileFromStorage();
+    if (cached) {
+      renderProfile(cached);
+      return;
+    }
+    // 2. Fetch from API
+    try {
+      const res = await fetch(`${API_URL}/api/profile`);
+      const json = await res.json();
+      if (json.status === "success" && json.data) {
+        renderProfile(json.data);
+      }
+    } catch (e) {
+      showToast("warning", "Sin conexión", "No se pudo cargar el perfil del servidor.");
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  CV UPLOAD
+  // ══════════════════════════════════════════════════════════
+  function initUpload() {
+    cvUploadZone.addEventListener("click", () => {
+      if (!cvUploadZone.classList.contains("processing")) cvFileInput.click();
     });
+    cvFileInput.addEventListener("change", () => {
+      if (cvFileInput.files[0]) uploadCV(cvFileInput.files[0]);
+    });
+    cvUploadZone.addEventListener("dragover", (e) => { e.preventDefault(); cvUploadZone.classList.add("dragover"); });
+    cvUploadZone.addEventListener("dragleave", () => cvUploadZone.classList.remove("dragover"));
+    cvUploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      cvUploadZone.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith(".pdf")) uploadCV(file);
+      else showToast("error", "Formato inválido", "Solo se aceptan archivos PDF.");
+    });
+  }
 
-    // Load Candidate Profile on Startup
-    async function loadProfile() {
-        try {
-            const localData = localStorage.getItem("postulacion_candidate_profile");
-            if (localData) {
-                activeProfile = JSON.parse(localData);
-                console.log("Loaded profile from localStorage", activeProfile);
-                
-                // Sync to backend
-                await fetch(`${API_URL}/api/profile`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(activeProfile)
-                });
-                
-                updateProfileUI(activeProfile);
-            } else {
-                const response = await fetch(`${API_URL}/api/profile`);
-                const json = await response.json();
-                
-                if (json.status === "success") {
-                    activeProfile = json.data;
-                    localStorage.setItem("postulacion_candidate_profile", JSON.stringify(activeProfile));
-                    updateProfileUI(activeProfile);
-                }
-            }
-        } catch (error) {
-            console.error("Error loading profile:", error);
-            document.getElementById("cand-name").textContent = "Erwin Brow M. Herrera";
-            document.getElementById("cand-title").textContent = "Full Stack Developer";
-        }
+  async function uploadCV(file) {
+    cvUploadZone.classList.add("processing");
+    cvUploadZone.querySelector(".upload-icon").className = "fa-solid fa-circle-notch fa-spin upload-icon";
+    showToast("info", "Procesando CV", "Analizando tu currículum con el motor ATS...");
+
+    const formData = new FormData();
+    formData.append("cv", file);
+    try {
+      const res  = await fetch(`${API_URL}/api/upload-cv`, { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.status === "success") {
+        renderProfile(json.data);
+        const skills = json.data.all_skills_flat || [];
+        showToast("success", "CV procesado", `Se detectaron ${skills.length} habilidades. ¡Listo para buscar!`);
+        localStorage.removeItem(STORAGE_OB);
+      } else {
+        showToast("error", "Error al procesar", json.message || "Intenta con otro archivo.");
+      }
+    } catch {
+      showToast("error", "Sin conexión", "No se pudo conectar con el servidor Flask.");
+    } finally {
+      cvUploadZone.classList.remove("processing");
+      cvUploadZone.querySelector(".upload-icon").className = "fa-solid fa-cloud-arrow-up upload-icon";
     }
-
-    async function saveProfileLocallyAndRemotely() {
-        if (!activeProfile) return;
-        localStorage.setItem("postulacion_candidate_profile", JSON.stringify(activeProfile));
-        try {
-            await fetch(`${API_URL}/api/profile`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(activeProfile)
-            });
-        } catch (e) {
-            console.error("Error syncing profile with server:", e);
-        }
-    }
-
-    // Step Loader Sequence
-    function startStepLoader() {
-        const steps = ["step-init", "step-li", "step-occ", "step-ct", "step-gb", "step-ats"];
-        // Reset all steps to initial state
-        steps.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.className = "loader-step";
-                const icon = el.querySelector(".step-icon");
-                if (icon) icon.className = "fa-regular fa-circle step-icon";
-            }
-        });
-        
-        let currentIdx = 0;
-        
-        function next() {
-            if (currentIdx > 0) {
-                // Mark previous step as completed
-                const prevEl = document.getElementById(steps[currentIdx - 1]);
-                if (prevEl) {
-                    prevEl.className = "loader-step completed";
-                    const icon = prevEl.querySelector(".step-icon");
-                    if (icon) icon.className = "fa-solid fa-circle-check step-icon";
-                }
-            }
-            
-            if (currentIdx < steps.length) {
-                // Mark current step as active
-                const el = document.getElementById(steps[currentIdx]);
-                if (el) {
-                    el.className = "loader-step active";
-                    const icon = el.querySelector(".step-icon");
-                    if (icon) icon.className = "fa-solid fa-circle-notch fa-spin step-icon";
-                }
-                currentIdx++;
-                stepTimer = setTimeout(next, 2000); // Trigger next step in 2 seconds
-            }
-        }
-        next();
-    }
-
-    function stopStepLoader() {
-        if (stepTimer) {
-            clearTimeout(stepTimer);
-            stepTimer = null;
-        }
-    }
-
-    // Search Job Openings
-    async function searchJobsAction() {
-        const keywords = document.getElementById("search-keywords").value;
-        const searchType = searchTypeSelect.value;
-        const searchLoc = searchLocInput.value.trim();
-        const maxResults = rangeSlider.value;
-
-        // Build composite location string (e.g. "Remoto (México)" or "Veracruz, Veracruz")
-        const locationQuery = searchType === "remoto" ? `Remoto (${searchLoc})` : searchLoc;
-
-        // Show loading state
-        searchBtn.disabled = true;
-        searchBtn.querySelector(".btn-content").classList.add("hidden");
-        searchBtn.querySelector(".btn-loader").classList.remove("hidden");
-        
-        jobsContainer.classList.add("hidden");
-        emptyState.classList.add("hidden");
-        searchLoader.classList.remove("hidden");
-        resultsActionsBar.classList.add("hidden");
-        
-        // Hide stats & filters during search
-        filtersCard.classList.add("hidden");
-        statsCard.classList.add("hidden");
-
-        resultsSummary.textContent = "Buscando vacantes...";
-        startStepLoader();
-
-        try {
-            const queryParams = new URLSearchParams({
-                keywords: keywords,
-                location: locationQuery,
-                max_results: maxResults
-            });
-
-            const response = await fetch(`${API_URL}/api/search?${queryParams.toString()}`);
-            const json = await response.json();
-
-            stopStepLoader();
-            searchLoader.classList.add("hidden");
-            searchBtn.disabled = false;
-            searchBtn.querySelector(".btn-content").classList.remove("hidden");
-            searchBtn.querySelector(".btn-loader").classList.add("hidden");
-
-            if (json.status === "success" && json.data.length > 0) {
-                currentJobs = json.data;
-                resultsSummary.textContent = `Se encontraron ${currentJobs.length} empleos calificados en base a tu CV.`;
-                resultsActionsBar.classList.remove("hidden");
-                
-                // Show stats & filters panel
-                filtersCard.classList.remove("hidden");
-                statsCard.classList.remove("hidden");
-                
-                resetFilterInputs();
-                applyClientFilters();
-            } else {
-                currentJobs = [];
-                resultsSummary.textContent = "No se encontraron vacantes con las palabras clave especificadas.";
-                emptyState.querySelector("h3").textContent = "Sin resultados";
-                emptyState.querySelector("p").textContent = "Prueba agregando otros términos o modificando los parámetros de búsqueda.";
-                emptyState.classList.remove("hidden");
-            }
-        } catch (error) {
-            console.error("Error searching jobs:", error);
-            stopStepLoader();
-            searchLoader.classList.add("hidden");
-            resultsSummary.textContent = "Error al conectar con los servidores de búsqueda.";
-            emptyState.querySelector("h3").textContent = "Error de Conexión";
-            emptyState.querySelector("p").textContent = "Asegúrate de que el servidor Flask esté activo en localhost:5000.";
-            emptyState.classList.remove("hidden");
-        }
-    }
-
-    // Render Jobs onto Grid
-    function renderJobsList(jobsToRender = currentJobs) {
-        jobsContainer.innerHTML = "";
-        
-        if (jobsToRender.length === 0) {
-            jobsContainer.innerHTML = `
-                <div class="empty-container" style="padding: 3rem 1.5rem; background: none; border: none;">
-                    <div class="empty-icon" style="font-size: 2.2rem;"><i class="fa-solid fa-filter-circle-xmark"></i></div>
-                    <h4>Filtros restrictivos</h4>
-                    <p style="font-size: 0.85rem;">Ningún empleo coincide con los filtros aplicados. Relaja los criterios.</p>
-                </div>
-            `;
-            return;
-        }
-
-        jobsContainer.classList.remove("hidden");
-
-        jobsToRender.forEach(job => {
-            const isSaved = savedJobIds.includes(job.id);
-            const isDiscarded = discardedJobIds.includes(job.id);
-            const highMatch = job.match_score >= 75;
-            const superMatch = job.match_score >= 80;
-
-            const card = document.createElement("div");
-            card.className = `job-card ${superMatch ? 'super-match' : (highMatch ? 'high-match' : '')} ${isDiscarded ? 'dimmed' : ''}`;
-            card.id = `card-${job.id}`;
-
-            const sourceSlug = job.source.toLowerCase().replace(/\s+/g, '-');
-
-            card.innerHTML = `
-                <div class="job-card-header">
-                    <div class="job-title-block">
-                        <h4 class="job-card-title">
-                            ${job.title}
-                            ${superMatch ? `<span class="super-match-badge"><i class="fa-solid fa-fire"></i> Súper Match</span>` : ''}
-                        </h4>
-                        <div class="job-company">${job.company}</div>
-                    </div>
-                    <div class="match-score-block">
-                        <span class="match-percentage">${job.match_score}%</span>
-                        <span class="match-label">Match</span>
-                        <div class="match-bar-bg">
-                            <div class="match-bar-fill" style="width: ${job.match_score}%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="job-meta-row">
-                    <div class="meta-col"><i class="fa-solid fa-location-dot"></i> <span>${job.location}</span></div>
-                    <div class="meta-col"><i class="fa-solid fa-money-bill-wave"></i> <span>${job.salary}</span></div>
-                    <div class="meta-col"><i class="fa-solid fa-calendar"></i> <span>${job.date}</span></div>
-                    <div class="meta-col">
-                        <span class="platform-badge ${sourceSlug}">${job.source}</span>
-                    </div>
-                </div>
-
-                ${job.matched_skills && job.matched_skills.length > 0 ? `
-                <div class="job-skills-matched">
-                    <span class="matched-label">Coincide:</span>
-                    ${job.matched_skills.map(skill => `<span class="skill-tag-matched">${skill}</span>`).join('')}
-                </div>
-                ` : ''}
-
-                <div class="job-card-actions">
-                    <div class="action-left">
-                        <button class="icon-btn save-btn ${isSaved ? 'active-save' : ''}" title="Guardar oferta">
-                            <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i>
-                        </button>
-                        <button class="icon-btn discard-btn ${isDiscarded ? 'active-discard' : ''}" title="Descartar de la lista">
-                            <i class="fa-solid ${isDiscarded ? 'fa-eye' : 'fa-eye-slash'}"></i>
-                        </button>
-                    </div>
-                    <button class="btn btn-secondary btn-sm details-btn">Ver Detalles</button>
-                </div>
-            `;
-
-            // Card Event Listeners
-            const triggerModal = () => showJobDetails(job);
-            card.querySelector(".job-card-title").addEventListener("click", triggerModal);
-            card.querySelector(".details-btn").addEventListener("click", triggerModal);
-
-            // Save Toggle
-            const saveBtn = card.querySelector(".save-btn");
-            saveBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                toggleSaveJob(job.id, saveBtn);
-            });
-
-            // Discard Toggle
-            const discardBtn = card.querySelector(".discard-btn");
-            discardBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                toggleDiscardJob(job.id, card, discardBtn);
-            });
-
-            jobsContainer.appendChild(card);
-        });
-    }
-
-    // Save Toggle Logic
-    function toggleSaveJob(id, btn) {
-        const icon = btn.querySelector("i");
-        if (savedJobIds.includes(id)) {
-            savedJobIds = savedJobIds.filter(x => x !== id);
-            btn.classList.remove("active-save");
-            icon.className = "fa-regular fa-bookmark";
-        } else {
-            savedJobIds.push(id);
-            btn.classList.add("active-save");
-            icon.className = "fa-solid fa-bookmark";
-            if (discardedJobIds.includes(id)) {
-                discardedJobIds = discardedJobIds.filter(x => x !== id);
-                const card = document.getElementById(`card-${id}`);
-                if (card) {
-                    card.classList.remove("dimmed");
-                    const discardBtn = card.querySelector(".discard-btn");
-                    discardBtn.classList.remove("active-discard");
-                    discardBtn.querySelector("i").className = "fa-solid fa-eye-slash";
-                }
-            }
-        }
-        localStorage.setItem("saved_jobs", JSON.stringify(savedJobIds));
-        localStorage.setItem("discarded_jobs", JSON.stringify(discardedJobIds));
-    }
-
-    // Discard Toggle Logic
-    function toggleDiscardJob(id, card, btn) {
-        const icon = btn.querySelector("i");
-        if (discardedJobIds.includes(id)) {
-            discardedJobIds = discardedJobIds.filter(x => x !== id);
-            card.classList.remove("dimmed");
-            btn.classList.remove("active-discard");
-            icon.className = "fa-solid fa-eye-slash";
-        } else {
-            discardedJobIds.push(id);
-            card.classList.add("dimmed");
-            btn.classList.add("active-discard");
-            icon.className = "fa-solid fa-eye";
-            if (savedJobIds.includes(id)) {
-                savedJobIds = savedJobIds.filter(x => x !== id);
-                const saveBtn = card.querySelector(".save-btn");
-                saveBtn.classList.remove("active-save");
-                saveBtn.querySelector("i").className = "fa-regular fa-bookmark";
-            }
-        }
-        localStorage.setItem("saved_jobs", JSON.stringify(savedJobIds));
-        localStorage.setItem("discarded_jobs", JSON.stringify(discardedJobIds));
-    }
-
-    // Show Details Modal
-    function showJobDetails(job) {
-        currentModalJob = job;
-        resetModalTabs();
-        modalTitle.textContent = job.title;
-        modalCompany.textContent = job.company;
-        modalLocation.textContent = job.location;
-        modalSalary.textContent = job.salary;
-        modalDate.textContent = job.date;
-        modalScore.textContent = `${job.match_score}% de Coincidencia`;
-        modalDescText.textContent = job.description;
-        modalApplyLink.href = job.link;
-
-        modalSourceBadge.textContent = job.source;
-        modalSourceBadge.className = `badge platform-badge ${job.source.toLowerCase().replace(/\s+/g, '-')}`;
-
-        // Matched Skills Badges
-        modalMatchedSkills.innerHTML = "";
-        if (job.matched_skills && job.matched_skills.length > 0) {
-            job.matched_skills.forEach(skill => {
-                const s = document.createElement("span");
-                s.className = "skill-tag-matched";
-                s.textContent = skill;
-                modalMatchedSkills.appendChild(s);
-            });
-        } else {
-            modalMatchedSkills.textContent = "Ninguna habilidad directa detectada en la pre-vista.";
-        }
-
-        jobModal.style.display = "block";
-    }
-
-    // Export CSV API Call
-    async function exportJobsAction() {
-        if (currentJobs.length === 0) return;
-
-        try {
-            const response = await fetch(`${API_URL}/api/export`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ jobs: currentJobs })
-            });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `empleos_postulacion_${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-            } else {
-                alert("Error al exportar los empleos a CSV");
-            }
-        } catch (error) {
-            console.error("Error exporting jobs:", error);
-            alert("No se pudo conectar al servicio de exportación.");
-        }
-    }
-
-    // Client-side Filters & Stats Logic
-    function initFilters() {
-        const filterScore = document.getElementById("filter-score");
-        const filterScoreVal = document.getElementById("filter-score-val");
-        const filterSalary = document.getElementById("filter-salary");
-        const platformFilters = document.querySelectorAll(".platform-filter");
-
-        // Match Score Slider
-        filterScore.addEventListener("input", (e) => {
-            filterScoreVal.textContent = `${e.target.value}%`;
-            applyClientFilters();
-        });
-
-        // Salary input listener
-        filterSalary.addEventListener("input", () => {
-            applyClientFilters();
-        });
-
-        // Platform checkboxes listener
-        platformFilters.forEach(cb => {
-            cb.addEventListener("change", () => {
-                applyClientFilters();
-            });
-        });
-    }
-
-    function resetFilterInputs() {
-        document.getElementById("filter-score").value = 0;
-        document.getElementById("filter-score-val").textContent = "0%";
-        document.getElementById("filter-salary").value = "";
-        document.querySelectorAll(".platform-filter").forEach(cb => cb.checked = true);
-    }
-
-    function applyClientFilters() {
-        const minScore = parseInt(document.getElementById("filter-score").value || 0);
-        const minSalaryVal = parseFloat(document.getElementById("filter-salary").value || 0);
-        
-        const checkedPlatforms = [];
-        document.querySelectorAll(".platform-filter:checked").forEach(cb => {
-            checkedPlatforms.push(cb.value);
-        });
-
-        const filtered = currentJobs.filter(job => {
-            // 1. Channel / Platform Filter
-            const standardPlatforms = ["LinkedIn", "OCC Mundial", "Computrabajo", "Get on Board"];
-            let platformMatch = checkedPlatforms.includes(job.source);
-            
-            // If the platform is a web platform scraped by Google Jobs (or starts with google_)
-            if (!platformMatch && checkedPlatforms.includes("Google (Web)")) {
-                if (!standardPlatforms.includes(job.source) || job.id.startsWith("google_")) {
-                    platformMatch = true;
-                }
-            }
-            if (!platformMatch) return false;
-
-            // 2. Score Match Filter
-            if (job.match_score < minScore) return false;
-
-            // 3. Salary Filter
-            if (minSalaryVal > 0) {
-                const numSalary = parseSalaryAmount(job.salary);
-                if (numSalary === 0) return false;
-                if (numSalary < minSalaryVal) return false;
-            }
-
-            return true;
-        });
-
-        renderJobsList(filtered);
-        updateStatistics(filtered);
-    }
-
-    function parseSalaryAmount(salStr) {
-        if (!salStr || salStr.toLowerCase().includes("no especificado") || salStr.toLowerCase().includes("ver en portal")) {
-            return 0;
-        }
-
-        // Clean string and keep only numbers
-        let clean = salStr.toLowerCase().replace(/,/g, '').replace(/\s/g, '');
-        const match = clean.match(/\d+/);
-        if (!match) return 0;
-
-        let num = parseFloat(match[0]);
-
-        // Convert roughly USD to MXN if USD marker exists
-        if (clean.includes("usd") || clean.includes("dolar") || clean.includes("dollar")) {
-            num = num * 20; // 1 USD = 20 MXN exchange rate approximation
-        }
-
-        return num;
-    }
-
-    function updateStatistics(jobs) {
-        const totalEl = document.getElementById("stat-total");
-        const avgEl = document.getElementById("stat-avg-match");
-        const barsContainer = document.getElementById("stats-dist-bars");
-
-        totalEl.textContent = jobs.length;
-
-        if (jobs.length > 0) {
-            const totalScore = jobs.reduce((sum, j) => sum + j.match_score, 0);
-            avgEl.textContent = `${Math.round(totalScore / jobs.length)}%`;
-        } else {
-            avgEl.textContent = "0%";
-        }
-
-        // Channels distribution counts
-        const counts = {};
-        jobs.forEach(j => {
-            counts[j.source] = (counts[j.source] || 0) + 1;
-        });
-
-        // Draw progress bar stats dynamically
-        barsContainer.innerHTML = "";
-        const channels = ["LinkedIn", "OCC Mundial", "Computrabajo", "Get on Board"];
-        
-        channels.forEach(ch => {
-            const count = counts[ch] || 0;
-            const pct = jobs.length > 0 ? Math.round((count / jobs.length) * 100) : 0;
-            
-            const slug = ch.toLowerCase().replace(/\s+/g, '-');
-            
-            const barItem = document.createElement("div");
-            barItem.className = "dist-bar-item";
-            barItem.innerHTML = `
-                <div class="dist-bar-meta">
-                    <span class="dist-name">${ch}</span>
-                    <span class="dist-count">${count} (${pct}%)</span>
-                </div>
-                <div class="dist-progress-bg">
-                    <div class="dist-progress-fill ${slug}" style="width: ${pct}%"></div>
-                </div>
-            `;
-            barsContainer.appendChild(barItem);
-        });
-    }
-
-    // Setup CV Upload Drag & Drop and Click triggers
-    function initUpload() {
-        const uploadZone = document.getElementById("cv-upload-zone");
-        const fileInput = document.getElementById("cv-file-input");
-        const uploadText = uploadZone.querySelector(".upload-text");
-
-        uploadZone.addEventListener("click", () => {
-            if (!uploadZone.classList.contains("processing")) {
-                fileInput.click();
-            }
-        });
-
-        fileInput.addEventListener("change", (e) => {
-            const file = e.target.files[0];
-            if (file) handleCVUpload(file);
-        });
-
-        // Drag events
-        ["dragenter", "dragover"].forEach(eventName => {
-            uploadZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                uploadZone.classList.add("dragover");
-            }, false);
-        });
-
-        ["dragleave", "dragend", "drop"].forEach(eventName => {
-            uploadZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                uploadZone.classList.remove("dragover");
-            }, false);
-        });
-
-        uploadZone.addEventListener("drop", (e) => {
-            const dt = e.dataTransfer;
-            const file = dt.files[0];
-            if (file) handleCVUpload(file);
-        });
-
-        async function handleCVUpload(file) {
-            if (!file.name.toLowerCase().endsWith(".pdf")) {
-                alert("Solo se permiten archivos en formato PDF.");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append("cv", file);
-
-            uploadZone.classList.add("processing");
-            uploadText.textContent = "Procesando CV por ATS...";
-            
-            try {
-                const response = await fetch(`${API_URL}/api/upload-cv`, {
-                    method: "POST",
-                    body: formData
-                });
-                const json = await response.json();
-                
-                uploadZone.classList.remove("processing");
-                uploadText.textContent = "Subir otro CV (Arrastra o haz clic aquí)";
-
-                if (json.status === "success") {
-                    alert("CV procesado exitosamente por el motor ATS.");
-                    activeProfile = json.data;
-                    localStorage.setItem("postulacion_candidate_profile", JSON.stringify(activeProfile));
-                    updateProfileUI(json.data);
-                } else {
-                    alert(`Error: ${json.message}`);
-                }
-            } catch (error) {
-                console.error("Error uploading CV:", error);
-                uploadZone.classList.remove("processing");
-                uploadText.textContent = "Subir otro CV (Arrastra o haz clic aquí)";
-                alert("Error de conexión al subir el CV.");
-            }
-        }
-    }
-
-    function updateProfileUI(p) {
-        activeProfile = p; // Keep profile in memory
-        document.getElementById("cand-name").textContent = p.name;
-        document.getElementById("cand-title").textContent = p.title;
-        document.getElementById("cand-email").textContent = p.email;
-        document.getElementById("cand-phone").textContent = p.phone;
-        document.getElementById("cand-location").textContent = p.location;
-        
-        const linkedinLink = document.getElementById("cand-linkedin");
-        linkedinLink.href = p.linkedin.startsWith("http") ? p.linkedin : `https://${p.linkedin}`;
-        
-        const githubLink = document.getElementById("cand-github");
-        githubLink.href = p.github.startsWith("http") ? p.github : `https://${p.github}`;
-
-        // Populate Skills
-        const container = document.getElementById("skills-container");
-        container.innerHTML = "";
-        
-        const categories = {
-            "languages": "Lenguajes & Frameworks",
-            "backend": "Backend & APIs",
-            "infrastructure": "Infraestructura TI",
-            "security": "Ciberseguridad",
-            "iot": "IoT & Hardware",
-            "management": "Gestión de Proyectos"
-        };
-
-        for (const [key, label] of Object.entries(categories)) {
-            if (p.skills[key] && p.skills[key].length > 0) {
-                const box = document.createElement("div");
-                box.className = "skill-category-box";
-                
-                const title = document.createElement("div");
-                title.className = "category-name";
-                title.textContent = label;
-                box.appendChild(title);
-                
-                const grid = document.createElement("div");
-                grid.className = "skills-badges";
-                
-                p.skills[key].forEach(skill => {
-                    const badge = document.createElement("span");
-                    badge.className = "badge";
-                    badge.textContent = skill;
-                    
-                    // Click handler to delete in edit mode
-                    badge.addEventListener("click", async () => {
-                        const skillsContainer = document.getElementById("skills-container");
-                        if (skillsContainer.classList.contains("edit-mode")) {
-                            activeProfile.skills[key] = activeProfile.skills[key].filter(s => s !== skill);
-                            activeProfile.all_skills_flat = activeProfile.all_skills_flat.filter(s => s !== skill);
-                            
-                            await saveProfileLocallyAndRemotely();
-                            updateProfileUI(activeProfile);
-                            recalculateMatchScoresClientSide();
-                            
-                            // Keep edit UI open
-                            document.getElementById("skills-container").classList.add("edit-mode");
-                            document.getElementById("toggle-edit-skills").classList.add("active");
-                            document.getElementById("toggle-edit-skills").innerHTML = '<i class="fa-solid fa-check"></i>';
-                            document.getElementById("add-skill-form").classList.remove("hidden");
-                        }
-                    });
-                    
-                    grid.appendChild(badge);
-                });
-                
-                box.appendChild(grid);
-                container.appendChild(box);
-            }
-        }
-
-        const flatSkills = p.all_skills_flat || [];
-        if (flatSkills.length > 0) {
-            document.getElementById("search-keywords").value = flatSkills.slice(0, 5).join(", ");
-        }
-
-        // Clear search results
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  SEARCH
+  // ══════════════════════════════════════════════════════════
+  function initSearch() {
+    maxResults.addEventListener("input", () => { rangeVal.textContent = maxResults.value; });
+    searchBtn.addEventListener("click", performSearch);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target === searchKeywords) performSearch();
+    });
+  }
+
+  let stepInterval = null;
+
+  function startStepLoader() {
+    const steps = ["step-init", "step-li", "step-occ", "step-ct", "step-gb", "step-ats"];
+    let idx = 0;
+    steps.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove("active", "completed"); el.querySelector(".step-icon").className = "fa-regular fa-circle step-icon"; }
+    });
+    const advance = () => {
+      if (idx > 0 && steps[idx - 1]) {
+        const prev = document.getElementById(steps[idx - 1]);
+        if (prev) { prev.classList.remove("active"); prev.classList.add("completed"); prev.querySelector(".step-icon").className = "fa-solid fa-circle-check step-icon"; }
+      }
+      if (idx < steps.length) {
+        const cur = document.getElementById(steps[idx]);
+        if (cur) { cur.classList.add("active"); cur.querySelector(".step-icon").className = "fa-solid fa-circle-notch fa-spin step-icon"; }
+        idx++;
+      }
+    };
+    advance();
+    stepInterval = setInterval(advance, 2800);
+  }
+
+  function stopStepLoader() {
+    if (stepInterval) { clearInterval(stepInterval); stepInterval = null; }
+  }
+
+  async function performSearch() {
+    const keywords = searchKeywords.value.trim();
+    const location = searchLoc.value.trim() || "México";
+    const max      = parseInt(maxResults.value) || 20;
+
+    searchBtn.disabled = true;
+    searchBtn.querySelector(".btn-content").classList.add("hidden");
+    searchBtn.querySelector(".btn-loader").classList.remove("hidden");
+    emptyState.classList.add("hidden");
+    jobsContainer.classList.add("hidden");
+    statsCard.classList.add("hidden");
+    resultsActionsBar.classList.add("hidden");
+    searchLoader.classList.remove("hidden");
+    resultsSummary.innerHTML = "Buscando vacantes con motor ATS v2...";
+
+    showSkeletonCards(6);
+    jobsContainer.classList.remove("hidden");
+    startStepLoader();
+
+    const queryParams = new URLSearchParams();
+    if (keywords) queryParams.set("keywords", keywords);
+    queryParams.set("location", location);
+    queryParams.set("max_results", max);
+
+    try {
+      const res  = await fetch(`${API_URL}/api/search?${queryParams.toString()}`);
+      const json = await res.json();
+
+      stopStepLoader();
+      searchLoader.classList.add("hidden");
+      searchBtn.disabled = false;
+      searchBtn.querySelector(".btn-content").classList.remove("hidden");
+      searchBtn.querySelector(".btn-loader").classList.add("hidden");
+
+      if (json.status === "success" && json.data.length > 0) {
+        currentJobs = json.data;
+        resultsActionsBar.classList.remove("hidden");
+        statsCard.classList.remove("hidden");
+        resetFilterInputs();
+        applyClientFilters();
+        showToast("success", "Búsqueda completada", `Se analizaron ${currentJobs.length} vacantes con ATS v2.`);
+        updateHeaderMetrics();
+      } else {
         currentJobs = [];
         jobsContainer.innerHTML = "";
         jobsContainer.classList.add("hidden");
-        resultsActionsBar.classList.add("hidden");
-        filtersCard.classList.add("hidden");
-        statsCard.classList.add("hidden");
-        
-        resultsSummary.textContent = "Perfil cargado. Modifica las palabras clave de búsqueda si lo deseas.";
-        emptyState.querySelector("h3").textContent = "Nuevo Perfil Cargado";
-        emptyState.querySelector("p").textContent = `El CV de ${p.name} ha sido procesado. Haz clic en "Buscar Empleos" para encontrar vacantes.`;
+        resultsSummary.innerHTML = "No se encontraron vacantes con las palabras clave especificadas.";
+        emptyState.querySelector("h3").textContent = "Sin resultados";
+        emptyState.querySelector("p").textContent  = "Prueba con otras palabras clave o modifica la ubicación.";
         emptyState.classList.remove("hidden");
+        showToast("warning", "Sin resultados", "Intenta ampliar las palabras clave o la ubicación.");
+      }
+    } catch (err) {
+      console.error(err);
+      stopStepLoader();
+      searchLoader.classList.add("hidden");
+      searchBtn.disabled = false;
+      searchBtn.querySelector(".btn-content").classList.remove("hidden");
+      searchBtn.querySelector(".btn-loader").classList.add("hidden");
+      jobsContainer.innerHTML = "";
+      jobsContainer.classList.add("hidden");
+      resultsSummary.textContent = "Error de conexión.";
+      emptyState.querySelector("h3").textContent = "Error de Conexión";
+      emptyState.querySelector("p").textContent  = "Asegúrate de que el servidor Flask esté activo en localhost:5000.";
+      emptyState.classList.remove("hidden");
+      showToast("error", "Error de conexión", "¿El servidor Flask está encendido en puerto 5000?");
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  RENDER JOBS
+  // ══════════════════════════════════════════════════════════
+  function renderJobsList(jobs) {
+    jobsContainer.innerHTML = "";
+
+    if (jobs.length === 0) {
+      jobsContainer.innerHTML = `
+        <div class="empty-container" style="padding: 3rem; background: none; border: none; grid-column: 1/-1;">
+          <div class="empty-icon"><i class="fa-solid fa-filter-circle-xmark"></i></div>
+          <h3>Sin resultados</h3>
+          <p>Ningún empleo coincide con los filtros aplicados. Relaja los criterios.</p>
+        </div>`;
+      return;
     }
 
-    // Recalculate match scores client-side instantly when skills change
-    function recalculateMatchScoresClientSide() {
-        if (!currentJobs || currentJobs.length === 0 || !activeProfile) return;
-        
-        currentJobs = currentJobs.map(job => {
-            const title = job.title.toLowerCase();
-            const description = (job.description || "").toLowerCase();
-            
-            const matched_skills = [];
-            let score = 10;
-            
-            const flatSkills = activeProfile.all_skills_flat || [];
-            
-            flatSkills.forEach(skill => {
-                const skillLower = skill.toLowerCase();
-                let pattern;
-                const escapedSkill = skillLower.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                if (['#', '+', '.', '/'].some(char => skillLower.includes(char))) {
-                    pattern = new RegExp(escapedSkill, 'i');
-                } else {
-                    pattern = new RegExp('\\b' + escapedSkill + '\\b', 'i');
-                }
-                
-                if (pattern.test(title)) {
-                    score += 25;
-                    matched_skills.push(skill);
-                } else if (pattern.test(description)) {
-                    score += 12;
-                    matched_skills.push(skill);
-                }
-            });
-            
-            flatSkills.slice(0, 5).forEach(skill => {
-                if (title.includes(skill.toLowerCase())) {
-                    score += 15;
-                }
-            });
-            
-            job.match_score = Math.min(score, 100);
-            job.matched_skills = Array.from(new Set(matched_skills));
-            return job;
-        });
-        
-        currentJobs.sort((a, b) => b.match_score - a.match_score);
-        applyClientFilters();
-    }
+    jobsContainer.classList.remove("hidden");
+    emptyState.classList.add("hidden");
 
-    // Modal Tabs & Cover Letter Generator
-    function initModalTabs() {
-        const tabBtns = document.querySelectorAll(".modal-tab-btn");
-        const tabContents = document.querySelectorAll(".modal-tab-content");
-        
-        tabBtns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                tabBtns.forEach(b => b.classList.remove("active"));
-                tabContents.forEach(c => c.classList.add("hidden"));
-                
-                btn.classList.add("active");
-                const tabId = btn.getAttribute("data-tab");
-                document.getElementById(tabId).classList.remove("hidden");
-                
-                if (tabId === "tab-cover-letter") {
-                    generateCoverLetterContent();
-                }
-            });
-        });
-        
-        document.getElementById("cl-tone-select").addEventListener("change", () => {
-            generateCoverLetterContent();
-        });
-        
-        const clCopyBtn = document.getElementById("cl-copy-btn");
-        clCopyBtn.addEventListener("click", () => {
-            const clTextOutput = document.getElementById("cl-text-output");
-            clTextOutput.select();
-            navigator.clipboard.writeText(clTextOutput.value).then(() => {
-                const oldText = clCopyBtn.innerHTML;
-                clCopyBtn.innerHTML = `<i class="fa-solid fa-check"></i> ¡Copiado!`;
-                setTimeout(() => {
-                    clCopyBtn.innerHTML = oldText;
-                }, 2000);
-            }).catch(err => {
-                console.error("Could not copy text: ", err);
-                alert("No se pudo copiar el texto automáticamente. Por favor selecciónalo manualmente.");
-            });
-        });
-    }
-    
-    function resetModalTabs() {
-        document.querySelectorAll(".modal-tab-btn").forEach(btn => {
-            if (btn.getAttribute("data-tab") === "tab-details") {
-                btn.classList.add("active");
-            } else {
-                btn.classList.remove("active");
-            }
-        });
-        document.getElementById("tab-details").classList.remove("hidden");
-        document.getElementById("tab-cover-letter").classList.add("hidden");
-    }
-    
-    function generateCoverLetterContent() {
-        if (!currentModalJob || !activeProfile) return;
-        
-        const tone = document.getElementById("cl-tone-select").value;
-        const clTextOutput = document.getElementById("cl-text-output");
-        const clEmailBtn = document.getElementById("cl-email-btn");
-        
-        const cName = activeProfile.name || "Candidato";
-        const cTitle = activeProfile.title || "Profesional de TI";
-        const cPhone = activeProfile.phone || "No especificado";
-        const cEmail = activeProfile.email || "No especificado";
-        const cLinkedin = activeProfile.linkedin || "linkedin.com";
-        
-        const jTitle = currentModalJob.title;
-        const jCompany = currentModalJob.company;
-        
-        const matchedSkills = currentModalJob.matched_skills || [];
-        let skillsText = "";
-        if (matchedSkills.length > 0) {
-            skillsText = matchedSkills.slice(0, 4).join(", ");
-        } else {
-            skillsText = (activeProfile.all_skills_flat || []).slice(0, 3).join(", ");
+    jobs.forEach((job, i) => {
+      const isSaved     = savedJobIds.includes(job.id);
+      const isDiscarded = discardedJobIds.includes(job.id);
+      const score       = job.match_score || 0;
+      const superMatch  = score >= 80;
+      const highMatch   = score >= 65;
+      const midMatch    = score >= 45;
+
+      // Color for bar fill
+      const barColor = score >= 70
+        ? "linear-gradient(90deg, #34d399 0%, #22d3ee 100%)"
+        : score >= 50
+        ? "linear-gradient(90deg, #fbbf24 0%, #f97316 100%)"
+        : "linear-gradient(90deg, #f87171 0%, #fb923c 100%)";
+
+      const scoreColor = score >= 70 ? "var(--green)" : score >= 50 ? "var(--amber)" : "var(--rose)";
+
+      const sourceSlug = job.source.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g, '');
+
+      const card = document.createElement("div");
+      card.className = `job-card ${superMatch ? 'super-match' : highMatch ? 'high-match' : ''} ${isDiscarded ? 'dimmed' : ''}`;
+      card.id = `card-${job.id}`;
+      card.style.animationDelay = `${i * 40}ms`;
+
+      card.innerHTML = `
+        <div class="job-card-header">
+          <div class="job-title-block">
+            <h4 class="job-card-title">
+              ${job.title}
+              ${superMatch ? `<span class="super-match-badge"><i class="fa-solid fa-fire"></i> Súper Match</span>` : ''}
+            </h4>
+            <div class="job-company">${job.company}</div>
+          </div>
+          <div class="match-score-block">
+            <span class="match-percentage" style="background: ${barColor}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${score}%</span>
+            <span class="match-label">Match</span>
+            <div class="match-bar-bg">
+              <div class="match-bar-fill" style="width:${score}%; background:${barColor};"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="job-meta-row">
+          <div class="meta-col"><i class="fa-solid fa-location-dot"></i> <span>${job.location}</span></div>
+          <div class="meta-col"><i class="fa-solid fa-money-bill-wave"></i> <span>${job.salary}</span></div>
+          <div class="meta-col"><i class="fa-solid fa-calendar"></i> <span>${job.date}</span></div>
+          <div class="meta-col"><span class="badge platform-badge ${sourceSlug}">${job.source}</span></div>
+        </div>
+
+        ${job.matched_skills && job.matched_skills.length > 0 ? `
+        <div class="job-skills-matched">
+          <span class="matched-label">Coincide:</span>
+          ${job.matched_skills.slice(0, 5).map(s => `<span class="skill-tag-matched">${s}</span>`).join('')}
+          ${job.matched_skills.length > 5 ? `<span class="skill-tag-matched">+${job.matched_skills.length - 5}</span>` : ''}
+        </div>` : ''}
+
+        <div class="job-card-actions">
+          <div class="action-left">
+            <button class="icon-btn save-btn ${isSaved ? 'active-save' : ''}" title="Guardar">
+              <i class="${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i>
+            </button>
+            <button class="icon-btn discard-btn ${isDiscarded ? 'active-discard' : ''}" title="${isDiscarded ? 'Restaurar' : 'Descartar'}">
+              <i class="fa-solid ${isDiscarded ? 'fa-eye' : 'fa-eye-slash'}"></i>
+            </button>
+          </div>
+          <button class="btn btn-secondary btn-sm details-btn">Ver Detalles</button>
+        </div>`;
+
+      // Events
+      card.querySelector(".job-card-title").addEventListener("click", () => showJobDetails(job));
+      card.querySelector(".details-btn").addEventListener("click", () => showJobDetails(job));
+      card.querySelector(".save-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleSaveJob(job.id, card.querySelector(".save-btn")); });
+      card.querySelector(".discard-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleDiscardJob(job.id, card, card.querySelector(".discard-btn")); });
+
+      jobsContainer.appendChild(card);
+    });
+
+    updateHeaderMetrics();
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  SAVE / DISCARD TOGGLES
+  // ══════════════════════════════════════════════════════════
+  function toggleSaveJob(id, btn) {
+    const icon = btn.querySelector("i");
+    if (savedJobIds.includes(id)) {
+      savedJobIds = savedJobIds.filter(x => x !== id);
+      btn.classList.remove("active-save");
+      icon.className = "fa-regular fa-bookmark";
+      showToast("info", "Guardado removido", "El empleo fue removido de guardados.");
+    } else {
+      savedJobIds.push(id);
+      btn.classList.add("active-save");
+      icon.className = "fa-solid fa-bookmark";
+      showToast("success", "Empleo guardado", "Puedes ver tus guardados con el filtro correspondiente.");
+      if (discardedJobIds.includes(id)) {
+        discardedJobIds = discardedJobIds.filter(x => x !== id);
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+          card.classList.remove("dimmed");
+          const db = card.querySelector(".discard-btn");
+          if (db) { db.classList.remove("active-discard"); db.querySelector("i").className = "fa-solid fa-eye-slash"; }
         }
-        
-        let letter = "";
-        
-        if (tone === "formal") {
-            letter = `Estimado equipo de reclutamiento de ${jCompany},
+      }
+    }
+    localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedJobIds));
+    localStorage.setItem(STORAGE_DISCARDED, JSON.stringify(discardedJobIds));
+    updateHeaderMetrics();
+  }
 
-Le escribo para expresar mi fuerte interés en la vacante de ${jTitle} publicada recientemente. Como ${cTitle}, considero que mi perfil se alinea estrechamente con las necesidades de su organización.
+  function toggleDiscardJob(id, card, btn) {
+    const icon = btn.querySelector("i");
+    if (discardedJobIds.includes(id)) {
+      discardedJobIds = discardedJobIds.filter(x => x !== id);
+      card.classList.remove("dimmed");
+      btn.classList.remove("active-discard");
+      icon.className = "fa-solid fa-eye-slash";
+      btn.title = "Descartar";
+    } else {
+      discardedJobIds.push(id);
+      card.classList.add("dimmed");
+      btn.classList.add("active-discard");
+      icon.className = "fa-solid fa-eye";
+      btn.title = "Restaurar";
+      if (savedJobIds.includes(id)) {
+        savedJobIds = savedJobIds.filter(x => x !== id);
+        const sb = card.querySelector(".save-btn");
+        if (sb) { sb.classList.remove("active-save"); sb.querySelector("i").className = "fa-regular fa-bookmark"; }
+      }
+    }
+    localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedJobIds));
+    localStorage.setItem(STORAGE_DISCARDED, JSON.stringify(discardedJobIds));
+  }
 
-A lo largo de mi trayectoria profesional, he desarrollado competencias sólidas que coinciden directamente con su búsqueda. En particular, cuento con experiencia relevante trabajando con tecnologías y metodologías como ${skillsText}. Estoy convencido de que puedo aportar valor inmediato a sus proyectos de desarrollo e integración tecnológica.
+  // ══════════════════════════════════════════════════════════
+  //  CLIENT FILTERS
+  // ══════════════════════════════════════════════════════════
+  function initFilters() {
+    filterScore.addEventListener("input", () => { filterScoreVal.textContent = `${filterScore.value}%`; applyClientFilters(); });
+    filterSalary.addEventListener("input", applyClientFilters);
+    filterSort.addEventListener("change", applyClientFilters);
+    filterLiveSearch.addEventListener("input", applyClientFilters);
+    toggleHideDiscarded.addEventListener("change", applyClientFilters);
+    toggleOnlySaved.addEventListener("change", applyClientFilters);
+    document.querySelectorAll(".platform-filter").forEach(cb => cb.addEventListener("change", applyClientFilters));
 
-Adjunto a esta postulación encontrará mi currículum detallado. Quedo a su entera disposición para mantener una entrevista y conversar sobre cómo mi experiencia puede contribuir al éxito continuo de ${jCompany}.
+    // Filter chips
+    document.querySelectorAll(".filter-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        chip.classList.toggle("active");
+        const group = chip.dataset.group;
+        const val   = chip.dataset.val;
+        const groupArr = activeChips[group] || [];
+        if (chip.classList.contains("active")) {
+          if (!groupArr.includes(val)) groupArr.push(val);
+        } else {
+          activeChips[group] = groupArr.filter(v => v !== val);
+        }
+        activeChips[group] = [...new Set(groupArr.filter(v => chip.classList.contains("active") || v !== val))];
+        applyClientFilters();
+      });
+    });
+  }
 
-Agradeciendo de antemano su tiempo y consideración, le saluda atentamente,
+  function resetFilterInputs() {
+    filterScore.value = 0;
+    filterScoreVal.textContent = "0%";
+    filterSalary.value = "";
+    filterSort.value = "match";
+    filterLiveSearch.value = "";
+    toggleHideDiscarded.checked = false;
+    toggleOnlySaved.checked = false;
+    document.querySelectorAll(".platform-filter").forEach(cb => cb.checked = true);
+    document.querySelectorAll(".filter-chip").forEach(ch => ch.classList.add("active"));
+    activeChips = { modality: ["remoto","hibrido","presencial"], level: ["junior","semi","senior","lead"] };
+  }
 
-${cName}
-Teléfono: ${cPhone}
-Email: ${cEmail}
-LinkedIn: ${cLinkedin}`;
-        } else if (tone === "enthusiastic") {
-            letter = `¡Hola, equipo de ${jCompany}! 🚀
+  function applyClientFilters() {
+    if (currentJobs.length === 0) return;
 
-Me entusiasma muchísimo postularme a la oportunidad de ${jTitle}. Sigo de cerca el trabajo que realizan y me encantaría sumarme como ${cTitle} para crear soluciones de software innovadoras junto a ustedes.
+    const minScore     = parseInt(filterScore.value || 0);
+    const minSalary    = parseFloat(filterSalary.value || 0);
+    const sortBy       = filterSort.value;
+    const liveQ        = (filterLiveSearch.value || "").toLowerCase().trim();
+    const hideDiscard  = toggleHideDiscarded.checked;
+    const onlySaved    = toggleOnlySaved.checked;
+    const checkedPlats = [...document.querySelectorAll(".platform-filter:checked")].map(cb => cb.value);
+    const STANDARD_PLATS = ["LinkedIn","OCC Mundial","Computrabajo","Get on Board","Infojobs"];
 
-Lo que más me llamó la atención de la vacante es la oportunidad de aplicar mis habilidades clave en ${skillsText}, las cuales considero que encajan perfectamente con el perfil que buscan para llevar el proyecto al siguiente nivel. Me considero una persona proactiva, enfocada en la resolución de problemas y apasionada por la tecnología.
+    let filtered = currentJobs.filter(job => {
+      // Platform filter
+      let platMatch = checkedPlats.includes(job.source);
+      if (!platMatch && checkedPlats.includes("Google (Web)") && !STANDARD_PLATS.includes(job.source)) {
+        platMatch = true;
+      }
+      if (!platMatch) return false;
 
-Me encantaría tener la oportunidad de platicar con ustedes, conocer más sobre sus metas actuales y contarles cómo mi experiencia puede sumar valor al equipo.
+      // Score filter
+      if (job.match_score < minScore) return false;
 
-¡Muchas gracias por la oportunidad y la consideración!
+      // Salary filter
+      if (minSalary > 0) {
+        const parsed = parseSalary(job.salary);
+        if (parsed === 0 || parsed < minSalary) return false;
+      }
 
-Un cordial saludo,
+      // Modality chips
+      const titleLoc = (job.title + " " + job.location).toLowerCase();
+      const modalityActive = activeChips.modality || [];
+      if (modalityActive.length < 3) {
+        const isRemote = /remoto|remote|home office|teletrabajo/i.test(titleLoc);
+        const isHybrid = /h[íi]brido|hybrid/i.test(titleLoc);
+        const isPresential = !isRemote && !isHybrid;
+        const allowed =
+          (isRemote     && modalityActive.includes("remoto")) ||
+          (isHybrid     && modalityActive.includes("hibrido")) ||
+          (isPresential && modalityActive.includes("presencial"));
+        if (!allowed) return false;
+      }
 
-${cName}
-Contacto: ${cPhone} | ${cEmail}
-GitHub/LinkedIn: ${cLinkedin}`;
-        } else if (tone === "technical") {
-            letter = `Asunto: Candidatura para la posición de ${jTitle} - ${cName}
+      // Level chips
+      const levelActive = activeChips.level || [];
+      if (levelActive.length < 4) {
+        const t = job.title.toLowerCase();
+        const isJunior = /junior|jr\.|entry|practicante|trainee/i.test(t);
+        const isSenior = /senior|sr\.|lead|l[íi]der|principal|architect/i.test(t);
+        const isSemi   = /semi|mid|pleno|ssr/i.test(t);
+        const isLead   = /lead|l[íi]der|manager|director/i.test(t);
+        const isGeneral = !isJunior && !isSenior && !isSemi && !isLead;
+        const allowed =
+          (isJunior   && levelActive.includes("junior")) ||
+          (isSemi     && levelActive.includes("semi")) ||
+          (isSenior   && levelActive.includes("senior")) ||
+          (isLead     && levelActive.includes("lead")) ||
+          (isGeneral);
+        if (!allowed) return false;
+      }
 
-Estimados ingenieros / equipo técnico de ${jCompany},
+      // Live search
+      if (liveQ) {
+        const haystack = `${job.title} ${job.company} ${job.location} ${(job.matched_skills||[]).join(' ')}`.toLowerCase();
+        if (!haystack.includes(liveQ)) return false;
+      }
 
-Les presento mi postulación para el rol de ${jTitle}. Como ${cTitle}, poseo experiencia práctica en el desarrollo e implementación de sistemas informáticos complejos y arquitectura de software.
+      // Hide discarded
+      if (hideDiscard && discardedJobIds.includes(job.id)) return false;
 
-Mi perfil técnico abarca un dominio directo en el stack tecnológico solicitado, destacando competencias en: ${skillsText}. En mis proyectos anteriores he diseñado e implementado soluciones escalables, optimización de consultas, integraciones API seguras e infraestructura ágil. 
+      // Only saved
+      if (onlySaved && !savedJobIds.includes(job.id)) return false;
 
-Estoy habituado a colaborar en equipos ágiles bajo estándares modernos de desarrollo de software (clean code, CI/CD, Git). Me interesa especialmente esta posición en ${jCompany} debido a los retos técnicos del puesto y la oportunidad de aportar mi experiencia de ingeniería.
+      return true;
+    });
 
-Quedo a su disposición para discutir los detalles técnicos de mis proyectos previos en una entrevista de ingeniería.
+    // Sort
+    filtered = sortJobs(filtered, sortBy);
+
+    // Update count in results summary
+    resultsSummary.innerHTML = `Mostrando <strong>${filtered.length}</strong> de <strong>${currentJobs.length}</strong> vacantes analizadas.`;
+
+    renderJobsList(filtered);
+    updateStatistics(filtered);
+  }
+
+  function sortJobs(jobs, by) {
+    return [...jobs].sort((a, b) => {
+      if (by === "match")   return b.match_score - a.match_score;
+      if (by === "salary")  return parseSalary(b.salary) - parseSalary(a.salary);
+      if (by === "company") return (a.company||"").localeCompare(b.company||"");
+      if (by === "date") {
+        const rank = s => {
+          if (/hoy|today|ahora/i.test(s)) return 0;
+          if (/ayer|yesterday/i.test(s)) return 1;
+          const m = s.match(/(\d+)/);
+          return m ? parseInt(m[1]) : 999;
+        };
+        return rank(a.date) - rank(b.date);
+      }
+      return b.match_score - a.match_score;
+    });
+  }
+
+  function parseSalary(s) {
+    if (!s || /no especificado|ver en portal/i.test(s)) return 0;
+    const clean = s.replace(/,/g, '').replace(/\s/g, '').toLowerCase();
+    const m = clean.match(/\d+(\.\d+)?/);
+    if (!m) return 0;
+    let n = parseFloat(m[0]);
+    if (/usd|dolar|dollar/i.test(clean)) n *= 18.5;
+    return n;
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  STATISTICS
+  // ══════════════════════════════════════════════════════════
+  function updateStatistics(jobs) {
+    statTotal.textContent = jobs.length;
+    if (jobs.length > 0) {
+      const total = jobs.reduce((s, j) => s + j.match_score, 0);
+      const avg   = Math.round(total / jobs.length);
+      statAvgMatch.textContent  = `${avg}%`;
+      statHighMatch.textContent = jobs.filter(j => j.match_score >= 70).length;
+      hmAvgScore.textContent    = `${avg}%`;
+    } else {
+      statAvgMatch.textContent  = "0%";
+      statHighMatch.textContent = "0";
+    }
+
+    // Distribution bars
+    const counts = {};
+    jobs.forEach(j => { counts[j.source] = (counts[j.source] || 0) + 1; });
+    statsBars.innerHTML = "";
+    const channels = ["LinkedIn","OCC Mundial","Computrabajo","Get on Board","Infojobs","Google (Web)"];
+    const all = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    // Merge non-standard under Google
+    const googleCount = jobs.filter(j => !["LinkedIn","OCC Mundial","Computrabajo","Get on Board","Infojobs"].includes(j.source)).length;
+    const toShow = [...all.filter(([k]) => channels.includes(k))];
+    if (googleCount > 0) toShow.push(["Google (Web)", googleCount]);
+
+    toShow.slice(0, 6).forEach(([ch, count]) => {
+      const pct  = jobs.length > 0 ? Math.round((count / jobs.length) * 100) : 0;
+      const slug = ch.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g, '');
+      const el = document.createElement("div");
+      el.className = "dist-bar-item";
+      el.innerHTML = `
+        <div class="dist-bar-meta">
+          <span class="dist-name">${ch}</span>
+          <span class="dist-count">${count} (${pct}%)</span>
+        </div>
+        <div class="dist-progress-bg">
+          <div class="dist-progress-fill ${slug}" style="width:0%;" data-pct="${pct}"></div>
+        </div>`;
+      statsBars.appendChild(el);
+      setTimeout(() => {
+        const bar = el.querySelector(".dist-progress-fill");
+        if (bar) bar.style.width = `${pct}%`;
+      }, 100);
+    });
+  }
+
+  function updateHeaderMetrics() {
+    hmJobsCount.textContent  = currentJobs.length || "—";
+    hmSavedCount.textContent = savedJobIds.length;
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  CLIENT-SIDE ATS RECALCULATION
+  // ══════════════════════════════════════════════════════════
+  function recalculateMatchScoresClientSide() {
+    if (!activeProfile || currentJobs.length === 0) return;
+    const allSkills = activeProfile.all_skills_flat || [];
+
+    currentJobs.forEach(job => {
+      const title = (job.title || "").toLowerCase();
+      const desc  = (job.description || "").toLowerCase();
+      let score = 5;
+      const matched = [];
+      const primary = allSkills.slice(0, 6).map(s => s.toLowerCase());
+
+      allSkills.forEach(skill => {
+        const sl = skill.toLowerCase();
+        const escaped = sl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = /[#\+\.\/]/.test(sl) ? new RegExp(escaped, 'i') : new RegExp(`\\b${escaped}\\b`, 'i');
+        const isPrimary = primary.includes(sl);
+        if (pattern.test(title)) {
+          score += isPrimary ? 30 : 20;
+          matched.push(skill);
+        } else if (pattern.test(desc)) {
+          score += isPrimary ? 10 : 6;
+          matched.push(skill);
+        }
+      });
+      job.match_score    = Math.min(score, 100);
+      job.matched_skills = [...new Set(matched)];
+    });
+
+    currentJobs.sort((a, b) => b.match_score - a.match_score);
+    applyClientFilters();
+    showToast("success", "Scores recalculados", "Los porcentajes de match fueron actualizados con tu perfil modificado.");
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  JOB MODAL
+  // ══════════════════════════════════════════════════════════
+  function showJobDetails(job) {
+    currentModalJob = job;
+    resetModalTabs();
+
+    modalTitle.textContent   = job.title;
+    modalCompany.textContent = job.company;
+    modalLocation.textContent= job.location;
+    modalSalary.textContent  = job.salary;
+    modalDate.textContent    = job.date;
+    modalScore.textContent   = `${job.match_score}%`;
+    modalDescText.textContent = job.description || "Descripción no disponible. Visita el enlace del portal.";
+    modalApplyLink.href      = job.link;
+
+    const sourceSlug = job.source.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g,'');
+    modalSourceBadge.textContent = job.source;
+    modalSourceBadge.className   = `badge platform-badge ${sourceSlug}`;
+
+    // Matched skills
+    modalMatchedSkills.innerHTML = "";
+    if (job.matched_skills && job.matched_skills.length > 0) {
+      job.matched_skills.forEach(skill => {
+        const s = document.createElement("span");
+        s.className = "skill-tag-matched";
+        s.textContent = skill;
+        modalMatchedSkills.appendChild(s);
+      });
+    } else {
+      modalMatchedSkills.innerHTML = `<span style="font-size:0.82rem; color:var(--text-muted);">Ninguna habilidad directa detectada.</span>`;
+    }
+
+    // Modal save button sync
+    updateModalSaveButton(job.id);
+
+    // Populate ATS analysis tab
+    populateATSAnalysis(job);
+
+    // Generate cover letter
+    generateCoverLetter(job, document.getElementById("cl-tone-select").value);
+
+    jobModal.style.display = "block";
+    document.body.style.overflow = "hidden";
+  }
+
+  function updateModalSaveButton(id) {
+    if (!modalSaveBtn) return;
+    const saved = savedJobIds.includes(id);
+    modalSaveBtn.innerHTML = saved
+      ? `<i class="fa-solid fa-bookmark"></i> Guardado`
+      : `<i class="fa-regular fa-bookmark"></i> Guardar`;
+    modalSaveBtn.classList.toggle("btn-primary", saved);
+    modalSaveBtn.classList.toggle("btn-secondary", !saved);
+  }
+
+  // ATS Analysis tab
+  function populateATSAnalysis(job) {
+    const score = job.match_score || 0;
+    const matched = job.matched_skills || [];
+    const allSkills = activeProfile ? (activeProfile.all_skills_flat || []) : [];
+    const missing = allSkills.filter(s => !matched.map(m=>m.toLowerCase()).includes(s.toLowerCase())).slice(0, 10);
+
+    const breakdownEl = document.getElementById("ats-breakdown-bars");
+    const missingEl   = document.getElementById("ats-missing-skills");
+    const recEl       = document.getElementById("ats-recommendation");
+
+    if (!breakdownEl) return;
+
+    // Breakdown bars
+    const categories = [
+      { label: "Skills Técnicas", pct: Math.min(100, matched.length * 14), color: "var(--cyan)" },
+      { label: "Relevancia del Puesto", pct: score, color: "var(--indigo)" },
+      { label: "Cobertura de Perfil", pct: allSkills.length > 0 ? Math.round((matched.length / allSkills.length) * 100) : 0, color: "var(--green)" },
+    ];
+
+    breakdownEl.innerHTML = "";
+    categories.forEach(cat => {
+      const el = document.createElement("div");
+      el.className = "dist-bar-item";
+      el.innerHTML = `
+        <div class="dist-bar-meta">
+          <span class="dist-name" style="color:var(--text-body);">${cat.label}</span>
+          <span class="dist-count">${cat.pct}%</span>
+        </div>
+        <div class="dist-progress-bg">
+          <div class="dist-progress-fill" style="width:0%; background:${cat.color};" data-pct="${cat.pct}"></div>
+        </div>`;
+      breakdownEl.appendChild(el);
+      setTimeout(() => {
+        const bar = el.querySelector(".dist-progress-fill");
+        if (bar) bar.style.width = `${cat.pct}%`;
+      }, 150);
+    });
+
+    // Missing skills
+    missingEl.innerHTML = "";
+    if (missing.length > 0) {
+      missing.forEach(s => {
+        const b = document.createElement("span");
+        b.style.cssText = "display:inline-flex;align-items:center;padding:0.18rem 0.55rem;border-radius:100px;background:var(--rose-soft);color:var(--rose);border:1px solid rgba(248,113,113,0.3);font-size:0.68rem;font-weight:600;";
+        b.textContent = s;
+        missingEl.appendChild(b);
+      });
+    } else {
+      missingEl.innerHTML = `<span style="font-size:0.82rem; color:var(--green);">✓ Tu perfil cubre todas las habilidades detectadas.</span>`;
+    }
+
+    // Recommendation
+    if (score >= 75) {
+      recEl.textContent = `✅ Alta compatibilidad (${score}%). Tu perfil es sólido para este puesto. Se recomienda postularte de inmediato y personalizar tu carta de presentación resaltando: ${matched.slice(0,3).join(', ')}.`;
+    } else if (score >= 50) {
+      recEl.textContent = `⚠️ Compatibilidad media (${score}%). Tienes varias habilidades requeridas. Refuerza tu carta destacando: ${matched.slice(0,3).join(', ')}. Considera adquirir: ${missing.slice(0,2).join(', ')}.`;
+    } else {
+      recEl.textContent = `🔴 Compatibilidad baja (${score}%). Este puesto requiere habilidades fuera de tu perfil actual. Úsalo como referencia de desarrollo o aplica con énfasis en tu experiencia general.`;
+    }
+  }
+
+  // Modal tabs
+  function resetModalTabs() {
+    document.querySelectorAll(".modal-tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".modal-tab-content").forEach(c => c.classList.add("hidden"));
+    const firstBtn = document.querySelector(".modal-tab-btn");
+    const firstContent = document.getElementById("tab-details");
+    if (firstBtn) firstBtn.classList.add("active");
+    if (firstContent) firstContent.classList.remove("hidden");
+  }
+
+  function initModalTabs() {
+    document.querySelectorAll(".modal-tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".modal-tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".modal-tab-content").forEach(c => c.classList.add("hidden"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab)?.classList.remove("hidden");
+        if (btn.dataset.tab === "tab-cover-letter" && currentModalJob) {
+          generateCoverLetter(currentModalJob, document.getElementById("cl-tone-select").value);
+        }
+      });
+    });
+
+    document.getElementById("cl-regen-btn")?.addEventListener("click", () => {
+      if (currentModalJob) generateCoverLetter(currentModalJob, document.getElementById("cl-tone-select").value);
+    });
+    document.getElementById("cl-tone-select")?.addEventListener("change", () => {
+      if (currentModalJob) generateCoverLetter(currentModalJob, document.getElementById("cl-tone-select").value);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  COVER LETTER GENERATOR
+  // ══════════════════════════════════════════════════════════
+  function generateCoverLetter(job, tone) {
+    const name    = activeProfile?.name || "Nombre del candidato";
+    const title   = activeProfile?.title || "Desarrollador";
+    const skills  = (job.matched_skills || activeProfile?.all_skills_flat || []).slice(0, 4).join(", ");
+    const output  = document.getElementById("cl-text-output");
+    const emailBtn = document.getElementById("cl-email-btn");
+    if (!output) return;
+
+    const templates = {
+      formal: `Estimado equipo de Reclutamiento de ${job.company},
+
+Me dirijo a ustedes con gran interés en la posición de "${job.title}" publicada en ${job.source}. Soy ${name}, ${title} con experiencia en ${skills} y otros proyectos relevantes.
+
+A lo largo de mi trayectoria, he desarrollado competencias sólidas que considero altamente aplicables a los objetivos de ${job.company}. Estoy comprometido con la calidad técnica, el trabajo colaborativo y la mejora continua.
+
+Quedo a su disposición para una entrevista y agradezco de antemano su atención.
 
 Atentamente,
+${name}`,
+      enthusiastic: `¡Hola, equipo de ${job.company}! 🚀
 
-${cName}
-Ingeniero de Software / Systems Developer
-Móvil: ${cPhone} | Email: ${cEmail}`;
-        } else { // short
-            letter = `Estimado equipo de selección de ${jCompany},
+¡Me encantó ver la vacante de "${job.title}"! Soy ${name}, un apasionado de la tecnología con experiencia en ${skills}.
 
-Me pongo en contacto con ustedes para postularme al puesto de ${jTitle}. 
+Creo genuinamente que puedo aportar valor real a su equipo. Me motiva construir soluciones que importen y aprender constantemente. ¡Estaría encantado de mostrarles lo que puedo hacer!
 
-Cuento con experiencia comprobable como ${cTitle} y dominio práctico en habilidades clave como: ${skillsText}, lo que me permite adaptarme e incorporarme rápidamente a su flujo de trabajo.
+¿Podemos coordinar una llamada? 🎯
 
-Adjunto mi CV para su revisión. Estaré encantado de mantener una llamada breve para explorar cómo puedo colaborar en sus objetivos actuales.
+${name}`,
+      technical: `Estimado equipo técnico de ${job.company}:
 
-Saludos cordiales,
+En respuesta a la vacante "${job.title}" (${job.source}), presento mi candidatura. Mi stack incluye: ${skills}. He trabajado en arquitecturas escalables, APIs RESTful e integración de sistemas.
 
-${cName}
-${cEmail} | ${cPhone}`;
+Aporto capacidad de análisis técnico, resolución de problemas y documentación. Estoy disponible para una evaluación técnica o entrevista en el horario que sea conveniente.
+
+${name} | ${activeProfile?.email || ''}`,
+      short: `Hola ${job.company},
+
+Me interesa la posición "${job.title}". Soy ${name}, tengo experiencia en ${skills}.
+
+¿Podemos coordinar una entrevista?
+
+${name}
+${activeProfile?.email || ''} | ${activeProfile?.phone || ''}`
+    };
+
+    output.value = templates[tone] || templates.formal;
+
+    const subject = encodeURIComponent(`Postulación — ${job.title} | ${name}`);
+    const body    = encodeURIComponent(output.value);
+    emailBtn.href = `mailto:reclutamiento@${job.company.toLowerCase().replace(/\s+/g,'')}.com?subject=${subject}&body=${body}`;
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  COPY & EMAIL BUTTONS
+  // ══════════════════════════════════════════════════════════
+  function initCoverLetterActions() {
+    const copyBtn = document.getElementById("cl-copy-btn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const txt = document.getElementById("cl-text-output")?.value;
+        if (txt) {
+          navigator.clipboard.writeText(txt).then(() => {
+            showToast("success", "Copiado", "La carta fue copiada al portapapeles.");
+            copyBtn.innerHTML = `<i class="fa-solid fa-check"></i> Copiado!`;
+            setTimeout(() => { copyBtn.innerHTML = `<i class="fa-solid fa-copy"></i> Copiar Texto`; }, 2000);
+          });
         }
-        
-        clTextOutput.value = letter;
-        
-        const subject = encodeURIComponent(`Postulación - ${jTitle} - ${cName}`);
-        const body = encodeURIComponent(letter);
-        clEmailBtn.href = `mailto:?subject=${subject}&body=${body}`;
+      });
     }
+  }
 
-    // Attach Event Listeners
-    searchBtn.addEventListener("click", searchJobsAction);
-    exportBtn.addEventListener("click", exportJobsAction);
-
-    // Skills edit listeners
-    const toggleEditSkills = document.getElementById("toggle-edit-skills");
-    const addSkillForm = document.getElementById("add-skill-form");
-    const addSkillBtn = document.getElementById("add-skill-btn");
-    const newSkillName = document.getElementById("new-skill-name");
-    const newSkillCategory = document.getElementById("new-skill-category");
-    const skillsContainer = document.getElementById("skills-container");
-    
-    toggleEditSkills.addEventListener("click", () => {
-        const isEdit = skillsContainer.classList.toggle("edit-mode");
-        toggleEditSkills.classList.toggle("active");
-        addSkillForm.classList.toggle("hidden");
-        
-        if (isEdit) {
-            toggleEditSkills.innerHTML = '<i class="fa-solid fa-check"></i>';
+  // ══════════════════════════════════════════════════════════
+  //  MODAL SAVE BUTTON
+  // ══════════════════════════════════════════════════════════
+  function initModalSave() {
+    if (!modalSaveBtn) return;
+    modalSaveBtn.addEventListener("click", () => {
+      if (!currentModalJob) return;
+      const card = document.getElementById(`card-${currentModalJob.id}`);
+      const btn  = card?.querySelector(".save-btn");
+      if (btn) toggleSaveJob(currentModalJob.id, btn);
+      else {
+        // Direct toggle if card not visible
+        if (savedJobIds.includes(currentModalJob.id)) {
+          savedJobIds = savedJobIds.filter(x => x !== currentModalJob.id);
         } else {
-            toggleEditSkills.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+          savedJobIds.push(currentModalJob.id);
         }
+        localStorage.setItem(STORAGE_SAVED, JSON.stringify(savedJobIds));
+        updateHeaderMetrics();
+      }
+      updateModalSaveButton(currentModalJob.id);
     });
-    
-    addSkillBtn.addEventListener("click", async () => {
-        const name = newSkillName.value.trim();
-        const category = newSkillCategory.value;
-        
-        if (!name || !activeProfile) return;
-        
-        if (!activeProfile.skills[category]) {
-            activeProfile.skills[category] = [];
-        }
-        
-        if (!activeProfile.skills[category].includes(name)) {
-            activeProfile.skills[category].push(name);
-            if (!activeProfile.all_skills_flat) {
-                activeProfile.all_skills_flat = [];
-            }
-            activeProfile.all_skills_flat.push(name);
-            
-            await saveProfileLocallyAndRemotely();
-            newSkillName.value = "";
-            updateProfileUI(activeProfile);
-            
-            recalculateMatchScoresClientSide();
-            
-            skillsContainer.classList.add("edit-mode");
-            toggleEditSkills.classList.add("active");
-            addSkillForm.classList.remove("hidden");
-            toggleEditSkills.innerHTML = '<i class="fa-solid fa-check"></i>';
-        } else {
-            alert("Esta habilidad ya existe en tu perfil.");
-        }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  EXPORT CSV
+  // ══════════════════════════════════════════════════════════
+  async function exportJobs() {
+    if (!currentJobs.length) return;
+    try {
+      const res = await fetch(`${API_URL}/api/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobs: currentJobs })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = `empleos_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast("success", "CSV exportado", `${currentJobs.length} empleos guardados en el archivo.`);
+      } else {
+        showToast("error", "Error al exportar", "Intenta de nuevo.");
+      }
+    } catch {
+      showToast("error", "Sin conexión", "No se pudo conectar al servidor para exportar.");
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  ONBOARDING WIZARD
+  // ══════════════════════════════════════════════════════════
+  function initOnboarding() {
+    const done = localStorage.getItem(STORAGE_OB);
+    if (done) return;
+
+    const modal = document.getElementById("onboarding-modal");
+    modal.classList.add("visible");
+
+    const steps = [
+      document.getElementById("ob-step-1"),
+      document.getElementById("ob-step-2"),
+      document.getElementById("ob-step-3"),
+    ];
+    const dots = [
+      document.getElementById("ob-dot-1"),
+      document.getElementById("ob-dot-2"),
+      document.getElementById("ob-dot-3"),
+    ];
+    let currentStep = 0;
+
+    const goto = (n) => {
+      steps.forEach((s, i) => s?.classList.toggle("hidden", i !== n));
+      dots.forEach((d, i) => d?.classList.toggle("active", i === n));
+      currentStep = n;
+    };
+
+    document.getElementById("ob-next-btn")?.addEventListener("click", () => goto(1));
+    document.getElementById("ob-next-btn-2")?.addEventListener("click", () => goto(2));
+    document.getElementById("ob-back-btn")?.addEventListener("click", () => goto(0));
+    document.getElementById("ob-skip-btn")?.addEventListener("click", () => {
+      localStorage.setItem(STORAGE_OB, "1");
+      modal.classList.remove("visible");
     });
-    
-    newSkillName.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            addSkillBtn.click();
-        }
+    document.getElementById("ob-finish-btn")?.addEventListener("click", () => {
+      localStorage.setItem(STORAGE_OB, "1");
+      modal.classList.remove("visible");
+      // Prefill modality from onboarding
+      const mod = document.getElementById("ob-modality")?.value;
+      if (mod && searchType) searchType.value = mod;
+      const sal = document.getElementById("ob-salary")?.value;
+      if (sal && filterSalary) filterSalary.value = sal;
+      setTimeout(() => searchBtn.click(), 300);
     });
 
-    // Initializations
-    loadProfile();
+    // Upload zone in onboarding
+    document.getElementById("ob-upload-zone")?.addEventListener("click", () => cvFileInput.click());
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  INIT
+  // ══════════════════════════════════════════════════════════
+  async function init() {
+    // Load persisted lists
+    try {
+      savedJobIds    = JSON.parse(localStorage.getItem(STORAGE_SAVED) || "[]");
+      discardedJobIds = JSON.parse(localStorage.getItem(STORAGE_DISCARDED) || "[]");
+    } catch { savedJobIds = []; discardedJobIds = []; }
+
+    updateHeaderMetrics();
+
+    // Load profile
+    await loadProfile();
+
+    // Init UI systems
     initUpload();
+    initSearch();
     initFilters();
+    initSkillsEditor();
     initModalTabs();
-});
+    initCoverLetterActions();
+    initModalSave();
+
+    // Modal close
+    modalClose.addEventListener("click", () => { jobModal.style.display = "none"; document.body.style.overflow = ""; });
+    jobModal.addEventListener("click", (e) => { if (e.target === jobModal) { jobModal.style.display = "none"; document.body.style.overflow = ""; } });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && jobModal.style.display === "block") { jobModal.style.display = "none"; document.body.style.overflow = ""; } });
+
+    // Export button
+    exportBtn?.addEventListener("click", exportJobs);
+
+    // Onboarding
+    initOnboarding();
+  }
+
+  // Start
+  document.addEventListener("DOMContentLoaded", init);
+
+})();
