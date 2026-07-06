@@ -1,0 +1,69 @@
+href: https://www.occ.com.mx/ | text: 
+href: /salarios/calculadora-de-isr/ | text: Sueldos
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: https://www.occ.com.mx/candidatos/cuenta-nueva/registro/ | text: Regístrate
+href: https://www.occ.com.mx/candidatos/inicia-sesion/login/ | text: Inicia sesión
+href: https://www.occ.com.mx/empresas?utm_source=occ-candidatos-backlink%20&utm_medium=referral | text: OCC Empresas
+href: https://www.occ.com.mx/candidatos/inicia-sesion/login/ | text: Inicia sesión
+href: https://www.occ.com.mx/candidatos/cuenta-nueva/registro/ | text: Regístrate
+href: /empresas | text: OCC Empresas
+href: /salarios/calculadora-de-isr/ | text: Sueldo
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: # | text: 
+href: # | text: 
+href: # | text: 
+href: /empleos/de-php/en-veracruz/?smin=15000&smax=20000 | text: $15,000 - $20,000 MXN
+(1)
+href: /empleos/de-php/en-veracruz/?smin=20000&smax=30000 | text: $20,000 - $30,000 MXN
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/en-veracruz/?tm=60 | text: Hace 2 meses
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/en-veracruz/tipo-en-oficina/ | text: Presencial
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/en-veracruz/trabajo-en-tecnologias-de-la-informacion-sistemas/ | text: Tecnologías de la Información - Sistemas
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/en-veracruz/tiempo-completo/ | text: Tiempo completo
+(1)
+href: /empleos/de-php/en-veracruz/temporal/ | text: Temporal
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/en-veracruz/nivel-universitario-sin-titulo/ | text: Universitario sin titulo
+(1)
+href:  | text: Limpiar
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-ALLIED-CONSULTING/ | text: ALLIED CONSULTING
+href:  | text: Enviar correo
+href: /empleos | text: Nueva búsqueda
+href: /empleos/de-asistente/en-veracruz/ | text: Asistente
+href: /empleos/de-asistente-general/en-veracruz/ | text: Asistente General
+href: /empleos/de-secretaria-ejecutiva/en-veracruz/ | text: Secretaría Ejecutiva
+href: /empleos/de-auxiliar-de-asistente/en-veracruz/ | text: Auxiliar De Asistente
+href: /empleos/de-asistente-ejecutivo/en-veracruz/ | text: Asistente Ejecutivo
+href: /empleos/de-php/en-mexico | text: México
+href: /empleos/de-php/en-veracruz/en-la-ciudad-de-veracruz | text: Veracruz, Veracruz, México
+href: /empleos/de-php/en-veracruz | text: Veracruz, México
+href: https://supportcenter.occ.com.mx/hc/es | text: Preguntas frecuentes
+href: https://www.occ.com.mx/empresas?utm_source=occmundial&utm_medium=referral&utm_campaign=footer | text: Publicar vacante
+href: https://supportcenter.occ.com.mx/hc/es | text: Preguntas frecuentes
+href: https://www.occ.com.mx/empleos-por-estado | text: Estado
+href: https://www.occ.com.mx/empleos-por-ciudad | text: Ciudad
+href: https://www.occ.com.mx/empleos-por-categoria | text: Categoría
+href: https://www.occ.com.mx/empleos-mas-buscados | text: Vacantes más buscadas
+href: https://www.occ.com.mx/empleos-por-contratacion | text: Contrato
+href: https://www.occ.com.mx/empleos-por-empresa | text: Empresa
+href: https://www.occ.com.mx/empleos/ | text: Buscar empleo en México
+href: https://www.occ.com.mx/nosotros | text: Acerca de OCC
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-occmundial-corporativo/ | text: Únete a nuestro equipo
+href: https://apps.apple.com/app/apple-store/id581420468?pt=1629020&amp;mt=8&amp;ct=web_banner_home | text: 
+href: https://play.google.com/store/apps/details?id=mx.com.occ&amp;referrer=utm_source=web_banner_home | text: 
+href: https://www.facebook.com/occoficial | text: 
+href: https://www.instagram.com/occ/ | text: 
+href: https://www.tiktok.com/@occ.com.mx | text: 
+href: https://mx.linkedin.com/company/occoficial | text: 
+href: https://www.occ.com.mx/terminos-condiciones | text: Términos y condiciones
+href: https://www.occ.com.mx/aviso-privacidad | text: Aviso de privacidad
+href: https://www.occ.com.mx/Home/Mapa_del_Sitio | text: Mapa de sitio

@@ -1,0 +1,26 @@
+href: / | text: Talent.com
+href: /jobs | text: Buscador de trabajo
+href: /salary | text: Buscador de salario
+href: /tax-calculator | text: Calculadora de impuestos
+href: /enterprise | text: Para empleadores
+href: /jobs?k=Trabajo Desde Casa | text: Trabajo Desde Casa
+href: /jobs?k=Medio Tiempo | text: Medio Tiempo
+href: /jobs?k=Repartidor | text: Repartidor
+href: /jobs?k=Sin Experiencia | text: Sin Experiencia
+href: /jobs?k=Chofer | text: Chofer
+href: /jobs?k=Ventas | text: Ventas
+href: /jobs | text: Buscador de trabajo
+href: /salary | text: Buscador de salario
+href: /tax-calculator | text: Calculadora de impuestos
+href: /convert | text: Conversor de salario
+href: /enterprise | text: Empresa
+href: /ats | text: ATS
+href: /publishers | text: Programas para publishers
+href: /worldwide | text: Otros países
+href: /terms-of-service | text: Condiciones de uso
+href: /privacy-policy | text: Política de privacidad
+href: /cookie-policy | text: Política de cookies
+href: # | text: Configuración de las cookies
+href: https://talent-privacy.my.onetrust.com/webform/8ffa6bdb-fee9-47ad-bf7a-d4f5f2f73f06/db1ef025-b018-43e8-8274-007994135273/ | text: Solicitud de datos personales
+href: /contact/jobseeker | text: Contáctanos
+href: / | text: Talent.com

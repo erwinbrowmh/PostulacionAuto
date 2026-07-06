@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostulacionAuto Hub - Gestor Inteligente de Empleo</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    
+    <header class="app-header">
+        <div class="header-container">
+            <div class="logo">
+                <i class="fa-solid fa-rocket-launch logo-icon"></i>
+                <span class="logo-text">PostulacionAuto <span class="accent-text">Hub</span></span>
+            </div>
+            <div class="header-tag">
+                <span class="badge badge-pulse"><i class="fa-solid fa-robot mr-5"></i> Búsqueda Automatizada</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- Sidebar: Profile & Controls -->
+        <aside class="sidebar">
+            <!-- Candidate Profile Card -->
+            <div class="card profile-card">
+                <div class="profile-header">
+                    <div class="avatar">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div class="profile-meta">
+                        <h2 id="cand-name">Cargando...</h2>
+                        <p id="cand-title" class="cand-subtitle">Cargando perfil...</p>
+                    </div>
+                </div>
+
+                <!-- Drag & Drop Upload Zone -->
+                <div class="upload-zone" id="cv-upload-zone">
+                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                    <span class="upload-text">Subir otro CV (Arrastra o haz clic aquí)</span>
+                    <input type="file" id="cv-file-input" accept=".pdf" class="hidden-input" style="display: none;">
+                </div>
+                
+                <div class="profile-details">
+                    <div class="detail-item">
+                        <i class="fa-solid fa-envelope detail-icon"></i>
+                        <span id="cand-email">...</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fa-solid fa-phone detail-icon"></i>
+                        <span id="cand-phone">...</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fa-solid fa-location-dot detail-icon"></i>
+                        <span id="cand-location">...</span>
+                    </div>
+                </div>
+
+                <div class="profile-links">
+                    <a id="cand-linkedin" href="#" target="_blank" class="link-btn"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
+                    <a id="cand-github" href="#" target="_blank" class="link-btn"><i class="fa-brands fa-github"></i> GitHub</a>
+                </div>
+
+                <div class="skills-section">
+                    <h3>Habilidades Clave</h3>
+                    <div id="skills-container" class="skills-grid">
+                        <!-- Skills categories will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Controls Card -->
+            <div class="card controls-card">
+                <h3><i class="fa-solid fa-sliders mr-10"></i> Parámetros de Búsqueda</h3>
+                
+                <div class="form-group">
+                    <label for="search-keywords">Palabras Clave (separadas por comas)</label>
+                    <input type="text" id="search-keywords" value="PHP, Flutter, Desarrollador, Sistemas, Laravel" placeholder="Ej. PHP, Java, Flutter">
+                    <small class="form-help">Dejar vacío para usar todas las habilidades del CV.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Modalidad de Empleo</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="search-location" value="veracruz" checked>
+                            <span class="radio-custom"></span>
+                            <span class="label-text"><i class="fa-solid fa-city mr-5"></i> Veracruz (Presencial)</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="search-location" value="remoto">
+                            <span class="radio-custom"></span>
+                            <span class="label-text"><i class="fa-solid fa-house-laptop mr-5"></i> Remoto</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="max-results">Límite de Resultados (Máx 20 por tiempo)</label>
+                    <div class="range-container">
+                        <input type="range" id="max-results" min="5" max="20" value="20" class="range-slider">
+                        <span id="range-val" class="range-badge">20</span>
+                    </div>
+                </div>
+
+                <button id="search-btn" class="btn btn-primary btn-block">
+                    <span class="btn-content"><i class="fa-solid fa-magnifying-glass"></i> Buscar Empleos</span>
+                    <span class="btn-loader hidden"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando en portales...</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area: Job Results -->
+        <section class="results-area">
+            <div class="results-header">
+                <div class="results-title-container">
+                    <h2><i class="fa-solid fa-briefcase mr-10"></i> Ofertas Encontradas</h2>
+                    <p id="results-summary">Selecciona tus parámetros y presiona buscar.</p>
+                </div>
+                <div class="results-actions hidden" id="results-actions-bar">
+                    <button id="export-btn" class="btn btn-secondary"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
+                </div>
+            </div>
+
+            <!-- Loader -->
+            <div id="search-loader" class="loader-container hidden">
+                <div class="spinner">
+                    <div class="double-bounce1"></div>
+                    <div class="double-bounce2"></div>
+                </div>
+                <p>Escaneando Computrabajo y OCC Mundial...</p>
+                <span class="loader-tip">Nota: El proceso puede tardar unos segundos ya que simula navegación real.</span>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-container">
+                <div class="empty-icon"><i class="fa-solid fa-search"></i></div>
+                <h3>Listo para comenzar</h3>
+                <p>Haz clic en "Buscar Empleos" para analizar vacantes de Sistemas, Web, Flutter y Ciberseguridad en Veracruz y Remoto.</p>
+            </div>
+
+            <!-- Jobs Grid / List -->
+            <div id="jobs-container" class="jobs-list">
+                <!-- Job cards will be inserted here dynamically -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Detailed Job Modal -->
+    <div id="job-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="modal-close">&times;</span>
+            <div class="modal-header">
+                <span id="modal-source-badge" class="badge">Source</span>
+                <h2 id="modal-title">Job Title</h2>
+                <h3 id="modal-company">Company</h3>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta-grid">
+                    <div class="meta-item"><i class="fa-solid fa-location-dot"></i> <span id="modal-location">Veracruz</span></div>
+                    <div class="meta-item"><i class="fa-solid fa-money-bill-wave"></i> <span id="modal-salary">$20,000</span></div>
+                    <div class="meta-item"><i class="fa-solid fa-calendar"></i> <span id="modal-date">Hace 2 días</span></div>
+                    <div class="meta-item"><i class="fa-solid fa-percentage"></i> <span id="modal-score">85% Match</span></div>
+                </div>
+                <div class="modal-skills">
+                    <h4>Habilidades Relacionadas:</h4>
+                    <div id="modal-matched-skills" class="skills-badges"></div>
+                </div>
+                <div class="modal-description">
+                    <h4>Descripción de la Vacante:</h4>
+                    <p id="modal-desc-text">Job description text...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a id="modal-apply-link" href="#" target="_blank" class="btn btn-primary"><i class="fa-solid fa-external-link"></i> Ver y Postular en Sitio Oficial</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="js/main.js"></script>
+</body>
+</html>

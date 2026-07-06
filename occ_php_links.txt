@@ -1,0 +1,150 @@
+href: https://www.occ.com.mx/ | text: 
+href: /salarios/calculadora-de-isr/ | text: Sueldos
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: https://www.occ.com.mx/candidatos/cuenta-nueva/registro/ | text: Regístrate
+href: https://www.occ.com.mx/candidatos/inicia-sesion/login/ | text: Inicia sesión
+href: https://www.occ.com.mx/empresas?utm_source=occ-candidatos-backlink%20&utm_medium=referral | text: OCC Empresas
+href: https://www.occ.com.mx/candidatos/inicia-sesion/login/ | text: Inicia sesión
+href: https://www.occ.com.mx/candidatos/cuenta-nueva/registro/ | text: Regístrate
+href: /empresas | text: OCC Empresas
+href: /salarios/calculadora-de-isr/ | text: Sueldo
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: # | text: 
+href: # | text: 
+href: # | text: 
+href: /empleos/de-php/?smin=5000&smax=10000 | text: $5,000 - $10,000 MXN
+(6)
+href: /empleos/de-php/?smin=10000&smax=15000 | text: $10,000 - $15,000 MXN
+(17)
+href: /empleos/de-php/?smin=15000&smax=20000 | text: $15,000 - $20,000 MXN
+(20)
+href: /empleos/de-php/?smin=20000&smax=30000 | text: $20,000 - $30,000 MXN
+(31)
+href: /empleos/de-php/?smin=30000&smax=40000 | text: $30,000 - $40,000 MXN
+(30)
+href: /empleos/de-php/?smin=40000&smax=50000 | text: $40,000 - $50,000 MXN
+(21)
+href: /empleos/de-php/?smin=50000&smax=65000 | text: $50,000 - $65,000 MXN
+(15)
+href: /empleos/de-php/?smin=65000&smax=80000 | text: $65,000 - $80,000 MXN
+(8)
+href: /empleos/de-php/?smin=80000 | text: $80,000 o más
+(4)
+href:  | text: Limpiar
+href: /empleos/de-php/?tm=0 | text: Hoy
+(2)
+href: /empleos/de-php/?tm=1 | text: Ayer
+(3)
+href: /empleos/de-php/?tm=2 | text: Hace 2 días
+(3)
+href: /empleos/de-php/?tm=3 | text: Hace 3 días
+(5)
+href: /empleos/de-php/?tm=7 | text: Hace 1 semana
+(17)
+href: /empleos/de-php/?tm=14 | text: Hace 2 semanas
+(24)
+href: /empleos/de-php/?tm=30 | text: Hace 1 mes
+(46)
+href: /empleos/de-php/?tm=60 | text: Hace 2 meses
+(82)
+href:  | text: Limpiar
+href: /empleos/de-php/tipo-en-oficina/ | text: Presencial
+(54)
+href: /empleos/de-php/tipo-home-office-mixto/ | text: Híbrido
+(17)
+href: /empleos/de-php/tipo-home-office-remoto/ | text: Desde casa
+(11)
+href:  | text: Limpiar
+href: /empleos/de-php/trabajo-en-tecnologias-de-la-informacion-sistemas/ | text: Tecnologías de la Información - Sistemas
+(75)
+href: /empleos/de-php/trabajo-en-ingenieria/ | text: Ingeniería
+(4)
+href: /empleos/de-php/trabajo-en-mercadotecnia-publicidad-relaciones-publicas/ | text: Mercadotecnia - Publicidad - Relaciones Públicas
+(1)
+href: /empleos/de-php/trabajo-en-educacion/ | text: Educación
+(1)
+href: /empleos/de-php/trabajo-en-administrativo/ | text: Administrativo
+(1)
+href:  | text: Limpiar
+href: /empleos/de-php/tiempo-completo/ | text: Tiempo completo
+(80)
+href: /empleos/de-php/permanente/ | text: Indeterminado
+(74)
+href: /empleos/de-php/temporal/ | text: Temporal
+(5)
+href: /empleos/de-php/medio-tiempo/ | text: Medio tiempo
+(2)
+href: /empleos/de-php/becario-practicas/ | text: Becario / Prácticas
+(2)
+href:  | text: Limpiar
+href: /empleos/de-php/nivel-universitario-titulado/ | text: Universitario titulado
+(64)
+href: /empleos/de-php/nivel-universitario-sin-titulo/ | text: Universitario sin titulo
+(15)
+href: /empleos/de-php/nivel-tecnico/ | text: Técnico
+(2)
+href:  | text: Limpiar
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Casting-International-Composites/ | text: Casting International Composites
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-CONSULTORIA-EN-INTERNET-ERGO-SUM/ | text: CONSULTORIA EN INTERNET ERGO SUM
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Softtek/ | text: Softtek
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-CAMFRI/ | text: CAMFRI
+href: /candidatos/cuenta-nueva/registro/ | text: Consigue un empleo
+
+			Al completar tu CV podrán verlo alrededor de 30 mil empresas
+		
+
+			Llena tu cv aquí
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-LATEX-OCCIDENTAL-SERVICIOS--S-A-DE-C-V-/ | text: LATEX OCCIDENTAL SERVICIOS, S.A DE C.V.
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Integradora-de-Franquicias-PKT1-S-A-P-I--de-C-V-/ | text: Integradora de Franquicias PKT1 S.A.P.I. de C.V.
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Bizee/ | text: Bizee
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Mercadotecnia-Ideas-y-Tecnologia-S-A--de-C-V-/ | text: Mercadotecnia Ideas y Tecnología S.A. de C.V.
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-CASTELEC-INTERNACIONAL-SA-DE-CV/ | text: CASTELEC INTERNACIONAL SA DE CV
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-DRESDEN-STRATEGIC-PARTNERS/ | text: DRESDEN STRATEGIC PARTNERS
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-KODE-IT/ | text: KODE IT
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-DRESDEN-STRATEGIC-PARTNERS/ | text: DRESDEN STRATEGIC PARTNERS
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Enviaflores-SA-de-CV/ | text: Enviaflores SA de CV
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-DRESDEN-STRATEGIC-PARTNERS/ | text: DRESDEN STRATEGIC PARTNERS
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Softtek/ | text: Softtek
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-DRESDEN-STRATEGIC-PARTNERS/ | text: DRESDEN STRATEGIC PARTNERS
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-SV-Redes-y-Soluciones-Integrales-para-Educacion-y-Capacitacion-S-de-RL/ | text: SV Redes y Soluciones Integrales para Educación y Capacitación S de RL
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Selection-Book/ | text: Selection Book
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-Estrella-Roja-del-Sur/ | text: Estrella Roja del Sur
+href:  | text: Enviar correo
+href: /empleos/de-php/?page=2 | text: Siguiente
+href: /empleos/de-asistente/ | text: Asistente
+href: /empleos/de-asistente-general/ | text: Asistente General
+href: /empleos/de-secretaria-ejecutiva/ | text: Secretaría Ejecutiva
+href: /empleos/de-auxiliar-de-asistente/ | text: Auxiliar De Asistente
+href: /empleos/de-asistente-ejecutivo/ | text: Asistente Ejecutivo
+href: /empleos/de-php/en-mexico | text: México
+href: /empleos/de-php/en-nuevo-leon | text: Nuevo León, México
+href: /empleos/de-php/en-ciudad-de-mexico/en-la-ciudad-de-miguel-hidalgo | text: Miguel Hidalgo, Ciudad de México, México
+href: /empleos/de-php/en-nuevo-leon/en-la-ciudad-de-monterrey | text: Monterrey, Nuevo León, México
+href: /empleos/de-php/en-jalisco | text: Jalisco, México
+href: /empleos/de-php/en-ciudad-de-mexico | text: Ciudad de México, México
+href: /empleos/de-php/en-estado-de-mexico | text: Estado de México, México
+href: /empleos/de-php/en-ciudad-de-mexico/en-la-ciudad-de-coyoacan | text: Coyoacán, Ciudad de México, México
+href: /empleos/de-php/en-guanajuato | text: Guanajuato, México
+href: /empleos/de-php/en-ciudad-de-mexico/en-la-ciudad-de-cuajimalpa-de-morelos | text: Cuajimalpa de Morelos, Ciudad de México, México
+href: https://supportcenter.occ.com.mx/hc/es | text: Preguntas frecuentes
+href: https://www.occ.com.mx/empresas?utm_source=occmundial&utm_medium=referral&utm_campaign=footer | text: Publicar vacante
+href: https://supportcenter.occ.com.mx/hc/es | text: Preguntas frecuentes
+href: https://www.occ.com.mx/empleos-por-estado | text: Estado
+href: https://www.occ.com.mx/empleos-por-ciudad | text: Ciudad
+href: https://www.occ.com.mx/empleos-por-categoria | text: Categoría
+href: https://www.occ.com.mx/empleos-mas-buscados | text: Vacantes más buscadas
+href: https://www.occ.com.mx/empleos-por-contratacion | text: Contrato
+href: https://www.occ.com.mx/empleos-por-empresa | text: Empresa
+href: https://www.occ.com.mx/empleos/ | text: Buscar empleo en México
+href: https://www.occ.com.mx/nosotros | text: Acerca de OCC
+href: https://www.occ.com.mx/blog/ | text: Blog
+href: https://www.occ.com.mx/empleos/bolsa-de-trabajo-occmundial-corporativo/ | text: Únete a nuestro equipo
+href: https://apps.apple.com/app/apple-store/id581420468?pt=1629020&amp;mt=8&amp;ct=web_banner_home | text: 
+href: https://play.google.com/store/apps/details?id=mx.com.occ&amp;referrer=utm_source=web_banner_home | text: 
+href: https://www.facebook.com/occoficial | text: 
+href: https://www.instagram.com/occ/ | text: 
+href: https://www.tiktok.com/@occ.com.mx | text: 
+href: https://mx.linkedin.com/company/occoficial | text: 
+href: https://www.occ.com.mx/terminos-condiciones | text: Términos y condiciones
+href: https://www.occ.com.mx/aviso-privacidad | text: Aviso de privacidad
+href: https://www.occ.com.mx/Home/Mapa_del_Sitio | text: Mapa de sitio
