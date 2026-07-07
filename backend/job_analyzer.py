@@ -84,6 +84,8 @@ def analyze_job_detail(job: dict[str, Any], profile: dict[str, Any]) -> dict[str
     recommendation = _build_recommendation(job, matched_skills, missing_skills, modality, seniority, profile)
     risk_flags = _build_risk_flags(fetch_status, fetch_error, missing_skills, benefits, salary_hint)
 
+    action_plan = _build_action_plan(missing_skills, modality, seniority, profile)
+
     result = {
         "fetch_status": fetch_status,
         "fetch_error": fetch_error,
@@ -104,6 +106,7 @@ def analyze_job_detail(job: dict[str, Any], profile: dict[str, Any]) -> dict[str
         "summary": summary,
         "recommendation": recommendation,
         "risk_flags": risk_flags,
+        "action_plan": action_plan,
         "signals": {
             "requirements_count": len(requirements),
             "benefits_count": len(benefits),
@@ -288,10 +291,117 @@ def _detect_seniority(text: str) -> str:
 
 
 def _extract_salary(text: str) -> str:
-    matches = re.findall(r"(\$[\d,]+(?:\.\d+)?(?:\s*(?:mxn|usd|mensuales|al mes|mensual|por mes))?)", text, re.IGNORECASE)
-    if matches:
-        return matches[0]
+    # 1. Look for ranges like $30,000 - $45,000, 30k a 45k, 30 mil a 45 mil, etc.
+    range_regex = re.compile(
+        r"(\$?\s*\d{1,3}(?:[.,]\d{3})*(?:\s*(?:k|mil))?)\s*(?:\-|a|y|al)\s*(\$?\s*\d{1,3}(?:[.,]\d{3})*(?:\s*(?:k|mil))?)\s*(?:mxn|usd|mensuales|al mes|mensual|por mes|netos|brutos|pesos)?",
+        re.IGNORECASE
+    )
+    range_match = range_regex.search(text)
+    if range_match:
+        val1 = range_match.group(1).replace(",", "").replace(".", "").lower()
+        if not ("k" in val1 or "mil" in val1 or "$" in range_match.group(0)):
+            try:
+                num1 = int(re.sub(r'[^\d]', '', val1))
+                if not (5000 <= num1 <= 300000 or 150 <= num1 <= 15000):
+                    range_match = None
+            except ValueError:
+                pass
+        if range_match:
+            return re.sub(r'\s+', ' ', range_match.group(0).strip())
+
+    # 2. Look for single values: $45,000 mxn, 40k netos, $1,500 usd, 35 mil al mes
+    single_regex = re.compile(
+        r"(\$?\s*\d{1,3}(?:[.,]\d{3})*(?:\s*(?:k|mil))?\s*(?:mxn|usd|mensuales|al mes|mensual|por mes|netos|brutos|pesos)+)",
+        re.IGNORECASE
+    )
+    single_match = single_regex.search(text)
+    if single_match:
+        return re.sub(r'\s+', ' ', single_match.group(0).strip())
+
+    # 3. Simple dollar amount with $ e.g. $45,000
+    simple_dollar = re.findall(r"(\$\s*\d{1,3}(?:[.,]\d{3})*(?:\.\d+)?)", text)
+    if simple_dollar:
+        return simple_dollar[0]
+
     return ""
+
+
+def _build_action_plan(missing_skills: list[str], modality: str, seniority: str, profile: dict[str, Any]) -> dict[str, Any]:
+    gaps = []
+    if missing_skills:
+        gaps.append(f"Habilidades técnicas ausentes: {', '.join(missing_skills[:5])}")
+    
+    profile_years = int(profile.get("experience_years", 0) or 0)
+    if seniority == "senior" and profile_years < 5:
+        gaps.append(f"Años de experiencia requeridos (Senior vs tus {profile_years} años)")
+    elif seniority == "semi" and profile_years < 2:
+        gaps.append(f"Años de experiencia requeridos (Semi Senior vs tus {profile_years} años)")
+    
+    steps = []
+    
+    # Step 1: Learning/Skills acquisition
+    if missing_skills:
+        skill_tips = []
+        for skill in missing_skills[:4]:
+            skill_lower = skill.lower()
+            if skill_lower in ("docker", "kubernetes"):
+                skill_tips.append("Docker/K8s: Revisa conceptos de contenedores, Dockerfile y comandos básicos de docker-compose.")
+            elif skill_lower in ("aws", "azure", "gcp"):
+                skill_tips.append(f"{skill}: Enfócate en servicios básicos (cómputo, bases de datos y almacenamiento cloud).")
+            elif skill_lower in ("git", "github", "gitlab"):
+                skill_tips.append("Git: Domina flujos de trabajo (Gitflow, pull requests, merge conflict resolution).")
+            elif skill_lower in ("ci/cd", "jenkins", "github actions"):
+                skill_tips.append(f"{skill}: Crea un pipeline básico que corra tests automáticamente al hacer push.")
+            elif skill_lower in ("laravel", "symfony", "django", "flask", "fastapi", "spring", "node", "express"):
+                skill_tips.append(f"{skill}: Entiende la arquitectura MVC, routing, middlewares y conexión a bases de datos.")
+            elif skill_lower in ("react", "vue", "angular"):
+                skill_tips.append(f"{skill}: Domina el ciclo de vida de componentes, manejo de estado global (Redux/Pinia) y hooks.")
+            elif skill_lower in ("typescript", "javascript"):
+                skill_tips.append("TypeScript: Domina tipos estrictos, interfaces y tipado genérico.")
+            else:
+                skill_tips.append(f"{skill}: Dedica 2-3 horas a leer la documentación oficial y realiza un ejemplo básico 'Hello World'.")
+        
+        steps.append({
+            "title": "Adquisición de Habilidades",
+            "icon": "fa-book-open",
+            "items": skill_tips
+        })
+
+    # Step 2: Resume adaptation
+    cv_tips = []
+    if missing_skills:
+        cv_tips.append(f"Menciona proyectos personales o proyectos pasados donde usaras conceptos similares a: {', '.join(missing_skills[:3])}.")
+    cv_tips.append("En tu perfil/resumen, destaca tus habilidades adaptables y tu capacidad de aprendizaje rápido (autodidacta).")
+    if seniority == "senior":
+        cv_tips.append("Resalta tu liderazgo técnico, mentoría a otros desarrolladores y diseño de arquitectura.")
+    elif seniority == "junior":
+        cv_tips.append("Enfócate en tu iniciativa, proyectos escolares/personales y rapidez para entender código existente.")
+        
+    steps.append({
+        "title": "Optimización de CV para la Vacante",
+        "icon": "fa-file-pen",
+        "items": cv_tips
+    })
+
+    # Step 3: Interview prep
+    interview_tips = []
+    if missing_skills:
+        interview_tips.append(f"Prepárate para responder: 'No tengo experiencia directa con {missing_skills[0]}, pero he trabajado con tecnologías similares y sé cómo adaptarme rápidamente.'")
+    interview_tips.append("Prepara una anécdota bajo la metodología STAR (Situación, Tarea, Acción, Resultado) donde resolviste un reto complejo.")
+    if modality == "remoto":
+        interview_tips.append("Enfatiza tu comunicación asíncrona, autogestión y experiencia previa trabajando de forma remota.")
+        
+    steps.append({
+        "title": "Simulación y Preparación de Entrevista",
+        "icon": "fa-user-tie",
+        "items": interview_tips
+    })
+
+    return {
+        "gaps": gaps,
+        "steps": steps
+    }
+
 
 
 def _extract_location_hint(text: str) -> str:

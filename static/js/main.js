@@ -1544,9 +1544,38 @@
     renderAnalysisList(jobAnalysisBenefits, []);
     renderBadgeList(jobAnalysisDetectedSkills, [], "skill-tag");
     renderAnalysisList(jobAnalysisRisks, []);
+
+    // Reset Action Plan UI
+    renderAnalysisList(document.getElementById("action-plan-gaps"), []);
+    const stepsEl = document.getElementById("action-plan-steps");
+    if (stepsEl) stepsEl.innerHTML = "";
   }
 
   async function loadDeepJobAnalysis(job) {
+    if (job.deep_analysis) {
+      const deep = job.deep_analysis;
+      if (jobAnalysisStatus) {
+        jobAnalysisStatus.textContent = deep.fetch_status === "fetched" ? "Leído del portal" : "Parcial";
+        jobAnalysisStatus.className = `badge ${deep.fetch_status === "fetched" ? "match-badge-high" : "match-badge-medium"}`;
+      }
+      if (jobAnalysisSummary) jobAnalysisSummary.textContent = deep.summary || "Sin resumen adicional.";
+      if (jobAnalysisModality) jobAnalysisModality.textContent = formatModalityLabel(deep.work_modality_deep || job.work_modality || "presencial");
+      if (jobAnalysisSeniority) jobAnalysisSeniority.textContent = formatSeniorityLabel(deep.seniority_deep || job.seniority || "general");
+      if (jobAnalysisEmployment) jobAnalysisEmployment.textContent = deep.employment_type || "No especificado";
+      if (jobAnalysisConfidence) jobAnalysisConfidence.textContent = `${deep.confidence || 0}%`;
+      if (modalDescText && deep.deep_description) modalDescText.textContent = deep.deep_description;
+      if (modalLocation && deep.location_deep) modalLocation.textContent = `${deep.location_deep} · ${formatModalityLabel(deep.work_modality_deep || job.work_modality)}`;
+      if (modalSalary && deep.salary_deep) modalSalary.textContent = deep.salary_deep;
+
+      renderAnalysisList(jobAnalysisRequirements, deep.requirements || []);
+      renderAnalysisList(jobAnalysisBenefits, deep.benefits || []);
+      renderBadgeList(jobAnalysisDetectedSkills, deep.detected_skills || [], "skill-tag");
+      renderAnalysisList(jobAnalysisRisks, deep.risk_flags || []);
+      populateATSAnalysis(job);
+      populateActionPlan(job);
+      return;
+    }
+
     const requestToken = ++jobAnalysisRequestToken;
     try {
       const res = await fetch(`${API_URL}/api/job-analysis`, {
@@ -1581,6 +1610,7 @@
       renderBadgeList(jobAnalysisDetectedSkills, deep.detected_skills || [], "skill-tag");
       renderAnalysisList(jobAnalysisRisks, deep.risk_flags || []);
       populateATSAnalysis(job);
+      populateActionPlan(job);
     } catch (error) {
       if (requestToken !== jobAnalysisRequestToken || currentModalJob?.id !== job.id) return;
       if (jobAnalysisStatus) {
@@ -1590,7 +1620,102 @@
       if (jobAnalysisSummary) jobAnalysisSummary.textContent = "No fue posible leer todo el detalle del portal. Se mantiene el análisis base de la vacante.";
       renderAnalysisList(jobAnalysisRisks, [error.message || "No se pudo enriquecer la vacante."]);
       populateATSAnalysis(job);
+      populateActionPlan(job);
     }
+  }
+
+  function populateActionPlan(job) {
+    const gapsEl = document.getElementById("action-plan-gaps");
+    const stepsEl = document.getElementById("action-plan-steps");
+    if (!gapsEl || !stepsEl) return;
+
+    gapsEl.innerHTML = "";
+    stepsEl.innerHTML = "";
+
+    const deep = job.deep_analysis;
+    const plan = deep?.action_plan;
+
+    // Gaps
+    const gaps = plan?.gaps || [];
+    if (gaps.length === 0) {
+      const allSkills = activeProfile ? (activeProfile.all_skills_flat || []) : [];
+      const matched = job.matched_skills || [];
+      const missing = allSkills.filter(s => !matched.map(m=>m.toLowerCase()).includes(s.toLowerCase())).slice(0, 5);
+      if (missing.length > 0) {
+        gaps.push(`Habilidades técnicas ausentes: ${missing.join(', ')}`);
+      } else {
+        gaps.push("¡Sin brechas significativas! Tu perfil coincide plenamente con los requisitos.");
+      }
+    }
+
+    gaps.forEach(gap => {
+      const row = document.createElement("div");
+      row.className = "job-analysis-list-item";
+      row.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow); font-size:0.75rem; margin-right:8px;"></i><span>${gap}</span>`;
+      gapsEl.appendChild(row);
+    });
+
+    // Steps
+    let steps = plan?.steps || [];
+    if (steps.length === 0) {
+      const allSkills = activeProfile ? (activeProfile.all_skills_flat || []) : [];
+      const matched = job.matched_skills || [];
+      const missing = allSkills.filter(s => !matched.map(m=>m.toLowerCase()).includes(s.toLowerCase())).slice(0, 3);
+      
+      steps = [
+        {
+          title: "Adquisición de Habilidades",
+          icon: "fa-book-open",
+          items: missing.length > 0 
+            ? [`Estudia los conceptos básicos de: ${missing.join(', ')} y realiza un pequeño proyecto personal.`]
+            : ["Continúa ampliando tus conocimientos técnicos en tu área de especialización."]
+        },
+        {
+          title: "Optimización de CV para la Vacante",
+          icon: "fa-file-pen",
+          items: [
+            "Adapta tu sección de experiencia para resaltar proyectos con tecnologías similares.",
+            "Asegúrate de que tu resumen profesional mencione tus habilidades adaptables."
+          ]
+        },
+        {
+          title: "Simulación y Preparación de Entrevista",
+          icon: "fa-user-tie",
+          items: [
+            "Prepara historias utilizando la metodología STAR.",
+            "Ensaya respuestas sobre cómo manejas proyectos técnicos complejos."
+          ]
+        }
+      ];
+    }
+
+    steps.forEach((step, idx) => {
+      const card = document.createElement("div");
+      card.className = "action-plan-card";
+      
+      let itemsHtml = "";
+      step.items.forEach(item => {
+        itemsHtml += `
+          <div class="action-plan-item">
+            <i class="fa-solid fa-circle-check" style="color:var(--green); font-size:0.85rem; margin-top:2px;"></i>
+            <span>${item}</span>
+          </div>`;
+      });
+
+      card.innerHTML = `
+        <div class="action-plan-card-header">
+          <div class="action-plan-step-num">${idx + 1}</div>
+          <div class="action-plan-card-title">
+            <i class="fa-solid ${step.icon}"></i>
+            <span>${step.title}</span>
+          </div>
+        </div>
+        <div class="action-plan-card-body">
+          ${itemsHtml}
+        </div>
+      `;
+      stepsEl.appendChild(card);
+    });
   }
 
   function renderAnalysisList(container, items) {

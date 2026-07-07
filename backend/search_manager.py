@@ -482,6 +482,27 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
             scored_jobs.append(mj)
         scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
 
+    # ── Automatic Enrichment of Top 3 vacancies ──────────────
+    top_jobs_to_enrich = scored_jobs[:3]
+    if top_jobs_to_enrich:
+        print(f"[ENRICHMENT] Automatically enriching top {len(top_jobs_to_enrich)} vacancies...")
+        from backend.job_analyzer import analyze_job_detail
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as enrich_executor:
+            future_to_job = {enrich_executor.submit(analyze_job_detail, job, profile): job for job in top_jobs_to_enrich}
+            for future in concurrent.futures.as_completed(future_to_job):
+                job = future_to_job[future]
+                try:
+                    deep_analysis = future.result()
+                    job["deep_analysis"] = deep_analysis
+                    if deep_analysis.get("work_modality_deep"):
+                        job["work_modality"] = deep_analysis["work_modality_deep"]
+                    if deep_analysis.get("seniority_deep"):
+                        job["seniority"] = deep_analysis["seniority_deep"]
+                    if deep_analysis.get("salary_deep") and deep_analysis["salary_deep"] != "No especificado":
+                        job["salary"] = deep_analysis["salary_deep"]
+                except Exception as e:
+                    print(f"[ENRICHMENT ERROR] Failed to enrich job '{job.get('title')}': {e}")
+
     result = scored_jobs[:max_results]
     _set_cache(cache_key, result)
     return result

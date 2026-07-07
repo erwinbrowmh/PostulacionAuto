@@ -720,6 +720,9 @@
                 <button class="modal-tab-btn" data-tab="tab-analysis">
                     <i class="fa-solid fa-brain mr-5"></i> Análisis ATS
                 </button>
+                <button class="modal-tab-btn" data-tab="tab-action-plan">
+                    <i class="fa-solid fa-graduation-cap mr-5"></i> ¿Qué te falta?
+                </button>
                 <button class="modal-tab-btn" data-tab="tab-cover-letter">
                     <i class="fa-solid fa-envelope-open-text mr-5"></i> Carta de Presentación
                 </button>
@@ -801,6 +804,29 @@
                         <div class="job-analysis-list-card">
                             <h4><i class="fa-solid fa-triangle-exclamation mr-5"></i> Riesgos / Alertas</h4>
                             <div id="job-analysis-risks" class="job-analysis-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Action Plan -->
+            <div id="tab-action-plan" class="modal-tab-content hidden">
+                <div id="action-plan-content" style="display: flex; flex-direction: column; gap: 1rem; animation: fadeSlideIn 0.25s ease-out;">
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem;">
+                        <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.875rem;">
+                            <i class="fa-solid fa-triangle-exclamation mr-5"></i> Brechas Detectadas (Gaps)
+                        </h4>
+                        <div id="action-plan-gaps" class="job-analysis-list">
+                            <!-- Gaps injected by JS -->
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem;">
+                        <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.875rem; margin-top: 0.5rem;">
+                            <i class="fa-solid fa-road mr-5"></i> Ruta de Preparación y Plan de Acción
+                        </h4>
+                        <div id="action-plan-steps" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Action plan steps/cards injected by JS -->
                         </div>
                     </div>
                 </div>

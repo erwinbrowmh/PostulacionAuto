@@ -2076,3 +2076,65 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
   .cl-actions { flex-direction: column; align-items: stretch; }
   .modal-footer { flex-direction: column; align-items: stretch; gap: 0.5rem; }
 }
+
+/* Action Plan / ¿Qué te falta? Pestaña */
+.action-plan-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.125rem;
+  transition: all 0.25s ease;
+}
+.action-plan-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--cyan);
+}
+.action-plan-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.625rem;
+}
+.action-plan-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cyan);
+  color: var(--bg-dark);
+  font-weight: 700;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.action-plan-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.action-plan-card-title i {
+  color: var(--cyan);
+}
+.action-plan-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.action-plan-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  font-size: 0.82rem;
+  color: var(--text-body);
+  line-height: 1.5;
+}
+.action-plan-item i {
+  margin-top: 2px;
+}
+
