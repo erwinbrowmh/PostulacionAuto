@@ -128,10 +128,9 @@
                         <label for="search-keywords">
                             <i class="fa-solid fa-keyboard mr-5"></i> Palabras Clave
                         </label>
-                        <input type="text" id="search-keywords"
-                               value="PHP, Flutter, Desarrollador, Sistemas, Laravel"
-                               placeholder="Ej. PHP, Java, Flutter, Sistemas"
-                               class="text-input">
+                        <textarea id="search-keywords"
+                                  placeholder="Ej. PHP, Java, Flutter, Sistemas"
+                                  class="text-input search-keywords-input">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
                     </div>
 
                     <!-- Modality -->
@@ -369,6 +368,30 @@
                                 <label for="profile-summary-input">Resumen profesional</label>
                                 <textarea id="profile-summary-input" class="text-input profile-textarea" placeholder="Resume aquí tu experiencia, stack y fortalezas clave."></textarea>
                             </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-experience-input">Experiencia</label>
+                                <textarea id="profile-experience-input" class="text-input profile-textarea" placeholder="Una línea por experiencia o bloque detectado del CV."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-languages-input">Idiomas</label>
+                                <input type="text" id="profile-languages-input" class="text-input text-sm" placeholder="Ej. Español, English">
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-education-input">Educación</label>
+                                <textarea id="profile-education-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una línea por estudio o grado."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-certifications-input">Certificaciones</label>
+                                <textarea id="profile-certifications-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una línea por certificación, curso o licencia."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-keywords-input">Keywords Manuales</label>
+                                <textarea id="profile-keywords-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una keyword por línea o separadas por coma."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-advanced-json-input">Editor Avanzado JSON</label>
+                                <textarea id="profile-advanced-json-input" class="text-input profile-textarea profile-json-textarea" placeholder='{"sections":{"experience":["..."]}}'></textarea>
+                            </div>
                         </div>
                         <div class="profile-edit-actions">
                             <button id="profile-cancel-btn" class="btn btn-ghost btn-sm" type="button">
@@ -377,6 +400,33 @@
                             <button id="profile-save-btn" class="btn btn-primary btn-sm" type="button">
                                 <i class="fa-solid fa-floppy-disk"></i> Guardar perfil
                             </button>
+                        </div>
+                    </div>
+
+                    <div class="profile-overview-panel">
+                        <div class="profile-metrics-grid">
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Experiencia</span>
+                                <strong id="cand-years">0 años</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Keywords</span>
+                                <strong id="cand-keywords-count">0</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Fuente</span>
+                                <strong id="cand-analysis-source">ATS</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">OCR</span>
+                                <strong id="cand-ocr-flag">No</strong>
+                            </div>
+                        </div>
+                        <div class="profile-summary-block">
+                            <div class="profile-block-head">
+                                <h3>Resumen Profesional</h3>
+                            </div>
+                            <p id="cand-summary" class="profile-summary-text">Sin resumen disponible.</p>
                         </div>
                     </div>
 
@@ -394,9 +444,9 @@
                         <div class="upload-zone upload-zone-vertical" id="latex-image-upload-zone">
                             <i class="fa-solid fa-file-code upload-icon"></i>
                             <span class="upload-text">
-                                Sube una imagen de una página PDF para transcribirla a LaTeX compilable con OCR local.
+                                Sube una imagen o PDF para transcribirlo a LaTeX compilable con OCR local.
                             </span>
-                            <input type="file" id="latex-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                            <input type="file" id="latex-image-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
                         </div>
                         <div class="latex-actions-row">
                             <span id="latex-file-name" class="latex-file-name">Sin imagen seleccionada</span>
@@ -405,7 +455,7 @@
                             </button>
                         </div>
                         <p class="latex-helper-text">
-                            Formatos permitidos: PNG, JPG/JPEG y WEBP. OCR local usando Tesseract en español e inglés.
+                            Formatos permitidos: PDF, PNG, JPG/JPEG y WEBP. OCR local usando Tesseract en español e inglés.
                         </p>
                         <div id="latex-output-panel" class="latex-output-panel hidden">
                             <textarea id="latex-output" class="cl-textarea latex-textarea" readonly placeholder="\documentclass{article}"></textarea>
@@ -442,6 +492,45 @@
                         <a id="cand-github" href="#" target="_blank" class="link-btn">
                             <i class="fa-brands fa-github"></i> GitHub
                         </a>
+                    </div>
+
+                    <div class="profile-structured-grid">
+                        <div class="profile-info-block">
+                            <div class="profile-block-head">
+                                <h3>Roles Objetivo</h3>
+                            </div>
+                            <div id="cand-roles" class="profile-chip-list"></div>
+                        </div>
+                        <div class="profile-info-block">
+                            <div class="profile-block-head">
+                                <h3>Idiomas</h3>
+                            </div>
+                            <div id="cand-languages" class="profile-chip-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Experiencia Detectada</h3>
+                            </div>
+                            <div id="cand-experience" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Educación</h3>
+                            </div>
+                            <div id="cand-education" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Certificaciones</h3>
+                            </div>
+                            <div id="cand-certifications" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Keywords del Perfil</h3>
+                            </div>
+                            <div id="cand-keywords" class="profile-chip-list"></div>
+                        </div>
                     </div>
 
                     <!-- Skills section with editor -->
@@ -638,9 +727,44 @@
 
             <!-- Tab: Description -->
             <div id="tab-details" class="modal-tab-content">
+                <div class="job-deep-summary-card">
+                    <div class="job-deep-summary-head">
+                        <h4><i class="fa-solid fa-magnifying-glass-chart mr-5"></i> Lectura Profunda del Puesto</h4>
+                        <span id="job-analysis-status" class="badge">Analizando...</span>
+                    </div>
+                    <p id="job-analysis-summary" class="job-deep-summary-text">Leyendo el detalle real de la vacante...</p>
+                    <div class="job-analysis-mini-grid">
+                        <div class="job-mini-card">
+                            <span>Modalidad</span>
+                            <strong id="job-analysis-modality">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Nivel</span>
+                            <strong id="job-analysis-seniority">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Tipo</span>
+                            <strong id="job-analysis-employment">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Confianza</span>
+                            <strong id="job-analysis-confidence">—</strong>
+                        </div>
+                    </div>
+                </div>
                 <div class="modal-description">
                     <h4>Descripción y Requisitos del Puesto:</h4>
                     <p id="modal-desc-text">Cargando descripción...</p>
+                </div>
+                <div class="job-analysis-columns">
+                    <div class="job-analysis-list-card">
+                        <h4><i class="fa-solid fa-list-check mr-5"></i> Requisitos Detectados</h4>
+                        <div id="job-analysis-requirements" class="job-analysis-list"></div>
+                    </div>
+                    <div class="job-analysis-list-card">
+                        <h4><i class="fa-solid fa-gift mr-5"></i> Beneficios / Condiciones</h4>
+                        <div id="job-analysis-benefits" class="job-analysis-list"></div>
+                    </div>
                 </div>
             </div>
 
@@ -668,6 +792,16 @@
                             <i class="fa-solid fa-lightbulb mr-5"></i> Recomendación de Postulación
                         </h4>
                         <p id="ats-recommendation" style="font-size: 0.83rem; color: var(--text-body); line-height: 1.6;">Analizando...</p>
+                    </div>
+                    <div class="job-analysis-columns">
+                        <div class="job-analysis-list-card">
+                            <h4><i class="fa-solid fa-circle-check mr-5"></i> Skills Detectadas en la Vacante</h4>
+                            <div id="job-analysis-detected-skills" class="skills-badges"></div>
+                        </div>
+                        <div class="job-analysis-list-card">
+                            <h4><i class="fa-solid fa-triangle-exclamation mr-5"></i> Riesgos / Alertas</h4>
+                            <div id="job-analysis-risks" class="job-analysis-list"></div>
+                        </div>
                     </div>
                 </div>
             </div>

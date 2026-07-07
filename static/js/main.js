@@ -30,6 +30,7 @@
   let latexSourceFile = null;
   let latexSuggestedFilename = "cv_latex.tex";
   let profileEditSnapshot = null;
+  let jobAnalysisRequestToken = 0;
 
   // ── DOM refs ──────────────────────────────────────────────
   const searchBtn      = document.getElementById("search-btn");
@@ -57,6 +58,16 @@
   const modalSourceBadge = document.getElementById("modal-source-badge");
   const modalMatchedSkills = document.getElementById("modal-matched-skills");
   const modalSaveBtn   = document.getElementById("modal-save-btn");
+  const jobAnalysisStatus = document.getElementById("job-analysis-status");
+  const jobAnalysisSummary = document.getElementById("job-analysis-summary");
+  const jobAnalysisModality = document.getElementById("job-analysis-modality");
+  const jobAnalysisSeniority = document.getElementById("job-analysis-seniority");
+  const jobAnalysisEmployment = document.getElementById("job-analysis-employment");
+  const jobAnalysisConfidence = document.getElementById("job-analysis-confidence");
+  const jobAnalysisRequirements = document.getElementById("job-analysis-requirements");
+  const jobAnalysisBenefits = document.getElementById("job-analysis-benefits");
+  const jobAnalysisDetectedSkills = document.getElementById("job-analysis-detected-skills");
+  const jobAnalysisRisks = document.getElementById("job-analysis-risks");
 
   const filterScore    = document.getElementById("filter-score");
   const filterScoreVal = document.getElementById("filter-score-val");
@@ -84,6 +95,17 @@
   const candLocation   = document.getElementById("cand-location");
   const candLinkedin   = document.getElementById("cand-linkedin");
   const candGithub     = document.getElementById("cand-github");
+  const candYears      = document.getElementById("cand-years");
+  const candKeywordsCount = document.getElementById("cand-keywords-count");
+  const candAnalysisSource = document.getElementById("cand-analysis-source");
+  const candOcrFlag    = document.getElementById("cand-ocr-flag");
+  const candSummary    = document.getElementById("cand-summary");
+  const candRoles      = document.getElementById("cand-roles");
+  const candLanguages  = document.getElementById("cand-languages");
+  const candExperience = document.getElementById("cand-experience");
+  const candEducation  = document.getElementById("cand-education");
+  const candCertifications = document.getElementById("cand-certifications");
+  const candKeywords   = document.getElementById("cand-keywords");
   const toggleEditProfileBtn = document.getElementById("toggle-edit-profile");
   const profileEditForm = document.getElementById("profile-edit-form");
   const profileNameInput = document.getElementById("profile-name-input");
@@ -96,6 +118,12 @@
   const profileYearsInput = document.getElementById("profile-years-input");
   const profileRolesInput = document.getElementById("profile-roles-input");
   const profileSummaryInput = document.getElementById("profile-summary-input");
+  const profileExperienceInput = document.getElementById("profile-experience-input");
+  const profileLanguagesInput = document.getElementById("profile-languages-input");
+  const profileEducationInput = document.getElementById("profile-education-input");
+  const profileCertificationsInput = document.getElementById("profile-certifications-input");
+  const profileKeywordsInput = document.getElementById("profile-keywords-input");
+  const profileAdvancedJsonInput = document.getElementById("profile-advanced-json-input");
   const profileSaveBtn = document.getElementById("profile-save-btn");
   const profileCancelBtn = document.getElementById("profile-cancel-btn");
   const skillsContainer = document.getElementById("skills-container");
@@ -172,20 +200,38 @@
   // ══════════════════════════════════════════════════════════
   function renderProfile(profile) {
     if (!profile) return;
-    activeProfile = profile;
+    activeProfile = normalizeProfileModel(profile);
     candName.textContent      = profile.name || "Sin nombre";
-    candTitle.textContent     = profile.title || "Sin título";
-    candEmail.textContent     = profile.email || "Sin email";
-    candPhone.textContent     = profile.phone || "Sin teléfono";
-    candLocation.textContent  = profile.location || "Sin ubicación";
-    applyProfileLink(candLinkedin, profile.linkedin, "linkedin");
-    applyProfileLink(candGithub, profile.github, "github");
-    fillProfileEditForm(profile);
-    prefillSearchInputsFromProfile(profile);
+    candTitle.textContent     = activeProfile.title || "Sin título";
+    candEmail.textContent     = activeProfile.email || "Sin email";
+    candPhone.textContent     = activeProfile.phone || "Sin teléfono";
+    candLocation.textContent  = activeProfile.location || "Sin ubicación";
+    applyProfileLink(candLinkedin, activeProfile.linkedin, "linkedin");
+    applyProfileLink(candGithub, activeProfile.github, "github");
+    renderProfileOverview(activeProfile);
+    fillProfileEditForm(activeProfile);
+    prefillSearchInputsFromProfile(activeProfile);
 
-    renderSkills(profile.skills || {});
-    saveProfileToStorage(profile);
-    updateStatSkillsCount(profile);
+    renderSkills(activeProfile.skills || {});
+    saveProfileToStorage(activeProfile);
+    updateStatSkillsCount(activeProfile);
+  }
+
+  function normalizeProfileModel(profile) {
+    const normalized = {
+      ...profile,
+      preferred_roles: profile.preferred_roles || [],
+      languages_spoken: profile.languages_spoken || [],
+      education: profile.education || [],
+      certifications: profile.certifications || [],
+      skills: profile.skills || {},
+      all_skills_flat: profile.all_skills_flat || flattenSkills(profile.skills || {}),
+      sections: profile.sections || {},
+      analysis_meta: profile.analysis_meta || {},
+    };
+    normalized.search_keywords = getProfileKeywordSuggestions(normalized);
+    normalized.analysis_meta.keyword_count = normalized.search_keywords.length;
+    return normalized;
   }
 
   function applyProfileLink(element, value, type) {
@@ -240,12 +286,68 @@
 
   function getProfileKeywordSuggestions(profile) {
     const titleWords = (profile.title || "")
-      .split(/[\s/|,]+/)
+      .split(/[\s/|,•·-]+/)
       .map(word => word.trim())
       .filter(word => word.length >= 4);
     const preferredRoles = profile.preferred_roles || [];
     const topSkills = profile.all_skills_flat || [];
-    return [...new Set([...preferredRoles, ...titleWords, ...topSkills])].slice(0, 6);
+    const certifications = profile.certifications || [];
+    const education = profile.education || [];
+    const languages = profile.languages_spoken || [];
+    const stored = profile.search_keywords || [];
+    return [...new Set([...stored, ...preferredRoles, ...topSkills, ...languages, ...certifications, ...education, ...titleWords])];
+  }
+
+  function renderProfileOverview(profile) {
+    const analysisMeta = profile.analysis_meta || {};
+    if (candYears) candYears.textContent = `${profile.experience_years || 0} años`;
+    if (candKeywordsCount) candKeywordsCount.textContent = (profile.search_keywords || profile.all_skills_flat || []).length;
+    if (candAnalysisSource) candAnalysisSource.textContent = formatAnalysisSource(analysisMeta.source);
+    if (candOcrFlag) candOcrFlag.textContent = analysisMeta.used_ocr ? "Sí" : "No";
+    if (candSummary) candSummary.textContent = profile.summary || "Sin resumen disponible.";
+
+    renderChipList(candRoles, profile.preferred_roles || [], "fa-solid fa-bullseye");
+    renderChipList(candLanguages, profile.languages_spoken || [], "fa-solid fa-language");
+    renderLineList(candExperience, profile.sections?.experience || [], "fa-solid fa-briefcase");
+    renderLineList(candEducation, profile.education || [], "fa-solid fa-graduation-cap");
+    renderLineList(candCertifications, profile.certifications || [], "fa-solid fa-certificate");
+    renderChipList(candKeywords, (profile.search_keywords || []).slice(0, 40), "fa-solid fa-hashtag");
+  }
+
+  function formatAnalysisSource(source) {
+    if (source === "pdf") return "PDF";
+    if (source === "fallback") return "Fallback";
+    return "ATS";
+  }
+
+  function renderChipList(container, items, iconClass = "fa-solid fa-circle") {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!items || items.length === 0) {
+      container.innerHTML = `<span class="profile-empty">Sin datos disponibles.</span>`;
+      return;
+    }
+    items.forEach(item => {
+      const chip = document.createElement("span");
+      chip.className = "profile-chip";
+      chip.innerHTML = `<i class="${iconClass}"></i><span>${item}</span>`;
+      container.appendChild(chip);
+    });
+  }
+
+  function renderLineList(container, items, iconClass = "fa-solid fa-check") {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!items || items.length === 0) {
+      container.innerHTML = `<span class="profile-empty">Sin datos disponibles.</span>`;
+      return;
+    }
+    items.forEach(item => {
+      const row = document.createElement("div");
+      row.className = "profile-line-item";
+      row.innerHTML = `<i class="${iconClass}"></i><span>${item}</span>`;
+      container.appendChild(row);
+    });
   }
 
   function updateStatSkillsCount(profile) {
@@ -308,9 +410,12 @@
       if (!activeProfile.skills[cat].includes(skill)) {
         activeProfile.skills[cat].push(skill);
         activeProfile.all_skills_flat = flattenSkills(activeProfile.skills);
+        activeProfile.search_keywords = getProfileKeywordSuggestions(activeProfile);
+        activeProfile.analysis_meta = activeProfile.analysis_meta || {};
+        activeProfile.analysis_meta.keyword_count = activeProfile.search_keywords.length;
         newSkillName.value = "";
+        renderProfile(activeProfile);
         renderSkillsEditMode();
-        saveProfileToStorage(activeProfile);
         syncProfileToBackend();
         recalculateMatchScoresClientSide();
         showToast("success", "Habilidad añadida", `"${skill}" agregada a ${cat}. Los match scores se actualizaron.`);
@@ -354,10 +459,17 @@
       profileGithubInput,
       profileYearsInput,
       profileRolesInput,
-      profileSummaryInput
+      profileSummaryInput,
+      profileExperienceInput,
+      profileLanguagesInput,
+      profileEducationInput,
+      profileCertificationsInput,
+      profileKeywordsInput,
+      profileAdvancedJsonInput
     ].forEach(input => {
       input?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
+        const allowTextareaBreak = input.tagName === "TEXTAREA" && !e.ctrlKey && !e.metaKey;
+        if (e.key === "Enter" && !allowTextareaBreak) {
           e.preventDefault();
           saveProfileEdits();
         }
@@ -383,6 +495,12 @@
     profileYearsInput.value = profile?.experience_years || "";
     profileRolesInput.value = (profile?.preferred_roles || []).join(", ");
     profileSummaryInput.value = profile?.summary || "";
+    profileExperienceInput.value = (profile?.sections?.experience || []).join("\n");
+    profileLanguagesInput.value = (profile?.languages_spoken || []).join(", ");
+    profileEducationInput.value = (profile?.education || []).join("\n");
+    profileCertificationsInput.value = (profile?.certifications || []).join("\n");
+    profileKeywordsInput.value = (profile?.search_keywords || []).join("\n");
+    profileAdvancedJsonInput.value = prettyProfileJson(profile || {});
   }
 
   function cancelProfileEdit() {
@@ -393,8 +511,22 @@
   async function saveProfileEdits() {
     if (!activeProfile) return;
 
+    let baseProfile = JSON.parse(JSON.stringify(activeProfile));
+    if (profileAdvancedJsonInput?.value.trim()) {
+      try {
+        const parsedAdvanced = JSON.parse(profileAdvancedJsonInput.value);
+        if (parsedAdvanced && typeof parsedAdvanced === "object") {
+          baseProfile = parsedAdvanced;
+        }
+      } catch (error) {
+        showToast("error", "JSON inválido", "Revisa el editor avanzado JSON antes de guardar.");
+        profileAdvancedJsonInput?.focus();
+        return;
+      }
+    }
+
     const updatedProfile = {
-      ...activeProfile,
+      ...baseProfile,
       name: profileNameInput.value.trim(),
       title: profileTitleInput.value.trim(),
       email: profileEmailInput.value.trim(),
@@ -405,6 +537,9 @@
       experience_years: parseInt(profileYearsInput.value || "0", 10) || 0,
       preferred_roles: profileRolesInput.value.split(",").map(v => v.trim()).filter(Boolean),
       summary: profileSummaryInput.value.trim(),
+      languages_spoken: profileLanguagesInput.value.split(",").map(v => v.trim()).filter(Boolean),
+      education: splitTextareaItems(profileEducationInput.value),
+      certifications: splitTextareaItems(profileCertificationsInput.value),
     };
 
     if (!updatedProfile.name) {
@@ -414,7 +549,16 @@
     }
 
     if (!updatedProfile.skills) updatedProfile.skills = {};
+    if (!updatedProfile.sections || typeof updatedProfile.sections !== "object") updatedProfile.sections = {};
+    updatedProfile.sections.experience = splitTextareaItems(profileExperienceInput.value);
+    updatedProfile.sections.summary = updatedProfile.summary ? [updatedProfile.summary] : [];
+    updatedProfile.sections.education = [...updatedProfile.education];
+    updatedProfile.sections.certifications = [...updatedProfile.certifications];
+    updatedProfile.sections.languages_spoken = [...updatedProfile.languages_spoken];
     updatedProfile.all_skills_flat = flattenSkills(updatedProfile.skills);
+    updatedProfile.search_keywords = parseProfileKeywords(profileKeywordsInput.value, updatedProfile);
+    if (!updatedProfile.analysis_meta) updatedProfile.analysis_meta = {};
+    updatedProfile.analysis_meta.keyword_count = updatedProfile.search_keywords.length;
 
     activeProfile = updatedProfile;
     renderProfile(updatedProfile);
@@ -459,8 +603,11 @@
     if (!activeProfile.skills[cat]) return;
     activeProfile.skills[cat] = activeProfile.skills[cat].filter(s => s !== skill);
     activeProfile.all_skills_flat = flattenSkills(activeProfile.skills);
+    activeProfile.search_keywords = getProfileKeywordSuggestions(activeProfile);
+    activeProfile.analysis_meta = activeProfile.analysis_meta || {};
+    activeProfile.analysis_meta.keyword_count = activeProfile.search_keywords.length;
+    renderProfile(activeProfile);
     renderSkillsEditMode();
-    saveProfileToStorage(activeProfile);
     syncProfileToBackend();
     recalculateMatchScoresClientSide();
     showToast("info", "Habilidad eliminada", `"${skill}" removida del perfil.`);
@@ -468,6 +615,30 @@
 
   function flattenSkills(skillsObj) {
     return Object.values(skillsObj).flat();
+  }
+
+  function splitTextareaItems(value) {
+    return (value || "")
+      .split(/\n+/)
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  function parseProfileKeywords(value, profile) {
+    const rawItems = (value || "")
+      .split(/[\n,]+/)
+      .map(v => v.trim())
+      .filter(Boolean);
+    const combined = rawItems.length ? rawItems : getProfileKeywordSuggestions(profile);
+    return [...new Set(combined)];
+  }
+
+  function prettyProfileJson(profile) {
+    try {
+      return JSON.stringify(profile, null, 2);
+    } catch {
+      return "{}";
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -548,7 +719,9 @@
       if (json.status === "success") {
         renderProfile(json.data);
         const skills = json.data.all_skills_flat || [];
-        showToast("success", "CV procesado", `Se detectaron ${skills.length} habilidades. ¡Listo para buscar!`);
+        const analysisMeta = json.data.analysis_meta || {};
+        const sourceNote = analysisMeta.used_ocr ? " usando OCR local de Tesseract" : "";
+        showToast("success", "CV procesado", `Se detectaron ${skills.length} habilidades${sourceNote}. ¡Listo para buscar!`);
         localStorage.removeItem(STORAGE_OB);
       } else {
         showToast("error", "Error al procesar", json.message || "Intenta con otro archivo.");
@@ -617,7 +790,7 @@
 
   function handleLatexImageSelection(file) {
     if (!isSupportedLatexImage(file)) {
-      showToast("error", "Formato inválido", "Usa una imagen PNG, JPG/JPEG o WEBP.");
+      showToast("error", "Formato inválido", "Usa PDF, PNG, JPG/JPEG o WEBP.");
       return;
     }
 
@@ -630,8 +803,8 @@
   }
 
   function isSupportedLatexImage(file) {
-    const validTypes = ["image/png", "image/jpeg", "image/webp"];
-    return validTypes.includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
+    const validTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+    return validTypes.includes(file.type) || /\.(pdf|png|jpe?g|webp)$/i.test(file.name || "");
   }
 
   function setLatexProcessingState(isProcessing) {
@@ -649,7 +822,7 @@
     }
 
     setLatexProcessingState(true);
-    showToast("info", "Generando LaTeX", "Transcribiendo la página con OCR local de Tesseract...");
+    showToast("info", "Generando LaTeX", "Transcribiendo el documento con OCR local de Tesseract...");
 
     const formData = new FormData();
     formData.append("image", latexSourceFile);
@@ -686,7 +859,10 @@
     searchKeywords.addEventListener("input", () => { searchKeywords.dataset.autofilled = "0"; });
     searchLoc.addEventListener("input", () => { searchLoc.dataset.autofilled = "0"; });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target === searchKeywords) performSearch();
+      if (e.key === "Enter" && e.target === searchKeywords && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        performSearch();
+      }
     });
   }
 
@@ -1234,6 +1410,7 @@
   function showJobDetails(job) {
     currentModalJob = job;
     resetModalTabs();
+    resetDeepJobAnalysisUI(job);
 
     modalTitle.textContent   = job.title;
     modalCompany.textContent = job.company;
@@ -1266,6 +1443,7 @@
 
     // Populate ATS analysis tab
     populateATSAnalysis(job);
+    loadDeepJobAnalysis(job);
 
     // Generate cover letter
     generateCoverLetter(job, document.getElementById("cl-tone-select").value);
@@ -1289,7 +1467,8 @@
     const score = job.match_score || 0;
     const matched = job.matched_skills || [];
     const allSkills = activeProfile ? (activeProfile.all_skills_flat || []) : [];
-    const missing = allSkills.filter(s => !matched.map(m=>m.toLowerCase()).includes(s.toLowerCase())).slice(0, 10);
+    const deepMissing = job.deep_analysis?.missing_skills_deep || [];
+    const missing = (deepMissing.length ? deepMissing : allSkills.filter(s => !matched.map(m=>m.toLowerCase()).includes(s.toLowerCase()))).slice(0, 10);
 
     const breakdownEl = document.getElementById("ats-breakdown-bars");
     const missingEl   = document.getElementById("ats-missing-skills");
@@ -1299,9 +1478,9 @@
 
     // Breakdown bars
     const categories = [
-      { label: "Skills Técnicas", pct: Math.min(100, matched.length * 14), color: "var(--cyan)" },
+      { label: "Skills Técnicas", pct: Math.min(100, (job.deep_analysis?.signals?.matched_count || matched.length) * 14), color: "var(--cyan)" },
       { label: "Relevancia del Puesto", pct: score, color: "var(--indigo)" },
-      { label: "Cobertura de Perfil", pct: allSkills.length > 0 ? Math.round((matched.length / allSkills.length) * 100) : 0, color: "var(--green)" },
+      { label: "Cobertura de Perfil", pct: allSkills.length > 0 ? Math.round((((job.deep_analysis?.matched_skills_deep || matched).length) / allSkills.length) * 100) : 0, color: "var(--green)" },
     ];
 
     breakdownEl.innerHTML = "";
@@ -1337,13 +1516,118 @@
     }
 
     // Recommendation
-    if (score >= 75) {
-      recEl.textContent = `✅ Alta compatibilidad (${score}%). Tu perfil es sólido para este puesto. Se recomienda postularte de inmediato y personalizar tu carta de presentación resaltando: ${matched.slice(0,3).join(', ')}.`;
+    if (job.deep_analysis?.recommendation) {
+      recEl.textContent = job.deep_analysis.recommendation;
+    } else if (score >= 75) {
+      recEl.textContent = `Alta compatibilidad (${score}%). Tu perfil es sólido para este puesto. Se recomienda postularte de inmediato y personalizar tu carta de presentación resaltando: ${matched.slice(0,3).join(', ')}.`;
     } else if (score >= 50) {
-      recEl.textContent = `⚠️ Compatibilidad media (${score}%). Tienes varias habilidades requeridas. Refuerza tu carta destacando: ${matched.slice(0,3).join(', ')}. Considera adquirir: ${missing.slice(0,2).join(', ')}.`;
+      recEl.textContent = `Compatibilidad media (${score}%). Tienes varias habilidades requeridas. Refuerza tu carta destacando: ${matched.slice(0,3).join(', ')}. Considera adquirir: ${missing.slice(0,2).join(', ')}.`;
     } else {
-      recEl.textContent = `🔴 Compatibilidad baja (${score}%). Este puesto requiere habilidades fuera de tu perfil actual. Úsalo como referencia de desarrollo o aplica con énfasis en tu experiencia general.`;
+      recEl.textContent = `Compatibilidad baja (${score}%). Este puesto requiere habilidades fuera de tu perfil actual. Úsalo como referencia de desarrollo o aplica con énfasis en tu experiencia general.`;
     }
+
+    renderBadgeList(jobAnalysisDetectedSkills, job.deep_analysis?.detected_skills || [], "skill-tag");
+    renderAnalysisList(jobAnalysisRisks, job.deep_analysis?.risk_flags || []);
+  }
+
+  function resetDeepJobAnalysisUI(job) {
+    if (jobAnalysisStatus) {
+      jobAnalysisStatus.textContent = "Analizando...";
+      jobAnalysisStatus.className = "badge";
+    }
+    if (jobAnalysisSummary) jobAnalysisSummary.textContent = "Leyendo la descripción completa de la vacante y comparándola con tu perfil...";
+    if (jobAnalysisModality) jobAnalysisModality.textContent = formatModalityLabel(job.work_modality || "presencial");
+    if (jobAnalysisSeniority) jobAnalysisSeniority.textContent = (job.seniority || "general").toUpperCase();
+    if (jobAnalysisEmployment) jobAnalysisEmployment.textContent = "Cargando...";
+    if (jobAnalysisConfidence) jobAnalysisConfidence.textContent = "—";
+    renderAnalysisList(jobAnalysisRequirements, []);
+    renderAnalysisList(jobAnalysisBenefits, []);
+    renderBadgeList(jobAnalysisDetectedSkills, [], "skill-tag");
+    renderAnalysisList(jobAnalysisRisks, []);
+  }
+
+  async function loadDeepJobAnalysis(job) {
+    const requestToken = ++jobAnalysisRequestToken;
+    try {
+      const res = await fetch(`${API_URL}/api/job-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job })
+      });
+      const json = await res.json();
+      if (requestToken !== jobAnalysisRequestToken || currentModalJob?.id !== job.id) return;
+      if (!res.ok || json.status !== "success") {
+        throw new Error(json.message || "No se pudo analizar la vacante.");
+      }
+
+      job.deep_analysis = json.data;
+      const deep = json.data;
+
+      if (jobAnalysisStatus) {
+        jobAnalysisStatus.textContent = deep.fetch_status === "fetched" ? "Leído del portal" : "Parcial";
+        jobAnalysisStatus.className = `badge ${deep.fetch_status === "fetched" ? "match-badge-high" : "match-badge-medium"}`;
+      }
+      if (jobAnalysisSummary) jobAnalysisSummary.textContent = deep.summary || "Sin resumen adicional.";
+      if (jobAnalysisModality) jobAnalysisModality.textContent = formatModalityLabel(deep.work_modality_deep || job.work_modality || "presencial");
+      if (jobAnalysisSeniority) jobAnalysisSeniority.textContent = formatSeniorityLabel(deep.seniority_deep || job.seniority || "general");
+      if (jobAnalysisEmployment) jobAnalysisEmployment.textContent = deep.employment_type || "No especificado";
+      if (jobAnalysisConfidence) jobAnalysisConfidence.textContent = `${deep.confidence || 0}%`;
+      if (modalDescText && deep.deep_description) modalDescText.textContent = deep.deep_description;
+      if (modalLocation && deep.location_deep) modalLocation.textContent = `${deep.location_deep} · ${formatModalityLabel(deep.work_modality_deep || job.work_modality)}`;
+      if (modalSalary && deep.salary_deep) modalSalary.textContent = deep.salary_deep;
+
+      renderAnalysisList(jobAnalysisRequirements, deep.requirements || []);
+      renderAnalysisList(jobAnalysisBenefits, deep.benefits || []);
+      renderBadgeList(jobAnalysisDetectedSkills, deep.detected_skills || [], "skill-tag");
+      renderAnalysisList(jobAnalysisRisks, deep.risk_flags || []);
+      populateATSAnalysis(job);
+    } catch (error) {
+      if (requestToken !== jobAnalysisRequestToken || currentModalJob?.id !== job.id) return;
+      if (jobAnalysisStatus) {
+        jobAnalysisStatus.textContent = "Sin lectura completa";
+        jobAnalysisStatus.className = "badge match-badge-low";
+      }
+      if (jobAnalysisSummary) jobAnalysisSummary.textContent = "No fue posible leer todo el detalle del portal. Se mantiene el análisis base de la vacante.";
+      renderAnalysisList(jobAnalysisRisks, [error.message || "No se pudo enriquecer la vacante."]);
+      populateATSAnalysis(job);
+    }
+  }
+
+  function renderAnalysisList(container, items) {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!items || items.length === 0) {
+      container.innerHTML = `<span class="job-analysis-empty">Sin datos detectados todavía.</span>`;
+      return;
+    }
+    items.forEach(item => {
+      const row = document.createElement("div");
+      row.className = "job-analysis-list-item";
+      row.innerHTML = `<i class="fa-solid fa-angle-right"></i><span>${item}</span>`;
+      container.appendChild(row);
+    });
+  }
+
+  function renderBadgeList(container, items, className) {
+    if (!container) return;
+    container.innerHTML = "";
+    if (!items || items.length === 0) {
+      container.innerHTML = `<span class="job-analysis-empty">Sin datos detectados todavía.</span>`;
+      return;
+    }
+    items.forEach(item => {
+      const badge = document.createElement("span");
+      badge.className = className;
+      badge.textContent = item;
+      container.appendChild(badge);
+    });
+  }
+
+  function formatSeniorityLabel(value) {
+    if (value === "senior") return "Senior";
+    if (value === "junior") return "Junior";
+    if (value === "semi") return "Semi Senior";
+    return "General";
   }
 
   // Modal tabs

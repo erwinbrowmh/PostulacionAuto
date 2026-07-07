@@ -1,6 +1,7 @@
 import os
 import re
 import pypdf
+from backend.ocr_utils import extract_pdf_text_with_ocr, looks_like_low_quality_text
 
 # Extends glossary of tech skills for dynamic ATS parsing
 SKILLS_GLOSSARY = {
@@ -160,6 +161,15 @@ def parse_cv_text(text):
         "skills": skills,
         "all_skills_flat": all_skills_flat,
     }
+    profile["search_keywords"] = build_profile_keywords(profile)
+    profile["analysis_meta"] = {
+        "source": "text",
+        "native_chars": len(text.strip()),
+        "ocr_chars": 0,
+        "used_ocr": False,
+        "section_count": len(sections),
+        "keyword_count": len(profile["search_keywords"]),
+    }
     return profile
 
 
@@ -310,20 +320,92 @@ def extract_preferred_roles(lines, title):
             break
     return roles
 
+
+def build_profile_keywords(profile):
+    title_words = [
+        word.strip()
+        for word in re.split(r"[\s/|,•·\-]+", profile.get("title", ""))
+        if len(word.strip()) >= 4
+    ]
+    summary_words = [
+        word.strip(".,;:()[]{}")
+        for word in (profile.get("summary", "") or "").split()
+        if len(word.strip(".,;:()[]{}")) >= 5
+    ]
+    combined = (
+        profile.get("preferred_roles", [])
+        + profile.get("all_skills_flat", [])
+        + profile.get("languages_spoken", [])
+        + profile.get("certifications", [])
+        + profile.get("education", [])
+        + title_words
+        + summary_words
+    )
+
+    keywords = []
+    seen = set()
+    for item in combined:
+        clean = re.sub(r"\s+", " ", str(item or "")).strip()
+        if not clean:
+            continue
+        lowered = normalize_text(clean.lower())
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        keywords.append(clean)
+    return keywords
+
 def parse_cv(pdf_path):
     if not os.path.exists(pdf_path):
         return FALLBACK_PROFILE
         
     try:
         reader = pypdf.PdfReader(pdf_path)
-        text = ""
+        native_text = ""
         for page in reader.pages:
-            text += page.extract_text() or ""
-            
-        if not text.strip():
+            native_text += page.extract_text() or ""
+
+        native_text = native_text.strip()
+        ocr_text = ""
+        used_ocr = False
+        try:
+            ocr_text = extract_pdf_text_with_ocr(pdf_path, max_pages=4)
+            used_ocr = bool(ocr_text.strip())
+        except Exception as ocr_error:
+            print(f"Error in PDF OCR fallback: {ocr_error}")
+
+        if not native_text and not ocr_text:
             return FALLBACK_PROFILE
 
-        return parse_cv_text(text)
+        combined_text = native_text
+        if used_ocr and ocr_text:
+            if not native_text or looks_like_low_quality_text(native_text):
+                combined_text = ocr_text
+            else:
+                combined_text = f"{native_text}\n\n{ocr_text}".strip()
+
+        if not combined_text.strip():
+            fallback = dict(FALLBACK_PROFILE)
+            fallback["analysis_meta"] = {
+                "source": "fallback",
+                "native_chars": 0,
+                "ocr_chars": 0,
+                "used_ocr": False,
+                "section_count": 0,
+                "keyword_count": len(fallback.get("search_keywords", [])),
+            }
+            return fallback
+
+        profile = parse_cv_text(combined_text)
+        profile["analysis_meta"] = {
+            "source": "pdf",
+            "native_chars": len(native_text),
+            "ocr_chars": len(ocr_text),
+            "used_ocr": used_ocr,
+            "section_count": len(profile.get("sections", {})),
+            "keyword_count": len(profile.get("search_keywords", [])),
+        }
+        return profile
     except Exception as e:
         print(f"Error in dynamic parsing: {e}")
         return FALLBACK_PROFILE
@@ -344,6 +426,18 @@ FALLBACK_PROFILE = {
     "languages_spoken": ["Español", "English"],
     "preferred_roles": ["Full Stack Developer", "Ingeniero en Sistemas", "Especialista TI"],
     "sections": {},
+    "search_keywords": [
+        "Full Stack Developer", "Ingeniero en Sistemas", "PHP", "Java", "JavaScript",
+        "Flutter", "SQL", "REST APIs", "MySQL", "Git", "Linux Servers", "Ciberseguridad"
+    ],
+    "analysis_meta": {
+        "source": "fallback",
+        "native_chars": 0,
+        "ocr_chars": 0,
+        "used_ocr": False,
+        "section_count": 0,
+        "keyword_count": 12,
+    },
     "skills": {
         "languages": ["PHP", "Java", "JavaScript", "Flutter", "SQL", "HTML/CSS", "HTML", "CSS"],
         "backend": ["REST APIs", "Stripe API", "Clip Integration", "MySQL", "Git", "APIs"],

@@ -325,8 +325,11 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
 
     # ── Keyword resolution ───────────────────────────────────
     if not keywords:
+        suggested_keywords = profile.get("search_keywords", [])
         skills = profile.get("all_skills_flat", [])
-        if len(skills) >= 4:
+        if suggested_keywords:
+            keywords = suggested_keywords[:18]
+        elif len(skills) >= 4:
             keywords = skills[:4]
         elif skills:
             keywords = skills

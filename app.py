@@ -4,6 +4,7 @@ from flask_cors import CORS
 from backend.parser import parse_cv
 from backend.latex_generator import generate_latex_from_image, LatexGenerationError
 from backend.search_manager import search_jobs
+from backend.job_analyzer import analyze_job_detail
 from werkzeug.utils import secure_filename
 import json
 import csv
@@ -81,6 +82,8 @@ def upload_cv():
             # Parse the newly uploaded CV
             profile = parse_cv(filepath)
             CURRENT_PROFILE = profile
+            analysis_meta = profile.get("analysis_meta", {})
+            used_ocr = analysis_meta.get("used_ocr", False)
             
             # Clean up the file after parsing (optional, but good for keeping space clean)
             try:
@@ -90,7 +93,7 @@ def upload_cv():
                 
             return jsonify({
                 "status": "success",
-                "message": "CV subido y procesado exitosamente por ATS",
+                "message": "CV subido y procesado exitosamente por ATS con OCR local." if used_ocr else "CV subido y procesado exitosamente por ATS",
                 "data": profile
             })
         except Exception as e:
@@ -149,12 +152,7 @@ def search():
 def search_suggestions():
     """Returns keyword suggestions based on the active profile's top skills."""
     global CURRENT_PROFILE
-    skills = CURRENT_PROFILE.get("all_skills_flat", [])
-    title  = CURRENT_PROFILE.get("title", "")
-    preferred_roles = CURRENT_PROFILE.get("preferred_roles", [])
-    summary = CURRENT_PROFILE.get("summary", "")
-    summary_words = [w for w in summary.split() if len(w) >= 5][:4]
-    suggestions = list(dict.fromkeys(skills[:8] + preferred_roles[:3] + [w for w in title.split() if len(w) >= 3] + summary_words))[:12]
+    suggestions = CURRENT_PROFILE.get("search_keywords") or CURRENT_PROFILE.get("all_skills_flat", [])
     return jsonify({"status": "success", "suggestions": suggestions})
 
 @app.route('/api/export', methods=['POST'])
@@ -194,6 +192,31 @@ def export_jobs():
             mimetype="text/csv",
             headers={"Content-disposition": "attachment; filename=empleos_postulacion.csv"}
         )
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route('/api/job-analysis', methods=['POST'])
+def job_analysis():
+    global CURRENT_PROFILE
+    try:
+        data = request.json or {}
+        job = data.get('job')
+        if not isinstance(job, dict) or not job:
+            return jsonify({
+                "status": "error",
+                "message": "Debes enviar una vacante válida."
+            }), 400
+
+        analysis = analyze_job_detail(job, CURRENT_PROFILE)
+        return jsonify({
+            "status": "success",
+            "message": "Análisis profundo generado correctamente.",
+            "data": analysis
+        })
     except Exception as e:
         return jsonify({
             "status": "error",
