@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PostulacionAuto Hub — Motor de Búsqueda Inteligente</title>
-    <meta name="description" content="La plataforma más avanzada para encontrar el empleo que se adapta a tu perfil.">
+    <title>PostulacionAuto Hub</title>
+    <meta name="description" content="Motor de búsqueda inteligente de empleo con IA y análisis ATS">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- HEADER -->
+
+    <!-- ═══ HEADER ═══ -->
     <header class="header">
         <div class="header-inner">
             <div class="logo">
@@ -33,19 +34,19 @@
         </div>
     </header>
 
-    <!-- MAIN -->
+    <!-- ═══ MAIN ═══ -->
     <main class="main">
 
-        <!-- SEARCH PANEL -->
+        <!-- ═══ PANEL DE BÚSQUEDA ═══ -->
         <section class="search-panel">
             <div class="search-grid">
-                <!-- Keywords -->
+                <!-- Palabras Clave -->
                 <div class="search-field keywords-field">
                     <label><i class="fa-solid fa-keyboard"></i> Palabras Clave</label>
                     <textarea id="keywords" placeholder="Ej. PHP, Java, Flutter, Laravel">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
                 </div>
 
-                <!-- Modality -->
+                <!-- Modalidad -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-laptop-house"></i> Modalidad</label>
                     <select id="modality">
@@ -55,13 +56,13 @@
                     </select>
                 </div>
 
-                <!-- Location -->
+                <!-- Ubicación -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-location-dot"></i> Ubicación</label>
                     <input type="text" id="location" value="México" placeholder="Ciudad, país">
                 </div>
 
-                <!-- Max Results -->
+                <!-- Resultados -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-list"></i> Resultados</label>
                     <div class="range-wrapper">
@@ -70,7 +71,7 @@
                     </div>
                 </div>
 
-                <!-- Search Button -->
+                <!-- Buscar -->
                 <div class="search-field search-btn-wrap">
                     <button id="search-btn" class="btn-primary">
                         <span class="btn-text"><i class="fa-solid fa-magnifying-glass"></i> Buscar</span>
@@ -79,7 +80,7 @@
                 </div>
             </div>
 
-            <!-- Filters Row -->
+            <!-- Filtros -->
             <div class="filters-row">
                 <div class="filter-group">
                     <label><i class="fa-solid fa-bullseye"></i> Match Mín:</label>
@@ -135,13 +136,13 @@
             </div>
         </section>
 
-        <!-- BODY: Sidebar + Results -->
+        <!-- ═══ BODY LAYOUT ═══ -->
         <div class="body-layout">
 
-            <!-- SIDEBAR -->
+            <!-- ═══ SIDEBAR: MI PERFIL ═══ -->
             <aside class="sidebar">
 
-                <!-- Profile Card -->
+                <!-- Perfil -->
                 <div class="profile-card">
                     <div class="profile-header">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
@@ -154,31 +155,7 @@
                         </button>
                     </div>
 
-                    <!-- Edit Form -->
-                    <div id="edit-form" class="edit-form hidden">
-                        <div class="form-grid">
-                            <input type="text" id="edit-name" placeholder="Nombre" class="input-sm">
-                            <input type="text" id="edit-title" placeholder="Título" class="input-sm">
-                            <input type="email" id="edit-email" placeholder="Email" class="input-sm">
-                            <input type="text" id="edit-phone" placeholder="Teléfono" class="input-sm">
-                            <input type="text" id="edit-location" placeholder="Ubicación" class="input-sm">
-                            <input type="text" id="edit-linkedin" placeholder="LinkedIn" class="input-sm">
-                            <input type="text" id="edit-github" placeholder="GitHub" class="input-sm">
-                            <input type="number" id="edit-years" placeholder="Años de exp." class="input-sm" min="0" max="50">
-                            <input type="text" id="edit-roles" placeholder="Roles objetivo (ej. Full Stack, DevOps)" class="input-sm full">
-                            <textarea id="edit-summary" placeholder="Resumen profesional" class="input-sm full"></textarea>
-                            <textarea id="edit-experience" placeholder="Experiencia (una línea por experiencia)" class="input-sm full"></textarea>
-                            <input type="text" id="edit-languages" placeholder="Idiomas (ej. Español, Inglés)" class="input-sm full">
-                            <textarea id="edit-education" placeholder="Educación (una línea por título)" class="input-sm full"></textarea>
-                            <textarea id="edit-certifications" placeholder="Certificaciones" class="input-sm full"></textarea>
-                        </div>
-                        <div class="edit-actions">
-                            <button id="edit-cancel" class="btn-ghost btn-sm">Cancelar</button>
-                            <button id="edit-save" class="btn-primary btn-sm">Guardar</button>
-                        </div>
-                    </div>
-
-                    <!-- Metrics -->
+                    <!-- Métricas -->
                     <div class="profile-metrics">
                         <div class="metric"><span>Experiencia</span><strong id="profile-years">0 años</strong></div>
                         <div class="metric"><span>Keywords</span><strong id="profile-keywords">0</strong></div>
@@ -197,28 +174,7 @@
                         <input type="file" id="cv-input" accept=".pdf" style="display:none;">
                     </div>
 
-                    <!-- LaTeX -->
-                    <div class="latex-section">
-                        <h4>Generar CV LaTeX</h4>
-                        <div class="upload-zone small" id="latex-zone">
-                            <i class="fa-solid fa-file-code"></i>
-                            <span>Sube imagen o PDF</span>
-                            <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
-                        </div>
-                        <div class="latex-actions">
-                            <span id="latex-filename">Sin imagen</span>
-                            <button id="latex-generate" class="btn-primary btn-sm">Generar</button>
-                        </div>
-                        <div id="latex-output" class="latex-output hidden">
-                            <textarea id="latex-text" readonly></textarea>
-                            <div class="latex-buttons">
-                                <button id="latex-copy" class="btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copiar</button>
-                                <button id="latex-download" class="btn-ghost btn-sm"><i class="fa-solid fa-download"></i> Descargar</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Details -->
+                    <!-- Detalles -->
                     <div class="profile-details">
                         <div><i class="fa-solid fa-envelope"></i> <span id="detail-email">—</span></div>
                         <div><i class="fa-solid fa-phone"></i> <span id="detail-phone">—</span></div>
@@ -230,7 +186,7 @@
                         <a id="link-github" href="#" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
                     </div>
 
-                    <!-- Structured Data -->
+                    <!-- Datos estructurados -->
                     <div class="structured-data">
                         <div class="data-block"><h4>Roles Objetivo</h4><div id="roles-list" class="chip-list"></div></div>
                         <div class="data-block"><h4>Idiomas</h4><div id="languages-list" class="chip-list"></div></div>
@@ -240,7 +196,7 @@
                         <div class="data-block full"><h4>Keywords</h4><div id="keywords-list" class="chip-list"></div></div>
                     </div>
 
-                    <!-- Skills -->
+                    <!-- Habilidades -->
                     <div class="skills-section">
                         <div class="skills-header">
                             <h4>Habilidades</h4>
@@ -264,9 +220,30 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- LaTeX -->
+                    <div class="latex-section">
+                        <h4>Generar CV LaTeX</h4>
+                        <div class="upload-zone small" id="latex-zone">
+                            <i class="fa-solid fa-file-code"></i>
+                            <span>Sube imagen o PDF</span>
+                            <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
+                        </div>
+                        <div class="latex-actions">
+                            <span id="latex-filename">Sin imagen</span>
+                            <button id="latex-generate" class="btn-primary btn-sm">Generar</button>
+                        </div>
+                        <div id="latex-output" class="latex-output hidden">
+                            <textarea id="latex-text" readonly></textarea>
+                            <div class="latex-buttons">
+                                <button id="latex-copy" class="btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copiar</button>
+                                <button id="latex-download" class="btn-ghost btn-sm"><i class="fa-solid fa-download"></i> Descargar</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Stats Card -->
+                <!-- Stats -->
                 <div class="stats-card hidden" id="stats-card">
                     <h4><i class="fa-solid fa-chart-pie"></i> Resumen</h4>
                     <div class="stats-grid">
@@ -280,7 +257,7 @@
 
             </aside>
 
-            <!-- RESULTS -->
+            <!-- ═══ RESULTS ═══ -->
             <section class="results">
 
                 <div class="results-header">
@@ -317,7 +294,7 @@
         </div>
     </main>
 
-    <!-- MODAL -->
+    <!-- ═══ MODAL ═══ -->
     <div id="job-modal" class="modal hidden">
         <div class="modal-content">
             <button id="modal-close" class="modal-close">&times;</button>
@@ -384,7 +361,7 @@
         </div>
     </div>
 
-    <!-- TOASTS -->
+    <!-- ═══ TOASTS ═══ -->
     <div id="toasts" class="toast-container"></div>
 
     <script src="js/main.js"></script>

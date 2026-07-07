@@ -1,6 +1,6 @@
 /**
- * PostulacionAuto Hub v2.0
- * Main Controller - Optimizado y Funcional
+ * PostulacionAuto Hub v2.0 - Main Controller
+ * Arquitectura limpia con separación de perfiles y búsqueda
  */
 
 (function () {
@@ -11,8 +11,7 @@
     const STORAGE = {
         PROFILE: 'pah_profile_v2',
         SAVED: 'pah_saved_jobs',
-        DISCARDED: 'pah_discarded_jobs',
-        ONBOARDING: 'pah_onboarding_done'
+        DISCARDED: 'pah_discarded_jobs'
     };
 
     // ─── STATE ──────────────────────────────────────────────────
@@ -36,6 +35,7 @@
     const dom = {};
 
     function cacheDom() {
+        // Search
         dom.search = {
             btn: $('#search-btn'),
             keywords: $('#keywords'),
@@ -50,6 +50,7 @@
             export: $('#export-btn')
         };
 
+        // Filters
         dom.filters = {
             score: $('#min-score'),
             scoreVal: $('#score-value'),
@@ -61,6 +62,7 @@
             chips: $$('.chip')
         };
 
+        // Profile
         dom.profile = {
             name: $('#profile-name'),
             title: $('#profile-title'),
@@ -83,6 +85,7 @@
             skills: $('#skills-container')
         };
 
+        // Edit Profile
         dom.edit = {
             form: $('#edit-form'),
             btn: $('#edit-profile-btn'),
@@ -104,6 +107,7 @@
             certs: $('#edit-certifications')
         };
 
+        // Skills
         dom.skills = {
             container: $('#skills-container'),
             btn: $('#edit-skills-btn'),
@@ -113,6 +117,7 @@
             cat: $('#skill-category')
         };
 
+        // Upload
         dom.upload = {
             cv: $('#cv-zone'),
             cvInput: $('#cv-input'),
@@ -126,6 +131,7 @@
             latexDownload: $('#latex-download')
         };
 
+        // Stats
         dom.stats = {
             card: $('#stats-card'),
             total: $('#stat-total'),
@@ -135,11 +141,13 @@
             dist: $('#distributions')
         };
 
+        // Metrics
         dom.metrics = {
             count: $('#header-count'),
             saved: $('#header-saved')
         };
 
+        // Modal
         dom.modal = {
             el: $('#job-modal'),
             close: $('#modal-close'),
@@ -623,7 +631,6 @@
                 const meta = json.data.analysis_meta || {};
                 const note = meta.used_ocr ? ' usando OCR' : '';
                 toast('success', 'CV procesado', `${json.data.all_skills_flat?.length || 0} habilidades detectadas${note}.`);
-                setStore(STORAGE.ONBOARDING, '1');
             } else {
                 toast('error', 'Error', json.message || 'Intenta con otro archivo.');
             }
@@ -862,7 +869,7 @@
         dom.stats.card.classList.add('hidden');
         dom.search.export.classList.add('hidden');
         dom.search.loader.classList.remove('hidden');
-        dom.search.summary.innerHTML = 'Buscando vacantes con motor ATS v2...';
+        dom.search.summary.innerHTML = 'Buscando vacantes...';
 
         showSkeletons(6);
         dom.search.container.classList.remove('hidden');
@@ -884,7 +891,7 @@
             dom.search.btn.querySelector('.btn-text').classList.remove('hidden');
             dom.search.btn.querySelector('.btn-spinner').classList.add('hidden');
 
-            if (json.status === 'success' && json.data.length) {
+            if (json.status === 'success' && json.data && json.data.length) {
                 state.jobs = json.data;
                 dom.search.export.classList.remove('hidden');
                 dom.stats.card.classList.remove('hidden');
@@ -898,26 +905,118 @@
                 dom.search.container.classList.add('hidden');
                 dom.search.summary.innerHTML = 'No se encontraron vacantes.';
                 dom.search.empty.querySelector('h3').textContent = 'Sin resultados';
-                dom.search.empty.querySelector('p').textContent = 'Prueba con otras palabras clave.';
+                dom.search.empty.querySelector('p').textContent = 'Prueba con otras palabras clave o ubicación.';
                 dom.search.empty.classList.remove('hidden');
                 toast('warning', 'Sin resultados', 'Intenta ampliar las palabras clave.');
             }
-        } catch {
+        } catch (err) {
+            console.error('Search error:', err);
             stopLoader();
             dom.search.loader.classList.add('hidden');
             dom.search.btn.disabled = false;
             dom.search.btn.querySelector('.btn-text').classList.remove('hidden');
             dom.search.btn.querySelector('.btn-spinner').classList.add('hidden');
-            dom.search.container.innerHTML = '';
-            dom.search.container.classList.add('hidden');
-            dom.search.summary.textContent = 'Error de conexión.';
-            dom.search.empty.querySelector('h3').textContent = 'Error de Conexión';
-            dom.search.empty.querySelector('p').textContent = '¿El servidor Flask está activo?';
-            dom.search.empty.classList.remove('hidden');
-            toast('error', 'Error de conexión', '¿El servidor Flask está encendido?');
+
+            // Mostrar datos de respaldo si la API falla
+            const fallbackJobs = getFallbackJobs(keywords || 'desarrollador', location, modality);
+            if (fallbackJobs.length) {
+                state.jobs = fallbackJobs;
+                dom.search.export.classList.remove('hidden');
+                dom.stats.card.classList.remove('hidden');
+                resetFilters();
+                applyFilters();
+                toast('info', 'Datos de respaldo', 'Usando vacantes de muestra (sin conexión).');
+                updateMetrics();
+            } else {
+                dom.search.container.innerHTML = '';
+                dom.search.container.classList.add('hidden');
+                dom.search.summary.textContent = 'Error de conexión.';
+                dom.search.empty.querySelector('h3').textContent = 'Error de Conexión';
+                dom.search.empty.querySelector('p').textContent = '¿El servidor Flask está activo?';
+                dom.search.empty.classList.remove('hidden');
+                toast('error', 'Error de conexión', '¿El servidor Flask está encendido?');
+            }
         } finally {
             state.searching = false;
         }
+    }
+
+    // ─── FALLBACK JOBS ──────────────────────────────────────────
+    function getFallbackJobs(keyword, location, modality) {
+        const jobs = [];
+        const kw = keyword || 'desarrollador';
+        const loc = location || 'México';
+        const mod = modality || 'remoto';
+
+        const templates = [
+            {
+                title: `Senior ${kw.charAt(0).toUpperCase() + kw.slice(1)} Developer (Full Stack)`,
+                company: 'BairesDev',
+                location: mod === 'remoto' ? 'Remoto (México)' : loc,
+                salary: '$45,000 - $65,000 MXN',
+                date: 'Hace 2 días',
+                link: 'https://mx.linkedin.com/jobs/',
+                source: 'LinkedIn',
+                description: `Buscamos un Ingeniero de Software para unirse a nuestro equipo. Requisitos: experiencia en ${kw}, APIs RESTful, SQL y Git. Trabajo 100% remoto con excelentes beneficios.`,
+                applicants: '45 postulantes',
+                work_modality: mod
+            },
+            {
+                title: `Desarrollador ${kw.charAt(0).toUpperCase() + kw.slice(1)} Jr — ${loc}`,
+                company: 'Tech Solutions',
+                location: loc,
+                salary: '$18,000 - $22,000 MXN',
+                date: 'Ayer',
+                link: 'https://www.computrabajo.com.mx/',
+                source: 'Computrabajo',
+                description: `Se solicita desarrollador junior. Conocimientos de ${kw}, HTML, CSS, JavaScript y Git.`,
+                applicants: '12 postulantes',
+                work_modality: 'presencial'
+            },
+            {
+                title: `Software Engineer Lead (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
+                company: 'Softtek México',
+                location: mod === 'remoto' ? 'Remoto (Monterrey)' : loc,
+                salary: '$55,000 MXN',
+                date: 'Hace 5 días',
+                link: 'https://www.occ.com.mx/',
+                source: 'OCC Mundial',
+                description: `Liderar el diseño e implementación de sistemas empresariales. Requisitos: ${kw}, Docker, AWS, microservicios, Scrum.`,
+                applicants: '8 postulantes',
+                work_modality: mod
+            },
+            {
+                title: `Full Stack Developer (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
+                company: 'Niuro LatAm',
+                location: 'Remoto (LatAm)',
+                salary: '$2,500 - $3,500 USD',
+                date: 'Hace 1 semana',
+                link: 'https://www.getonbrd.com/',
+                source: 'Get on Board',
+                description: `Join our dynamic team building next-generation fintech solutions. Stack: ${kw}, React, PostgreSQL, Docker, AWS.`,
+                applicants: '19 postulantes',
+                work_modality: 'remoto'
+            }
+        ];
+
+        // Filter by modality
+        const filtered = templates.filter(j => {
+            if (mod === 'remoto') return j.work_modality === 'remoto';
+            if (mod === 'presencial') return j.work_modality === 'presencial';
+            return true;
+        });
+
+        // Add match scores
+        filtered.forEach((job, i) => {
+            const baseScore = 85 - (i * 12);
+            job.match_score = Math.max(baseScore, 55);
+            job.matched_skills = [kw, 'Git', 'SQL', 'REST APIs'].slice(0, 3);
+            job.id = `fallback_${i}`;
+            job.seniority = i === 0 ? 'senior' : i === 1 ? 'junior' : 'semi';
+            if (!job.work_modality) job.work_modality = mod;
+        });
+
+        return filtered;
     }
 
     // ─── FILTERS ──────────────────────────────────────────────────
@@ -1742,50 +1841,6 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         }
     }
 
-    // ─── ONBOARDING ─────────────────────────────────────────────
-    function initOnboarding() {
-        const done = getStore(STORAGE.ONBOARDING);
-        if (done) return;
-
-        const modal = document.getElementById('onboarding-modal');
-        modal.classList.add('visible');
-
-        const steps = [
-            document.getElementById('ob-step-1'),
-            document.getElementById('ob-step-2'),
-            document.getElementById('ob-step-3')
-        ];
-        const dots = document.querySelectorAll('.onboarding-step-dot');
-        let current = 0;
-
-        const goTo = (n) => {
-            steps.forEach((s, i) => s?.classList.toggle('hidden', i !== n));
-            dots.forEach((d, i) => d?.classList.toggle('active', i === n));
-            current = n;
-        };
-
-        document.getElementById('ob-next-btn')?.addEventListener('click', () => goTo(1));
-        document.getElementById('ob-next-btn-2')?.addEventListener('click', () => goTo(2));
-        document.getElementById('ob-back-btn')?.addEventListener('click', () => goTo(0));
-
-        document.getElementById('ob-skip-btn')?.addEventListener('click', () => {
-            setStore(STORAGE.ONBOARDING, '1');
-            modal.classList.remove('visible');
-        });
-
-        document.getElementById('ob-finish-btn')?.addEventListener('click', () => {
-            setStore(STORAGE.ONBOARDING, '1');
-            modal.classList.remove('visible');
-            const mod = document.getElementById('ob-modality')?.value;
-            if (mod) dom.search.modality.value = mod;
-            const sal = document.getElementById('ob-salary')?.value;
-            if (sal) dom.filters.salary.value = sal;
-            setTimeout(() => dom.search.btn.click(), 300);
-        });
-
-        document.getElementById('ob-upload-zone')?.addEventListener('click', () => dom.upload.cvInput.click());
-    }
-
     // ─── INIT ────────────────────────────────────────────────────
     function init() {
         cacheDom();
@@ -1803,7 +1858,6 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         initSkillsEditor();
         initModalTabs();
         initModalClose();
-        initOnboarding();
 
         console.log('🚀 PostulacionAuto Hub v2.0 cargado');
     }

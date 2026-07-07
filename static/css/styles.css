@@ -1,11 +1,6 @@
-/* ─── RESET ─────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/* ═══════════════════════════════════════════════════════════════
+   PostulacionAuto Hub — Styles
+   ═══════════════════════════════════════════════════════════════ */
 
 :root {
     --bg-primary: #080c14;
@@ -29,6 +24,15 @@
     --transition: all 0.25s ease;
 }
 
+/* ─── Reset ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     background: var(--bg-primary);
     color: var(--text-primary);
@@ -38,7 +42,6 @@ body {
     min-height: 100vh;
 }
 
-/* ─── SCROLLBAR ──────────────────────────────────────────────── */
 ::-webkit-scrollbar {
     width: 4px;
 }
@@ -50,24 +53,8 @@ body {
     border-radius: 2px;
 }
 
-/* ─── UTILITIES ─────────────────────────────────────────────── */
 .hidden {
     display: none !important;
-}
-.mr-5 {
-    margin-right: 0.3rem;
-}
-.text-cyan {
-    color: var(--cyan);
-}
-.text-green {
-    color: var(--green);
-}
-.text-rose {
-    color: var(--rose);
-}
-.text-amber {
-    color: var(--amber);
 }
 
 /* ─── HEADER ────────────────────────────────────────────────── */
@@ -161,7 +148,7 @@ body {
     font-weight: 600;
 }
 
-/* ─── MAIN LAYOUT ───────────────────────────────────────────── */
+/* ─── MAIN ──────────────────────────────────────────────────── */
 .main {
     max-width: 1440px;
     margin: 0 auto;
@@ -234,11 +221,6 @@ body {
     cursor: pointer;
 }
 
-.search-field select option {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-}
-
 .keywords-field {
     grid-column: 1 / 2;
 }
@@ -252,7 +234,7 @@ body {
     padding: 0 1.5rem;
 }
 
-/* ─── RANGE SLIDER ───────────────────────────────────────────── */
+/* ─── RANGE ──────────────────────────────────────────────────── */
 .range-wrapper {
     display: flex;
     align-items: center;
@@ -296,7 +278,7 @@ body {
     text-align: center;
 }
 
-/* ─── FILTERS ROW ────────────────────────────────────────────── */
+/* ─── FILTERS ────────────────────────────────────────────────── */
 .filters-row {
     display: flex;
     gap: 1.5rem;
@@ -334,6 +316,7 @@ body {
     outline: none;
     transition: var(--transition);
     height: 36px;
+    width: 100%;
 }
 
 .filter-group input:focus,
@@ -369,7 +352,7 @@ body {
     height: 36px;
 }
 
-/* ─── CHIPS ───────────────────────────────────────────────────── */
+/* ─── CHIPS ──────────────────────────────────────────────────── */
 .chips-row {
     display: flex;
     gap: 1.5rem;
@@ -488,10 +471,6 @@ body {
     box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
 }
 
-.btn-primary:active {
-    transform: translateY(0);
-}
-
 .btn-primary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -525,12 +504,7 @@ body {
     font-size: 0.75rem;
 }
 
-.btn-spinner {
-    display: inline-flex;
-    align-items: center;
-}
-
-/* ─── BADGES ─────────────────────────────────────────────────── */
+/* ─── BADGES ────────────────────────────────────────────────── */
 .badge {
     display: inline-flex;
     align-items: center;
@@ -594,7 +568,7 @@ body {
     padding-right: 4px;
 }
 
-/* ─── PROFILE CARD ───────────────────────────────────────────── */
+/* ─── PROFILE CARD ──────────────────────────────────────────── */
 .profile-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -657,54 +631,7 @@ body {
     background: rgba(34, 211, 238, 0.05);
 }
 
-/* ─── EDIT FORM ──────────────────────────────────────────────── */
-.edit-form {
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.input-sm {
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 0.4rem 0.6rem;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    outline: none;
-    transition: var(--transition);
-    font-family: 'Inter', sans-serif;
-    width: 100%;
-}
-
-.input-sm:focus {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
-}
-
-.input-sm.full {
-    grid-column: 1 / -1;
-}
-
-textarea.input-sm {
-    resize: vertical;
-    min-height: 60px;
-}
-
-.edit-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-/* ─── PROFILE METRICS ────────────────────────────────────────── */
+/* ─── PROFILE METRICS ───────────────────────────────────────── */
 .profile-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -745,7 +672,7 @@ textarea.input-sm {
     margin-bottom: 0.75rem;
 }
 
-/* ─── UPLOAD ZONE ────────────────────────────────────────────── */
+/* ─── UPLOAD ZONE ───────────────────────────────────────────── */
 .upload-zone {
     border: 1.5px dashed var(--border);
     border-radius: var(--radius-sm);
@@ -782,70 +709,7 @@ textarea.input-sm {
     margin-bottom: 0.5rem;
 }
 
-.upload-zone.processing {
-    border-style: solid;
-    border-color: var(--indigo);
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-/* ─── LATEX ───────────────────────────────────────────────────── */
-.latex-section {
-    margin-bottom: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-}
-
-.latex-section h4 {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-}
-
-.latex-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.latex-actions span {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.latex-output {
-    margin-top: 0.5rem;
-}
-
-.latex-output textarea {
-    width: 100%;
-    min-height: 150px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 0.5rem;
-    color: var(--text-primary);
-    font-size: 0.7rem;
-    font-family: monospace;
-    resize: vertical;
-    outline: none;
-}
-
-.latex-buttons {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.3rem;
-    justify-content: flex-end;
-}
-
-/* ─── PROFILE DETAILS ────────────────────────────────────────── */
+/* ─── PROFILE DETAILS ───────────────────────────────────────── */
 .profile-details {
     display: grid;
     gap: 0.3rem;
@@ -897,7 +761,7 @@ textarea.input-sm {
     background: rgba(34, 211, 238, 0.05);
 }
 
-/* ─── STRUCTURED DATA ────────────────────────────────────────── */
+/* ─── STRUCTURED DATA ───────────────────────────────────────── */
 .structured-data {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -969,7 +833,7 @@ textarea.input-sm {
     color: var(--text-dim);
 }
 
-/* ─── SKILLS ──────────────────────────────────────────────────── */
+/* ─── SKILLS ────────────────────────────────────────────────── */
 .skills-section {
     border-top: 1px solid var(--border);
     padding-top: 0.75rem;
@@ -1085,7 +949,63 @@ textarea.input-sm {
     border-color: var(--cyan);
 }
 
-/* ─── STATS CARD ─────────────────────────────────────────────── */
+/* ─── LATEX ──────────────────────────────────────────────────── */
+.latex-section {
+    margin-bottom: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+
+.latex-section h4 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.latex-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.latex-actions span {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.latex-output {
+    margin-top: 0.5rem;
+}
+
+.latex-output textarea {
+    width: 100%;
+    min-height: 150px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    font-family: monospace;
+    resize: vertical;
+    outline: none;
+}
+
+.latex-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+    justify-content: flex-end;
+}
+
+/* ─── STATS CARD ────────────────────────────────────────────── */
 .stats-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -1221,14 +1141,14 @@ textarea.input-sm {
     color: var(--text-primary);
 }
 
-/* ─── JOBS GRID ───────────────────────────────────────────────── */
+/* ─── JOBS GRID ─────────────────────────────────────────────── */
 .jobs-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 1rem;
 }
 
-/* ─── JOB CARD ────────────────────────────────────────────────── */
+/* ─── JOB CARD ───────────────────────────────────────────────── */
 .job-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -1630,11 +1550,6 @@ textarea.input-sm {
     font-size: 0.7rem;
 }
 
-.modal-meta div:last-child .modal-meta div:last-child span {
-    font-weight: 800;
-    color: var(--cyan);
-}
-
 .modal-skills {
     background: rgba(52, 211, 153, 0.05);
     border: 1px solid rgba(52, 211, 153, 0.15);
@@ -1760,6 +1675,7 @@ textarea.input-sm {
     margin-bottom: 0.3rem;
 }
 
+/* ─── ATS ────────────────────────────────────────────────────── */
 .ats-breakdown {
     display: flex;
     flex-direction: column;
@@ -1845,7 +1761,7 @@ textarea.input-sm {
     line-height: 1.6;
 }
 
-/* ─── PLAN DE ACCIÓN ─────────────────────────────────────────── */
+/* ─── PLAN ───────────────────────────────────────────────────── */
 #plan-gaps {
     margin-bottom: 0.75rem;
 }
@@ -1931,7 +1847,7 @@ textarea.input-sm {
     margin-top: 0.15rem;
 }
 
-/* ─── CARTA DE PRESENTACIÓN ──────────────────────────────────── */
+/* ─── LETTER ────────────────────────────────────────────────── */
 .letter-controls {
     display: flex;
     align-items: center;
@@ -1996,7 +1912,7 @@ textarea.input-sm {
     border-top: 1px solid var(--border);
 }
 
-/* ─── TOASTS ──────────────────────────────────────────────────── */
+/* ─── TOASTS ────────────────────────────────────────────────── */
 .toast-container {
     position: fixed;
     bottom: 1.5rem;
@@ -2091,7 +2007,7 @@ textarea.input-sm {
     color: var(--text-muted);
 }
 
-/* ─── SKELETON ────────────────────────────────────────────────── */
+/* ─── SKELETON ───────────────────────────────────────────────── */
 .skeleton {
     background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 75%);
     background-size: 200% 100%;
@@ -2118,8 +2034,7 @@ textarea.input-sm {
     gap: 0.5rem;
 }
 
-/* ─── RESPONSIVE ─────────────────────────────────────────────── */
-
+/* ─── RESPONSIVE ────────────────────────────────────────────── */
 @media (max-width: 1200px) {
     .body-layout {
         grid-template-columns: 300px 1fr;
