@@ -1,99 +1,100 @@
 import os
 import re
-import tempfile
+import requests
+import base64
 from pathlib import Path
-
-import pypdf
-
-from backend.ocr_utils import (
-    OCRError,
-    extract_pdf_text_with_ocr,
-    looks_like_low_quality_text,
-    normalize_ocr_text,
-    ocr_image_bytes,
-)
-
-MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024
-ALLOWED_INPUT_TYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
-
 
 class LatexGenerationError(RuntimeError):
     """Represents a recoverable generation error during OCR or LaTeX building."""
 
 
 def generate_latex_from_image(image_bytes: bytes, mime_type: str, filename: str = "") -> str:
+    """Genera LaTeX a partir de una imagen usando OCR.space API."""
     if not image_bytes:
         raise ValueError("El archivo está vacío.")
 
-    if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
-        raise ValueError("La imagen excede el tamaño máximo permitido de 15 MB.")
-
-    normalized_name = (filename or "").lower()
-    normalized_mime = (mime_type or "").lower()
-    is_pdf = normalized_mime == "application/pdf" or normalized_name.endswith(".pdf")
-
-    if normalized_mime not in ALLOWED_INPUT_TYPES and not is_pdf:
-        raise ValueError("Formato no soportado. Usa PDF, PNG, JPG/JPEG o WEBP.")
-
-    raw_text = _extract_source_text(
-        file_bytes=image_bytes,
-        filename=filename,
-        is_pdf=is_pdf,
-    )
-    if not raw_text.strip():
+    # Extraer texto usando OCR.space
+    raw_text = _extract_text_with_ocr_space(image_bytes, filename)
+    
+    if not raw_text or not raw_text.strip():
         raise LatexGenerationError("No se pudo extraer texto útil del archivo.")
 
     return _build_latex_document(raw_text, filename=filename)
 
 
-def _extract_source_text(
-    file_bytes: bytes,
-    filename: str,
-    is_pdf: bool,
-) -> str:
-    if is_pdf:
-        return _extract_pdf_text(file_bytes, filename)
-
+def _extract_text_with_ocr_space(image_bytes: bytes, filename: str = "") -> str:
+    """Usa la API de OCR.space para extraer texto."""
+    
+    # Configuración de OCR.space
+    API_KEY = os.getenv("OCR_SPACE_API_KEY", "K87490647888957")  # API Key gratuita
+    API_URL = "https://api.ocr.space/parse/image"
+    
+    # Preparar la imagen en base64
+    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+    
+    # Determinar el tipo de archivo
+    if filename.lower().endswith('.pdf'):
+        filetype = 'pdf'
+    else:
+        filetype = 'png'  # o jpg, dependiendo
+    
+    # Parámetros de la solicitud
+    payload = {
+        'apikey': API_KEY,
+        'base64Image': f'data:image/{filetype};base64,{image_base64}',
+        'language': 'spa',
+        'OCREngine': 2,  # 1 = OCR Engine 1, 2 = OCR Engine 2 (más preciso)
+        'scale': True,
+        'isTable': False,
+        'detectOrientation': True,
+    }
+    
     try:
-        return ocr_image_bytes(file_bytes, filename=filename or "page.png", languages="spa+eng", psm=1)
-    except OCRError as exc:
-        raise LatexGenerationError(str(exc)) from exc
+        response = requests.post(API_URL, data=payload, timeout=60)
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        if result.get('OCRExitCode') != 1:
+            error_msg = result.get('ErrorMessage', 'Error desconocido en OCR.space')
+            raise LatexGenerationError(f"OCR.space error: {error_msg}")
+        
+        # Extraer el texto de todas las páginas
+        text_parts = []
+        for page in result.get('ParsedResults', []):
+            if page.get('ParsedText'):
+                text_parts.append(page['ParsedText'])
+        
+        full_text = "\n\n".join(text_parts)
+        
+        # Limpiar el texto
+        full_text = _normalize_text(full_text)
+        
+        if not full_text.strip():
+            raise LatexGenerationError("No se detectó texto en la imagen.")
+        
+        return full_text
+        
+    except requests.exceptions.Timeout:
+        raise LatexGenerationError("Tiempo de espera agotado al conectar con OCR.space.")
+    except requests.exceptions.RequestException as e:
+        raise LatexGenerationError(f"Error de conexión con OCR.space: {str(e)}")
+    except Exception as e:
+        raise LatexGenerationError(f"Error en OCR.space: {str(e)}")
 
 
-def _extract_pdf_text(file_bytes: bytes, filename: str) -> str:
-    suffix = Path(filename).suffix or ".pdf"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_pdf:
-        tmp_pdf.write(file_bytes)
-        temp_pdf_path = Path(tmp_pdf.name)
-
-    try:
-        native_text = ""
-        try:
-            reader = pypdf.PdfReader(str(temp_pdf_path))
-            for page in reader.pages[:4]:
-                native_text += (page.extract_text() or "") + "\n"
-        except Exception:
-            native_text = ""
-
-        try:
-            ocr_text = extract_pdf_text_with_ocr(temp_pdf_path, max_pages=4)
-        except OCRError as exc:
-            raise LatexGenerationError(str(exc)) from exc
-
-        if not native_text.strip():
-            return normalize_ocr_text(ocr_text)
-        if looks_like_low_quality_text(native_text):
-            return normalize_ocr_text(ocr_text or native_text)
-        return normalize_ocr_text(f"{native_text}\n\n{ocr_text}")
-    finally:
-        try:
-            temp_pdf_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+def _normalize_text(text: str) -> str:
+    """Normaliza el texto extraído."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _build_latex_document(raw_text: str, filename: str = "") -> str:
+    """Construye un documento LaTeX a partir del texto extraído."""
     body = _latex_body_from_ocr(raw_text)
+    
     return (
         "\\documentclass{article}\n"
         "\\usepackage[utf8]{inputenc}\n"
@@ -114,6 +115,7 @@ def _build_latex_document(raw_text: str, filename: str = "") -> str:
 
 
 def _latex_body_from_ocr(raw_text: str) -> str:
+    """Convierte el texto OCR en cuerpo LaTeX."""
     lines = [line.strip() for line in raw_text.split("\n")]
     blocks: list[str] = []
     paragraph_lines: list[str] = []
@@ -195,6 +197,7 @@ def _latex_body_from_ocr(raw_text: str) -> str:
         blocks.append(_render_paragraph(raw_text.strip()))
 
     return "\n\n".join(blocks)
+
 
 def _is_bullet_line(line: str) -> bool:
     return bool(re.match(r"^\s*([\-*•▪‣◦])\s+", line))
