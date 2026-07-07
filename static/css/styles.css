@@ -24,7 +24,6 @@
     --transition: all 0.25s ease;
 }
 
-/* ─── Reset ─────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -629,6 +628,53 @@ body {
 .icon-btn:hover {
     color: var(--cyan);
     background: rgba(34, 211, 238, 0.05);
+}
+
+/* ─── EDIT FORM ──────────────────────────────────────────────── */
+.edit-form {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.edit-grid .full {
+    grid-column: 1 / -1;
+}
+
+.input-sm {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.6rem;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: var(--transition);
+    width: 100%;
+}
+
+.input-sm:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+}
+
+textarea.input-sm {
+    resize: vertical;
+    min-height: 50px;
+}
+
+.edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.4rem;
 }
 
 /* ─── PROFILE METRICS ───────────────────────────────────────── */
@@ -1718,15 +1764,6 @@ body {
     margin-bottom: 0.5rem;
 }
 
-.ats-missing h4 {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    color: var(--rose);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    margin-bottom: 0.2rem;
-}
-
 .ats-missing .missing-tag {
     font-size: 0.65rem;
     font-weight: 600;
@@ -1744,15 +1781,6 @@ body {
     border: 1px solid rgba(52, 211, 153, 0.15);
     border-radius: var(--radius-sm);
     padding: 0.6rem;
-}
-
-.ats-recommendation h4 {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    color: var(--green);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    margin-bottom: 0.2rem;
 }
 
 .ats-recommendation p {

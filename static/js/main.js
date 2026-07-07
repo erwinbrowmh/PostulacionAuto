@@ -1,6 +1,6 @@
 /**
  * PostulacionAuto Hub v2.0 - Main Controller
- * Arquitectura limpia con separación de perfiles y búsqueda
+ * Todas las referencias DOM son verificadas antes de usar
  */
 
 (function () {
@@ -32,157 +32,20 @@
     const $ = (s, c = document) => c.querySelector(s);
     const $$ = (s, c = document) => [...c.querySelectorAll(s)];
 
-    const dom = {};
+    // ─── TOASTS ──────────────────────────────────────────────────
+    let toastContainer = null;
 
-    function cacheDom() {
-        // Search
-        dom.search = {
-            btn: $('#search-btn'),
-            keywords: $('#keywords'),
-            modality: $('#modality'),
-            location: $('#location'),
-            maxResults: $('#max-results'),
-            rangeVal: $('#range-value'),
-            loader: $('#loader'),
-            empty: $('#empty-state'),
-            container: $('#jobs-container'),
-            summary: $('#results-summary'),
-            export: $('#export-btn')
-        };
-
-        // Filters
-        dom.filters = {
-            score: $('#min-score'),
-            scoreVal: $('#score-value'),
-            salary: $('#min-salary'),
-            sort: $('#sort-by'),
-            live: $('#live-search'),
-            hide: $('#hide-discarded'),
-            only: $('#only-saved'),
-            chips: $$('.chip')
-        };
-
-        // Profile
-        dom.profile = {
-            name: $('#profile-name'),
-            title: $('#profile-title'),
-            years: $('#profile-years'),
-            keywords: $('#profile-keywords'),
-            source: $('#profile-source'),
-            ocr: $('#profile-ocr'),
-            summary: $('#profile-summary-text'),
-            email: $('#detail-email'),
-            phone: $('#detail-phone'),
-            location: $('#detail-location'),
-            linkedin: $('#link-linkedin'),
-            github: $('#link-github'),
-            roles: $('#roles-list'),
-            languages: $('#languages-list'),
-            experience: $('#experience-list'),
-            education: $('#education-list'),
-            certs: $('#certifications-list'),
-            keywordsList: $('#keywords-list'),
-            skills: $('#skills-container')
-        };
-
-        // Edit Profile
-        dom.edit = {
-            form: $('#edit-form'),
-            btn: $('#edit-profile-btn'),
-            cancel: $('#edit-cancel'),
-            save: $('#edit-save'),
-            name: $('#edit-name'),
-            title: $('#edit-title'),
-            email: $('#edit-email'),
-            phone: $('#edit-phone'),
-            location: $('#edit-location'),
-            linkedin: $('#edit-linkedin'),
-            github: $('#edit-github'),
-            years: $('#edit-years'),
-            roles: $('#edit-roles'),
-            summary: $('#edit-summary'),
-            experience: $('#edit-experience'),
-            languages: $('#edit-languages'),
-            education: $('#edit-education'),
-            certs: $('#edit-certifications')
-        };
-
-        // Skills
-        dom.skills = {
-            container: $('#skills-container'),
-            btn: $('#edit-skills-btn'),
-            form: $('#add-skill-form'),
-            add: $('#add-skill-btn'),
-            name: $('#skill-name'),
-            cat: $('#skill-category')
-        };
-
-        // Upload
-        dom.upload = {
-            cv: $('#cv-zone'),
-            cvInput: $('#cv-input'),
-            latex: $('#latex-zone'),
-            latexInput: $('#latex-input'),
-            latexBtn: $('#latex-generate'),
-            latexName: $('#latex-filename'),
-            latexOutput: $('#latex-output'),
-            latexText: $('#latex-text'),
-            latexCopy: $('#latex-copy'),
-            latexDownload: $('#latex-download')
-        };
-
-        // Stats
-        dom.stats = {
-            card: $('#stats-card'),
-            total: $('#stat-total'),
-            avg: $('#stat-avg'),
-            high: $('#stat-high'),
-            skills: $('#stat-skills'),
-            dist: $('#distributions')
-        };
-
-        // Metrics
-        dom.metrics = {
-            count: $('#header-count'),
-            saved: $('#header-saved')
-        };
-
-        // Modal
-        dom.modal = {
-            el: $('#job-modal'),
-            close: $('#modal-close'),
-            title: $('#modal-title'),
-            company: $('#modal-company'),
-            location: $('#modal-location'),
-            salary: $('#modal-salary'),
-            date: $('#modal-date'),
-            score: $('#modal-score'),
-            source: $('#modal-source'),
-            matched: $('#modal-matched'),
-            summary: $('#modal-summary'),
-            requirements: $('#modal-requirements'),
-            benefits: $('#modal-benefits'),
-            save: $('#modal-save'),
-            apply: $('#modal-apply'),
-            tabs: $$('.tab'),
-            contents: $$('.tab-content'),
-            atsBreakdown: $('#ats-breakdown'),
-            atsMissing: $('#ats-missing'),
-            atsRec: $('#ats-recommendation'),
-            planGaps: $('#plan-gaps'),
-            planSteps: $('#plan-steps'),
-            letterText: $('#letter-text'),
-            letterTone: $('#letter-tone'),
-            letterRegen: $('#letter-regen'),
-            letterCopy: $('#letter-copy'),
-            letterEmail: $('#letter-email')
-        };
-
-        dom.toasts = $('#toasts');
+    function getToastContainer() {
+        if (!toastContainer) {
+            toastContainer = document.getElementById('toasts');
+        }
+        return toastContainer;
     }
 
-    // ─── TOASTS ──────────────────────────────────────────────────
     function toast(type, title, msg, duration = 4000) {
+        const container = getToastContainer();
+        if (!container) return;
+
         const icons = {
             success: 'fa-check-circle',
             error: 'fa-circle-xmark',
@@ -200,7 +63,7 @@
             </div>
         `;
 
-        dom.toasts.appendChild(el);
+        container.appendChild(el);
         setTimeout(() => {
             el.classList.add('removing');
             el.addEventListener('animationend', () => el.remove());
@@ -225,6 +88,7 @@
     }
 
     function getKeywords(profile) {
+        if (!profile) return [];
         const title = (profile.title || '').split(/[\s/|,•·-]+/).filter(w => w.length >= 4);
         const roles = profile.preferred_roles || [];
         const skills = profile.all_skills_flat || [];
@@ -236,6 +100,7 @@
     }
 
     function normalizeProfile(p) {
+        if (!p) return null;
         const profile = {
             ...p,
             preferred_roles: p.preferred_roles || [],
@@ -270,51 +135,6 @@
         return (v || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
     }
 
-    // ─── RENDER PROFILE ──────────────────────────────────────────
-    function renderProfile(profile) {
-        if (!profile) return;
-        state.profile = normalizeProfile(profile);
-        const p = state.profile;
-        const meta = p.analysis_meta || {};
-
-        dom.profile.name.textContent = p.name || 'Sin nombre';
-        dom.profile.title.textContent = p.title || 'Sin título';
-        dom.profile.years.textContent = `${p.experience_years || 0} años`;
-        dom.profile.keywords.textContent = (p.search_keywords || []).length;
-        dom.profile.source.textContent = meta.source === 'pdf' ? 'PDF' : meta.source === 'fallback' ? 'Fallback' : 'ATS';
-        dom.profile.ocr.textContent = meta.used_ocr ? 'Sí' : 'No';
-        dom.profile.summary.textContent = p.summary || 'Sin resumen disponible.';
-        dom.profile.email.textContent = p.email || '—';
-        dom.profile.phone.textContent = p.phone || '—';
-        dom.profile.location.textContent = p.location || '—';
-
-        // Links
-        const li = normalizeUrl(p.linkedin, 'linkedin');
-        dom.profile.linkedin.href = li || '#';
-        dom.profile.linkedin.style.opacity = li ? '' : '0.4';
-        dom.profile.linkedin.style.pointerEvents = li ? '' : 'none';
-
-        const gh = normalizeUrl(p.github, 'github');
-        dom.profile.github.href = gh || '#';
-        dom.profile.github.style.opacity = gh ? '' : '0.4';
-        dom.profile.github.style.pointerEvents = gh ? '' : 'none';
-
-        // Lists
-        renderChips(dom.profile.roles, p.preferred_roles || []);
-        renderChips(dom.profile.languages, p.languages_spoken || []);
-        renderLines(dom.profile.experience, p.sections?.experience || []);
-        renderLines(dom.profile.education, p.education || []);
-        renderLines(dom.profile.certs, p.certifications || []);
-        renderChips(dom.profile.keywordsList, (p.search_keywords || []).slice(0, 30));
-
-        renderSkills(p.skills || {});
-        fillEditForm(p);
-        updateStatsSkills();
-        saveProfile(p);
-        syncProfile(p);
-        autoFillSearch(p);
-    }
-
     function normalizeUrl(value, type) {
         const raw = (value || '').trim();
         if (!raw) return '';
@@ -323,7 +143,107 @@
         return `${prefix}${raw.replace(/^\/+/, '')}`;
     }
 
+    // ─── DOM REFS CON SEGURIDAD ──────────────────────────────────
+    function safeGet(selector, fallback = null) {
+        const el = document.querySelector(selector);
+        return el || fallback;
+    }
+
+    // ─── RENDER PROFILE ──────────────────────────────────────────
+    function renderProfile(profile) {
+        if (!profile) return;
+        state.profile = normalizeProfile(profile);
+        const p = state.profile;
+        const meta = p.analysis_meta || {};
+
+        const el = (id) => safeGet('#' + id);
+
+        // Actualizar elementos del perfil
+        const nameEl = el('profile-name');
+        if (nameEl) nameEl.textContent = p.name || 'Sin nombre';
+
+        const titleEl = el('profile-title');
+        if (titleEl) titleEl.textContent = p.title || 'Sin título';
+
+        const yearsEl = el('profile-years');
+        if (yearsEl) yearsEl.textContent = `${p.experience_years || 0} años`;
+
+        const keywordsEl = el('profile-keywords');
+        if (keywordsEl) keywordsEl.textContent = (p.search_keywords || []).length;
+
+        const sourceEl = el('profile-source');
+        if (sourceEl) sourceEl.textContent = meta.source === 'pdf' ? 'PDF' : meta.source === 'fallback' ? 'Fallback' : 'ATS';
+
+        const ocrEl = el('profile-ocr');
+        if (ocrEl) ocrEl.textContent = meta.used_ocr ? 'Sí' : 'No';
+
+        const summaryEl = el('profile-summary-text');
+        if (summaryEl) summaryEl.textContent = p.summary || 'Sin resumen disponible.';
+
+        const emailEl = el('detail-email');
+        if (emailEl) emailEl.textContent = p.email || '—';
+
+        const phoneEl = el('detail-phone');
+        if (phoneEl) phoneEl.textContent = p.phone || '—';
+
+        const locationEl = el('detail-location');
+        if (locationEl) locationEl.textContent = p.location || '—';
+
+        // Links
+        const linkedinEl = el('link-linkedin');
+        if (linkedinEl) {
+            const li = normalizeUrl(p.linkedin, 'linkedin');
+            linkedinEl.href = li || '#';
+            linkedinEl.style.opacity = li ? '' : '0.4';
+            linkedinEl.style.pointerEvents = li ? '' : 'none';
+        }
+
+        const githubEl = el('link-github');
+        if (githubEl) {
+            const gh = normalizeUrl(p.github, 'github');
+            githubEl.href = gh || '#';
+            githubEl.style.opacity = gh ? '' : '0.4';
+            githubEl.style.pointerEvents = gh ? '' : 'none';
+        }
+
+        // Lists
+        const rolesList = el('roles-list');
+        if (rolesList) renderChips(rolesList, p.preferred_roles || []);
+
+        const langsList = el('languages-list');
+        if (langsList) renderChips(langsList, p.languages_spoken || []);
+
+        const expList = el('experience-list');
+        if (expList) renderLines(expList, p.sections?.experience || []);
+
+        const eduList = el('education-list');
+        if (eduList) renderLines(eduList, p.education || []);
+
+        const certsList = el('certifications-list');
+        if (certsList) renderLines(certsList, p.certifications || []);
+
+        const keywordsList = el('keywords-list');
+        if (keywordsList) renderChips(keywordsList, (p.search_keywords || []).slice(0, 30));
+
+        // Skills
+        const skillsContainer = el('skills-container');
+        if (skillsContainer) renderSkills(skillsContainer, p.skills || {});
+
+        // Edit form
+        fillEditForm(p);
+
+        // Stats
+        const statsSkills = el('stat-skills');
+        if (statsSkills) statsSkills.textContent = (p.all_skills_flat || []).length;
+
+        // Guardar y sincronizar
+        saveProfile(p);
+        syncProfile(p);
+        autoFillSearch(p);
+    }
+
     function renderChips(container, items) {
+        if (!container) return;
         container.innerHTML = '';
         if (!items || !items.length) {
             container.innerHTML = '<span class="empty-data">Sin datos</span>';
@@ -338,6 +258,7 @@
     }
 
     function renderLines(container, items) {
+        if (!container) return;
         container.innerHTML = '';
         if (!items || !items.length) {
             container.innerHTML = '<span class="empty-data">Sin datos</span>';
@@ -351,7 +272,8 @@
         });
     }
 
-    function renderSkills(skillsObj) {
+    function renderSkills(container, skillsObj) {
+        if (!container) return;
         const labels = {
             languages: 'Lenguajes',
             backend: 'Backend',
@@ -361,8 +283,8 @@
             management: 'Gestión'
         };
 
-        dom.profile.skills.innerHTML = '';
-        const isEdit = dom.profile.skills.classList.contains('edit-mode');
+        container.innerHTML = '';
+        const isEdit = container.classList.contains('edit-mode');
 
         for (const [cat, skills] of Object.entries(skillsObj)) {
             if (!skills || !skills.length) continue;
@@ -386,45 +308,52 @@
             });
 
             box.appendChild(badges);
-            dom.profile.skills.appendChild(box);
+            container.appendChild(box);
         }
     }
 
     function fillEditForm(p) {
-        dom.edit.name.value = p.name || '';
-        dom.edit.title.value = p.title || '';
-        dom.edit.email.value = p.email || '';
-        dom.edit.phone.value = p.phone || '';
-        dom.edit.location.value = p.location || '';
-        dom.edit.linkedin.value = p.linkedin || '';
-        dom.edit.github.value = p.github || '';
-        dom.edit.years.value = p.experience_years || '';
-        dom.edit.roles.value = (p.preferred_roles || []).join(', ');
-        dom.edit.summary.value = p.summary || '';
-        dom.edit.experience.value = (p.sections?.experience || []).join('\n');
-        dom.edit.languages.value = (p.languages_spoken || []).join(', ');
-        dom.edit.education.value = (p.education || []).join('\n');
-        dom.edit.certs.value = (p.certifications || []).join('\n');
-    }
+        if (!p) return;
+        const fields = {
+            'edit-name': p.name || '',
+            'edit-title': p.title || '',
+            'edit-email': p.email || '',
+            'edit-phone': p.phone || '',
+            'edit-location': p.location || '',
+            'edit-linkedin': p.linkedin || '',
+            'edit-github': p.github || '',
+            'edit-years': p.experience_years || '',
+            'edit-roles': (p.preferred_roles || []).join(', '),
+            'edit-summary': p.summary || '',
+            'edit-experience': (p.sections?.experience || []).join('\n'),
+            'edit-languages': (p.languages_spoken || []).join(', '),
+            'edit-education': (p.education || []).join('\n'),
+            'edit-certifications': (p.certifications || []).join('\n')
+        };
 
-    function updateStatsSkills() {
-        const flat = state.profile?.all_skills_flat || [];
-        dom.stats.skills.textContent = flat.length;
+        for (const [id, value] of Object.entries(fields)) {
+            const el = safeGet('#' + id);
+            if (el) el.value = value;
+        }
     }
 
     function autoFillSearch(p) {
-        const kw = dom.search.keywords;
-        if (!kw.value.trim() || kw.dataset.autofilled === '1') {
+        if (!p) return;
+        const kw = safeGet('#keywords');
+        if (kw && (!kw.value.trim() || kw.dataset.autofilled === '1')) {
             const suggestions = getKeywords(p);
             if (suggestions.length) {
                 kw.value = suggestions.join(', ');
                 kw.dataset.autofilled = '1';
             }
         }
-        const loc = dom.search.location;
-        if ((!loc.value.trim() || loc.value === 'México') && p.location && dom.search.modality.value !== 'remoto') {
-            loc.value = p.location;
-            loc.dataset.autofilled = '1';
+        const loc = safeGet('#location');
+        if (loc && (!loc.value.trim() || loc.value === 'México') && p.location) {
+            const mod = safeGet('#modality');
+            if (mod && mod.value !== 'remoto') {
+                loc.value = p.location;
+                loc.dataset.autofilled = '1';
+            }
         }
     }
 
@@ -467,42 +396,59 @@
 
     // ─── SKILLS EDITOR ──────────────────────────────────────────
     function initSkillsEditor() {
-        dom.skills.btn.addEventListener('click', () => {
-            const isEdit = dom.profile.skills.classList.toggle('edit-mode');
-            dom.skills.btn.classList.toggle('active', isEdit);
-            dom.skills.form.classList.toggle('hidden', !isEdit);
-            dom.skills.btn.title = isEdit ? 'Salir edición' : 'Editar habilidades';
-            renderSkills(state.profile?.skills || {});
+        const btn = safeGet('#edit-skills-btn');
+        const form = safeGet('#add-skill-form');
+        const container = safeGet('#skills-container');
+
+        if (!btn || !form || !container) return;
+
+        btn.addEventListener('click', () => {
+            const isEdit = container.classList.toggle('edit-mode');
+            btn.classList.toggle('active', isEdit);
+            form.classList.toggle('hidden', !isEdit);
+            btn.title = isEdit ? 'Salir edición' : 'Editar habilidades';
+            if (state.profile) renderSkills(container, state.profile.skills || {});
         });
 
-        dom.skills.add.addEventListener('click', () => {
-            const name = dom.skills.name.value.trim();
-            const cat = dom.skills.cat.value;
-            if (!name) return;
+        const addBtn = safeGet('#add-skill-btn');
+        const nameInput = safeGet('#skill-name');
+        const catSelect = safeGet('#skill-category');
 
-            if (!state.profile.skills[cat]) state.profile.skills[cat] = [];
-            if (state.profile.skills[cat].includes(name)) {
-                toast('warning', 'Ya existe', `"${name}" ya está en tu perfil.`);
-                return;
-            }
+        if (addBtn && nameInput && catSelect) {
+            addBtn.addEventListener('click', () => {
+                const name = nameInput.value.trim();
+                const cat = catSelect.value;
+                if (!name) return;
 
-            state.profile.skills[cat].push(name);
-            state.profile.all_skills_flat = flattenSkills(state.profile.skills);
-            state.profile.search_keywords = getKeywords(state.profile);
-            dom.skills.name.value = '';
-            renderProfile(state.profile);
-            syncProfile(state.profile);
-            recalcScores();
-            toast('success', 'Habilidad añadida', `"${name}" agregada.`);
-        });
+                if (!state.profile) {
+                    toast('warning', 'Sin perfil', 'Carga un perfil primero.');
+                    return;
+                }
 
-        dom.skills.name.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') dom.skills.add.click();
-        });
+                if (!state.profile.skills[cat]) state.profile.skills[cat] = [];
+                if (state.profile.skills[cat].includes(name)) {
+                    toast('warning', 'Ya existe', `"${name}" ya está en tu perfil.`);
+                    return;
+                }
+
+                state.profile.skills[cat].push(name);
+                state.profile.all_skills_flat = flattenSkills(state.profile.skills);
+                state.profile.search_keywords = getKeywords(state.profile);
+                nameInput.value = '';
+                renderProfile(state.profile);
+                syncProfile(state.profile);
+                recalcScores();
+                toast('success', 'Habilidad añadida', `"${name}" agregada.`);
+            });
+
+            nameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') addBtn.click();
+            });
+        }
     }
 
     function removeSkill(cat, skill) {
-        if (!state.profile.skills[cat]) return;
+        if (!state.profile || !state.profile.skills[cat]) return;
         state.profile.skills[cat] = state.profile.skills[cat].filter(s => s !== skill);
         state.profile.all_skills_flat = flattenSkills(state.profile.skills);
         state.profile.search_keywords = getKeywords(state.profile);
@@ -514,58 +460,73 @@
 
     // ─── PROFILE EDITOR ─────────────────────────────────────────
     function initProfileEditor() {
+        const btn = safeGet('#edit-profile-btn');
+        const form = safeGet('#edit-form');
+        const cancelBtn = safeGet('#edit-cancel');
+        const saveBtn = safeGet('#edit-save');
+
+        if (!btn || !form) return;
+
         let snapshot = null;
 
-        dom.edit.btn.addEventListener('click', () => {
-            const isEditing = !dom.edit.form.classList.contains('hidden');
+        btn.addEventListener('click', () => {
+            const isEditing = !form.classList.contains('hidden');
             if (isEditing) {
                 cancelEdit();
             } else {
                 snapshot = JSON.parse(JSON.stringify(state.profile || {}));
                 fillEditForm(state.profile || {});
-                dom.edit.form.classList.remove('hidden');
-                dom.edit.btn.classList.add('active');
-                dom.edit.btn.title = 'Cancelar edición';
+                form.classList.remove('hidden');
+                btn.classList.add('active');
+                btn.title = 'Cancelar edición';
             }
         });
 
-        dom.edit.cancel.addEventListener('click', cancelEdit);
-        dom.edit.save.addEventListener('click', saveEdit);
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', cancelEdit);
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveEdit);
+        }
 
         function cancelEdit() {
             if (snapshot) fillEditForm(snapshot);
-            dom.edit.form.classList.add('hidden');
-            dom.edit.btn.classList.remove('active');
-            dom.edit.btn.title = 'Editar perfil';
+            form.classList.add('hidden');
+            btn.classList.remove('active');
+            btn.title = 'Editar perfil';
         }
 
         function saveEdit() {
+            if (!state.profile) return;
+
             const updated = {
                 ...state.profile,
-                name: dom.edit.name.value.trim(),
-                title: dom.edit.title.value.trim(),
-                email: dom.edit.email.value.trim(),
-                phone: dom.edit.phone.value.trim(),
-                location: dom.edit.location.value.trim(),
-                linkedin: dom.edit.linkedin.value.trim(),
-                github: dom.edit.github.value.trim(),
-                experience_years: parseInt(dom.edit.years.value) || 0,
-                preferred_roles: dom.edit.roles.value.split(',').map(v => v.trim()).filter(Boolean),
-                summary: dom.edit.summary.value.trim(),
-                languages_spoken: dom.edit.languages.value.split(',').map(v => v.trim()).filter(Boolean),
-                education: splitLines(dom.edit.education.value),
-                certifications: splitLines(dom.edit.certs.value)
+                name: safeGet('#edit-name')?.value?.trim() || state.profile.name || '',
+                title: safeGet('#edit-title')?.value?.trim() || state.profile.title || '',
+                email: safeGet('#edit-email')?.value?.trim() || state.profile.email || '',
+                phone: safeGet('#edit-phone')?.value?.trim() || state.profile.phone || '',
+                location: safeGet('#edit-location')?.value?.trim() || state.profile.location || '',
+                linkedin: safeGet('#edit-linkedin')?.value?.trim() || state.profile.linkedin || '',
+                github: safeGet('#edit-github')?.value?.trim() || state.profile.github || '',
+                experience_years: parseInt(safeGet('#edit-years')?.value) || 0,
+                preferred_roles: (safeGet('#edit-roles')?.value || '').split(',').map(v => v.trim()).filter(Boolean),
+                summary: safeGet('#edit-summary')?.value?.trim() || state.profile.summary || '',
+                languages_spoken: (safeGet('#edit-languages')?.value || '').split(',').map(v => v.trim()).filter(Boolean),
+                education: splitLines(safeGet('#edit-education')?.value || ''),
+                certifications: splitLines(safeGet('#edit-certifications')?.value || '')
             };
 
             if (!updated.name) {
                 toast('warning', 'Nombre requerido', 'Escribe tu nombre.');
-                dom.edit.name.focus();
+                const nameInput = safeGet('#edit-name');
+                if (nameInput) nameInput.focus();
                 return;
             }
 
             if (!updated.skills) updated.skills = {};
             if (!updated.sections) updated.sections = {};
-            updated.sections.experience = splitLines(dom.edit.experience.value);
+            updated.sections.experience = splitLines(safeGet('#edit-experience')?.value || '');
             updated.all_skills_flat = flattenSkills(updated.skills);
             updated.search_keywords = getKeywords(updated);
 
@@ -573,9 +534,9 @@
             renderProfile(updated);
             syncProfile(updated);
             snapshot = JSON.parse(JSON.stringify(updated));
-            dom.edit.form.classList.add('hidden');
-            dom.edit.btn.classList.remove('active');
-            dom.edit.btn.title = 'Editar perfil';
+            form.classList.add('hidden');
+            btn.classList.remove('active');
+            btn.title = 'Editar perfil';
 
             if (state.jobs.length) recalcScores();
             toast('success', 'Perfil actualizado', 'Información guardada.');
@@ -584,8 +545,10 @@
 
     // ─── UPLOAD CV ──────────────────────────────────────────────
     function initUpload() {
-        const zone = dom.upload.cv;
-        const input = dom.upload.cvInput;
+        const zone = safeGet('#cv-zone');
+        const input = safeGet('#cv-input');
+
+        if (!zone || !input) return;
 
         zone.addEventListener('click', () => {
             if (!zone.classList.contains('processing')) input.click();
@@ -612,8 +575,10 @@
     }
 
     async function uploadCV(file) {
-        const zone = dom.upload.cv;
+        const zone = safeGet('#cv-zone');
+        if (!zone) return;
         const icon = zone.querySelector('i');
+        if (!icon) return;
 
         zone.classList.add('processing');
         icon.className = 'fa-solid fa-spinner fa-spin';
@@ -644,8 +609,10 @@
 
     // ─── LATEX GENERATOR ─────────────────────────────────────────
     function initLatex() {
-        const zone = dom.upload.latex;
-        const input = dom.upload.latexInput;
+        const zone = safeGet('#latex-zone');
+        const input = safeGet('#latex-input');
+
+        if (!zone || !input) return;
 
         zone.addEventListener('click', () => {
             if (!zone.classList.contains('processing')) input.click();
@@ -669,9 +636,14 @@
             if (file) handleLatexFile(file);
         });
 
-        dom.upload.latexBtn.addEventListener('click', generateLatex);
-        dom.upload.latexCopy.addEventListener('click', copyLatex);
-        dom.upload.latexDownload.addEventListener('click', downloadLatex);
+        const genBtn = safeGet('#latex-generate');
+        if (genBtn) genBtn.addEventListener('click', generateLatex);
+
+        const copyBtn = safeGet('#latex-copy');
+        if (copyBtn) copyBtn.addEventListener('click', copyLatex);
+
+        const dlBtn = safeGet('#latex-download');
+        if (dlBtn) dlBtn.addEventListener('click', downloadLatex);
     }
 
     function handleLatexFile(file) {
@@ -683,16 +655,26 @@
 
         state.latexFile = file;
         state.latexFilename = `${file.name.replace(/\.[^.]+$/, '') || 'cv_latex'}.tex`;
-        dom.upload.latexName.textContent = file.name;
-        dom.upload.latexOutput.classList.add('hidden');
-        dom.upload.latexText.value = '';
+
+        const nameEl = safeGet('#latex-filename');
+        if (nameEl) nameEl.textContent = file.name;
+
+        const outputEl = safeGet('#latex-output');
+        if (outputEl) outputEl.classList.add('hidden');
+
+        const textEl = safeGet('#latex-text');
+        if (textEl) textEl.value = '';
+
         toast('info', 'Imagen lista', 'Ahora puedes generar el LaTeX.');
     }
 
     function setLatexProcessing(isProcessing) {
-        dom.upload.latexBtn.disabled = isProcessing;
-        dom.upload.latex.classList.toggle('processing', isProcessing);
-        dom.upload.latexBtn.innerHTML = isProcessing
+        const btn = safeGet('#latex-generate');
+        if (!btn) return;
+        btn.disabled = isProcessing;
+        const zone = safeGet('#latex-zone');
+        if (zone) zone.classList.toggle('processing', isProcessing);
+        btn.innerHTML = isProcessing
             ? '<i class="fa-solid fa-spinner fa-spin"></i> Generando...'
             : 'Generar';
     }
@@ -718,9 +700,14 @@
                 return;
             }
 
-            dom.upload.latexText.value = json.data?.latex || '';
+            const textEl = safeGet('#latex-text');
+            if (textEl) textEl.value = json.data?.latex || '';
+
             state.latexFilename = json.data?.suggested_filename || state.latexFilename;
-            dom.upload.latexOutput.classList.remove('hidden');
+
+            const outputEl = safeGet('#latex-output');
+            if (outputEl) outputEl.classList.remove('hidden');
+
             toast('success', 'CV LaTeX listo', 'Documento generado desde OCR local.');
         } catch {
             toast('error', 'Sin conexión', 'No se pudo conectar con el servidor.');
@@ -730,9 +717,9 @@
     }
 
     function copyLatex() {
-        const text = dom.upload.latexText.value;
-        if (!text) return;
-        navigator.clipboard.writeText(text).then(() => {
+        const textEl = safeGet('#latex-text');
+        if (!textEl || !textEl.value) return;
+        navigator.clipboard.writeText(textEl.value).then(() => {
             toast('success', 'Copiado', 'Código copiado al portapapeles.');
         }).catch(() => {
             toast('error', 'No se pudo copiar', 'Copia manualmente.');
@@ -740,9 +727,9 @@
     }
 
     function downloadLatex() {
-        const text = dom.upload.latexText.value;
-        if (!text) return;
-        const blob = new Blob([text], { type: 'application/x-tex;charset=utf-8' });
+        const textEl = safeGet('#latex-text');
+        if (!textEl || !textEl.value) return;
+        const blob = new Blob([textEl.value], { type: 'application/x-tex;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -755,28 +742,40 @@
 
     // ─── SEARCH ──────────────────────────────────────────────────
     function initSearch() {
-        dom.search.maxResults.addEventListener('input', () => {
-            dom.search.rangeVal.textContent = dom.search.maxResults.value;
-        });
+        const maxResults = safeGet('#max-results');
+        const rangeVal = safeGet('#range-value');
 
-        dom.search.btn.addEventListener('click', performSearch);
+        if (maxResults && rangeVal) {
+            maxResults.addEventListener('input', () => {
+                rangeVal.textContent = maxResults.value;
+            });
+        }
 
-        dom.search.keywords.addEventListener('input', () => {
-            dom.search.keywords.dataset.autofilled = '0';
-        });
+        const btn = safeGet('#search-btn');
+        if (btn) btn.addEventListener('click', performSearch);
 
-        dom.search.location.addEventListener('input', () => {
-            dom.search.location.dataset.autofilled = '0';
-        });
+        const keywords = safeGet('#keywords');
+        if (keywords) {
+            keywords.addEventListener('input', () => {
+                keywords.dataset.autofilled = '0';
+            });
+            keywords.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    performSearch();
+                }
+            });
+        }
 
-        dom.search.keywords.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                performSearch();
-            }
-        });
+        const location = safeGet('#location');
+        if (location) {
+            location.addEventListener('input', () => {
+                location.dataset.autofilled = '0';
+            });
+        }
 
-        dom.search.export.addEventListener('click', exportJobs);
+        const exportBtn = safeGet('#export-btn');
+        if (exportBtn) exportBtn.addEventListener('click', exportJobs);
     }
 
     let stepInterval = null;
@@ -789,7 +788,8 @@
             const el = document.getElementById(id);
             if (el) {
                 el.classList.remove('active', 'done');
-                el.querySelector('i').className = 'fa-regular fa-circle';
+                const icon = el.querySelector('i');
+                if (icon) icon.className = 'fa-regular fa-circle';
             }
         });
 
@@ -799,14 +799,16 @@
                 if (prev) {
                     prev.classList.remove('active');
                     prev.classList.add('done');
-                    prev.querySelector('i').className = 'fa-solid fa-circle-check';
+                    const icon = prev.querySelector('i');
+                    if (icon) icon.className = 'fa-solid fa-circle-check';
                 }
             }
             if (idx < steps.length) {
                 const cur = document.getElementById(steps[idx]);
                 if (cur) {
                     cur.classList.add('active');
-                    cur.querySelector('i').className = 'fa-solid fa-circle-notch fa-spin';
+                    const icon = cur.querySelector('i');
+                    if (icon) icon.className = 'fa-solid fa-circle-notch fa-spin';
                 }
                 idx++;
             }
@@ -824,9 +826,14 @@
     }
 
     function showSkeletons(count = 6) {
-        dom.search.container.innerHTML = '';
-        dom.search.container.classList.remove('hidden');
-        dom.search.empty.classList.add('hidden');
+        const container = safeGet('#jobs-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        container.classList.remove('hidden');
+
+        const empty = safeGet('#empty-state');
+        if (empty) empty.classList.add('hidden');
 
         for (let i = 0; i < count; i++) {
             const s = document.createElement('div');
@@ -848,31 +855,121 @@
                 <div class="skeleton" style="height:10px;width:80%;"></div>
                 <div class="skeleton" style="height:10px;width:40%;"></div>
             `;
-            dom.search.container.appendChild(s);
+            container.appendChild(s);
         }
+    }
+
+    function getFallbackJobs(keyword, location, modality) {
+        const kw = keyword || 'desarrollador';
+        const mod = modality || 'remoto';
+
+        const templates = [
+            {
+                title: `Senior ${kw.charAt(0).toUpperCase() + kw.slice(1)} Developer`,
+                company: 'BairesDev',
+                location: mod === 'remoto' ? 'Remoto (México)' : location || 'México',
+                salary: '$45,000 - $65,000 MXN',
+                date: 'Hace 2 días',
+                link: 'https://mx.linkedin.com/jobs/',
+                source: 'LinkedIn',
+                description: `Buscamos un Ingeniero de Software con experiencia en ${kw}, APIs RESTful, SQL y Git. Trabajo 100% remoto.`,
+                applicants: '45 postulantes',
+                work_modality: mod
+            },
+            {
+                title: `Desarrollador ${kw.charAt(0).toUpperCase() + kw.slice(1)} Jr`,
+                company: 'Tech Solutions',
+                location: location || 'México',
+                salary: '$18,000 - $22,000 MXN',
+                date: 'Ayer',
+                link: 'https://www.computrabajo.com.mx/',
+                source: 'Computrabajo',
+                description: `Se solicita desarrollador junior. Conocimientos de ${kw}, HTML, CSS, JavaScript y Git.`,
+                applicants: '12 postulantes',
+                work_modality: 'presencial'
+            },
+            {
+                title: `Software Engineer Lead (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
+                company: 'Softtek México',
+                location: mod === 'remoto' ? 'Remoto (Monterrey)' : location || 'México',
+                salary: '$55,000 MXN',
+                date: 'Hace 5 días',
+                link: 'https://www.occ.com.mx/',
+                source: 'OCC Mundial',
+                description: `Liderar el diseño e implementación de sistemas empresariales. Requisitos: ${kw}, Docker, AWS, microservicios.`,
+                applicants: '8 postulantes',
+                work_modality: mod
+            },
+            {
+                title: `Full Stack Developer (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
+                company: 'Niuro LatAm',
+                location: 'Remoto (LatAm)',
+                salary: '$2,500 - $3,500 USD',
+                date: 'Hace 1 semana',
+                link: 'https://www.getonbrd.com/',
+                source: 'Get on Board',
+                description: `Join our team building fintech solutions. Stack: ${kw}, React, PostgreSQL, Docker, AWS.`,
+                applicants: '19 postulantes',
+                work_modality: 'remoto'
+            }
+        ];
+
+        const filtered = templates.filter(j => {
+            if (mod === 'remoto') return j.work_modality === 'remoto';
+            if (mod === 'presencial') return j.work_modality === 'presencial';
+            return true;
+        });
+
+        filtered.forEach((job, i) => {
+            const baseScore = 85 - (i * 12);
+            job.match_score = Math.max(baseScore, 55);
+            job.matched_skills = [kw, 'Git', 'SQL', 'REST APIs'].slice(0, 3);
+            job.id = `fallback_${i}`;
+            job.seniority = i === 0 ? 'senior' : i === 1 ? 'junior' : 'semi';
+            if (!job.work_modality) job.work_modality = mod;
+        });
+
+        return filtered;
     }
 
     async function performSearch() {
         if (state.searching) return;
         state.searching = true;
 
-        const keywords = dom.search.keywords.value.trim();
-        const location = dom.search.location.value.trim() || 'México';
-        const modality = dom.search.modality.value || 'remoto';
-        const max = parseInt(dom.search.maxResults.value) || 20;
+        const keywords = safeGet('#keywords')?.value?.trim() || '';
+        const location = safeGet('#location')?.value?.trim() || 'México';
+        const modality = safeGet('#modality')?.value || 'remoto';
+        const max = parseInt(safeGet('#max-results')?.value) || 20;
 
-        dom.search.btn.disabled = true;
-        dom.search.btn.querySelector('.btn-text').classList.add('hidden');
-        dom.search.btn.querySelector('.btn-spinner').classList.remove('hidden');
-        dom.search.empty.classList.add('hidden');
-        dom.search.container.classList.add('hidden');
-        dom.stats.card.classList.add('hidden');
-        dom.search.export.classList.add('hidden');
-        dom.search.loader.classList.remove('hidden');
-        dom.search.summary.innerHTML = 'Buscando vacantes...';
+        const btn = safeGet('#search-btn');
+        if (btn) {
+            btn.disabled = true;
+            const text = btn.querySelector('.btn-text');
+            const spinner = btn.querySelector('.btn-spinner');
+            if (text) text.classList.add('hidden');
+            if (spinner) spinner.classList.remove('hidden');
+        }
+
+        const empty = safeGet('#empty-state');
+        if (empty) empty.classList.add('hidden');
+
+        const container = safeGet('#jobs-container');
+        if (container) container.classList.add('hidden');
+
+        const statsCard = safeGet('#stats-card');
+        if (statsCard) statsCard.classList.add('hidden');
+
+        const exportBtn = safeGet('#export-btn');
+        if (exportBtn) exportBtn.classList.add('hidden');
+
+        const loader = safeGet('#loader');
+        if (loader) loader.classList.remove('hidden');
+
+        const summary = safeGet('#results-summary');
+        if (summary) summary.innerHTML = 'Buscando vacantes...';
 
         showSkeletons(6);
-        dom.search.container.classList.remove('hidden');
+        if (container) container.classList.remove('hidden');
         startLoader();
 
         const params = new URLSearchParams();
@@ -886,54 +983,76 @@
             const json = await res.json();
 
             stopLoader();
-            dom.search.loader.classList.add('hidden');
-            dom.search.btn.disabled = false;
-            dom.search.btn.querySelector('.btn-text').classList.remove('hidden');
-            dom.search.btn.querySelector('.btn-spinner').classList.add('hidden');
+            if (loader) loader.classList.add('hidden');
+
+            if (btn) {
+                btn.disabled = false;
+                const text = btn.querySelector('.btn-text');
+                const spinner = btn.querySelector('.btn-spinner');
+                if (text) text.classList.remove('hidden');
+                if (spinner) spinner.classList.add('hidden');
+            }
 
             if (json.status === 'success' && json.data && json.data.length) {
                 state.jobs = json.data;
-                dom.search.export.classList.remove('hidden');
-                dom.stats.card.classList.remove('hidden');
+                if (exportBtn) exportBtn.classList.remove('hidden');
+                if (statsCard) statsCard.classList.remove('hidden');
                 resetFilters();
                 applyFilters();
                 toast('success', 'Búsqueda completada', `${state.jobs.length} vacantes analizadas.`);
                 updateMetrics();
             } else {
                 state.jobs = [];
-                dom.search.container.innerHTML = '';
-                dom.search.container.classList.add('hidden');
-                dom.search.summary.innerHTML = 'No se encontraron vacantes.';
-                dom.search.empty.querySelector('h3').textContent = 'Sin resultados';
-                dom.search.empty.querySelector('p').textContent = 'Prueba con otras palabras clave o ubicación.';
-                dom.search.empty.classList.remove('hidden');
+                if (container) {
+                    container.innerHTML = '';
+                    container.classList.add('hidden');
+                }
+                if (summary) summary.innerHTML = 'No se encontraron vacantes.';
+                if (empty) {
+                    const h3 = empty.querySelector('h3');
+                    const p = empty.querySelector('p');
+                    if (h3) h3.textContent = 'Sin resultados';
+                    if (p) p.textContent = 'Prueba con otras palabras clave o ubicación.';
+                    empty.classList.remove('hidden');
+                }
                 toast('warning', 'Sin resultados', 'Intenta ampliar las palabras clave.');
             }
         } catch (err) {
             console.error('Search error:', err);
             stopLoader();
-            dom.search.loader.classList.add('hidden');
-            dom.search.btn.disabled = false;
-            dom.search.btn.querySelector('.btn-text').classList.remove('hidden');
-            dom.search.btn.querySelector('.btn-spinner').classList.add('hidden');
+            if (loader) loader.classList.add('hidden');
 
-            // Mostrar datos de respaldo si la API falla
+            if (btn) {
+                btn.disabled = false;
+                const text = btn.querySelector('.btn-text');
+                const spinner = btn.querySelector('.btn-spinner');
+                if (text) text.classList.remove('hidden');
+                if (spinner) spinner.classList.add('hidden');
+            }
+
+            // Fallback jobs
             const fallbackJobs = getFallbackJobs(keywords || 'desarrollador', location, modality);
             if (fallbackJobs.length) {
                 state.jobs = fallbackJobs;
-                dom.search.export.classList.remove('hidden');
-                dom.stats.card.classList.remove('hidden');
+                if (exportBtn) exportBtn.classList.remove('hidden');
+                if (statsCard) statsCard.classList.remove('hidden');
                 resetFilters();
                 applyFilters();
                 toast('info', 'Datos de respaldo', 'Usando vacantes de muestra (sin conexión).');
                 updateMetrics();
             } else {
-                dom.search.container.innerHTML = '';
-                dom.search.container.classList.add('hidden');
-                dom.search.summary.textContent = 'Error de conexión.';
-                dom.search.empty.querySelector('h3').textContent = 'Error de Conexión';
-                dom.search.empty.querySelector('p').textContent = '¿El servidor Flask está activo?';
-                dom.search.empty.classList.remove('hidden');
+                if (container) {
+                    container.innerHTML = '';
+                    container.classList.add('hidden');
+                }
+                if (summary) summary.textContent = 'Error de conexión.';
+                if (empty) {
+                    const h3 = empty.querySelector('h3');
+                    const p = empty.querySelector('p');
+                    if (h3) h3.textContent = 'Error de Conexión';
+                    if (p) p.textContent = '¿El servidor Flask está activo?';
+                    empty.classList.remove('hidden');
+                }
                 toast('error', 'Error de conexión', '¿El servidor Flask está encendido?');
             }
         } finally {
@@ -941,98 +1060,35 @@
         }
     }
 
-    // ─── FALLBACK JOBS ──────────────────────────────────────────
-    function getFallbackJobs(keyword, location, modality) {
-        const jobs = [];
-        const kw = keyword || 'desarrollador';
-        const loc = location || 'México';
-        const mod = modality || 'remoto';
-
-        const templates = [
-            {
-                title: `Senior ${kw.charAt(0).toUpperCase() + kw.slice(1)} Developer (Full Stack)`,
-                company: 'BairesDev',
-                location: mod === 'remoto' ? 'Remoto (México)' : loc,
-                salary: '$45,000 - $65,000 MXN',
-                date: 'Hace 2 días',
-                link: 'https://mx.linkedin.com/jobs/',
-                source: 'LinkedIn',
-                description: `Buscamos un Ingeniero de Software para unirse a nuestro equipo. Requisitos: experiencia en ${kw}, APIs RESTful, SQL y Git. Trabajo 100% remoto con excelentes beneficios.`,
-                applicants: '45 postulantes',
-                work_modality: mod
-            },
-            {
-                title: `Desarrollador ${kw.charAt(0).toUpperCase() + kw.slice(1)} Jr — ${loc}`,
-                company: 'Tech Solutions',
-                location: loc,
-                salary: '$18,000 - $22,000 MXN',
-                date: 'Ayer',
-                link: 'https://www.computrabajo.com.mx/',
-                source: 'Computrabajo',
-                description: `Se solicita desarrollador junior. Conocimientos de ${kw}, HTML, CSS, JavaScript y Git.`,
-                applicants: '12 postulantes',
-                work_modality: 'presencial'
-            },
-            {
-                title: `Software Engineer Lead (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
-                company: 'Softtek México',
-                location: mod === 'remoto' ? 'Remoto (Monterrey)' : loc,
-                salary: '$55,000 MXN',
-                date: 'Hace 5 días',
-                link: 'https://www.occ.com.mx/',
-                source: 'OCC Mundial',
-                description: `Liderar el diseño e implementación de sistemas empresariales. Requisitos: ${kw}, Docker, AWS, microservicios, Scrum.`,
-                applicants: '8 postulantes',
-                work_modality: mod
-            },
-            {
-                title: `Full Stack Developer (${kw.charAt(0).toUpperCase() + kw.slice(1)})`,
-                company: 'Niuro LatAm',
-                location: 'Remoto (LatAm)',
-                salary: '$2,500 - $3,500 USD',
-                date: 'Hace 1 semana',
-                link: 'https://www.getonbrd.com/',
-                source: 'Get on Board',
-                description: `Join our dynamic team building next-generation fintech solutions. Stack: ${kw}, React, PostgreSQL, Docker, AWS.`,
-                applicants: '19 postulantes',
-                work_modality: 'remoto'
-            }
-        ];
-
-        // Filter by modality
-        const filtered = templates.filter(j => {
-            if (mod === 'remoto') return j.work_modality === 'remoto';
-            if (mod === 'presencial') return j.work_modality === 'presencial';
-            return true;
-        });
-
-        // Add match scores
-        filtered.forEach((job, i) => {
-            const baseScore = 85 - (i * 12);
-            job.match_score = Math.max(baseScore, 55);
-            job.matched_skills = [kw, 'Git', 'SQL', 'REST APIs'].slice(0, 3);
-            job.id = `fallback_${i}`;
-            job.seniority = i === 0 ? 'senior' : i === 1 ? 'junior' : 'semi';
-            if (!job.work_modality) job.work_modality = mod;
-        });
-
-        return filtered;
-    }
-
     // ─── FILTERS ──────────────────────────────────────────────────
     function initFilters() {
-        dom.filters.score.addEventListener('input', () => {
-            dom.filters.scoreVal.textContent = `${dom.filters.score.value}%`;
-            applyFilters();
-        });
+        const score = safeGet('#min-score');
+        const scoreVal = safeGet('#score-value');
 
-        dom.filters.salary.addEventListener('input', applyFilters);
-        dom.filters.sort.addEventListener('change', applyFilters);
-        dom.filters.live.addEventListener('input', applyFilters);
-        dom.filters.hide.addEventListener('change', applyFilters);
-        dom.filters.only.addEventListener('change', applyFilters);
+        if (score && scoreVal) {
+            score.addEventListener('input', () => {
+                scoreVal.textContent = `${score.value}%`;
+                applyFilters();
+            });
+        }
 
-        dom.filters.chips.forEach(chip => {
+        const salary = safeGet('#min-salary');
+        if (salary) salary.addEventListener('input', applyFilters);
+
+        const sort = safeGet('#sort-by');
+        if (sort) sort.addEventListener('change', applyFilters);
+
+        const live = safeGet('#live-search');
+        if (live) live.addEventListener('input', applyFilters);
+
+        const hide = safeGet('#hide-discarded');
+        if (hide) hide.addEventListener('change', applyFilters);
+
+        const only = safeGet('#only-saved');
+        if (only) only.addEventListener('change', applyFilters);
+
+        // Chips
+        document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 chip.classList.toggle('active');
                 const group = chip.dataset.group;
@@ -1049,26 +1105,35 @@
     }
 
     function resetFilters() {
-        dom.filters.score.value = 0;
-        dom.filters.scoreVal.textContent = '0%';
-        dom.filters.salary.value = '';
-        dom.filters.sort.value = 'match';
-        dom.filters.live.value = '';
-        dom.filters.hide.checked = false;
-        dom.filters.only.checked = false;
-        dom.filters.chips.forEach(c => c.classList.add('active'));
+        const score = safeGet('#min-score');
+        const scoreVal = safeGet('#score-value');
+        const salary = safeGet('#min-salary');
+        const sort = safeGet('#sort-by');
+        const live = safeGet('#live-search');
+        const hide = safeGet('#hide-discarded');
+        const only = safeGet('#only-saved');
+
+        if (score) score.value = 0;
+        if (scoreVal) scoreVal.textContent = '0%';
+        if (salary) salary.value = '';
+        if (sort) sort.value = 'match';
+        if (live) live.value = '';
+        if (hide) hide.checked = false;
+        if (only) only.checked = false;
+
+        document.querySelectorAll('.chip').forEach(c => c.classList.add('active'));
         state.chips = { modality: ['remoto', 'hibrido', 'presencial'], level: ['junior', 'semi', 'senior', 'lead'] };
     }
 
     function applyFilters() {
-        if (!state.jobs.length) return;
+        if (!state.jobs || !state.jobs.length) return;
 
-        const minScore = parseInt(dom.filters.score.value) || 0;
-        const minSalary = parseFloat(dom.filters.salary.value) || 0;
-        const sortBy = dom.filters.sort.value;
-        const liveQ = dom.filters.live.value.toLowerCase().trim();
-        const hide = dom.filters.hide.checked;
-        const only = dom.filters.only.checked;
+        const minScore = parseInt(safeGet('#min-score')?.value) || 0;
+        const minSalary = parseFloat(safeGet('#min-salary')?.value) || 0;
+        const sortBy = safeGet('#sort-by')?.value || 'match';
+        const liveQ = safeGet('#live-search')?.value?.toLowerCase()?.trim() || '';
+        const hide = safeGet('#hide-discarded')?.checked || false;
+        const only = safeGet('#only-saved')?.checked || false;
 
         let filtered = state.jobs.filter(job => {
             if (job.match_score < minScore) return false;
@@ -1122,7 +1187,10 @@
 
         filtered = sortJobs(filtered, sortBy);
 
-        dom.search.summary.innerHTML = `Mostrando <strong>${filtered.length}</strong> de <strong>${state.jobs.length}</strong> vacantes.`;
+        const summary = safeGet('#results-summary');
+        if (summary) {
+            summary.innerHTML = `Mostrando <strong>${filtered.length}</strong> de <strong>${state.jobs.length}</strong> vacantes.`;
+        }
 
         renderJobs(filtered);
         updateStats(filtered);
@@ -1148,10 +1216,13 @@
 
     // ─── RENDER JOBS ─────────────────────────────────────────────
     function renderJobs(jobs) {
-        dom.search.container.innerHTML = '';
+        const container = safeGet('#jobs-container');
+        if (!container) return;
 
-        if (!jobs.length) {
-            dom.search.container.innerHTML = `
+        container.innerHTML = '';
+
+        if (!jobs || !jobs.length) {
+            container.innerHTML = `
                 <div style="grid-column:1/-1;padding:3rem;text-align:center;color:var(--text-muted);">
                     <div style="font-size:2rem;margin-bottom:0.5rem;">🔍</div>
                     <p>No hay empleos que coincidan con los filtros aplicados.</p>
@@ -1159,8 +1230,10 @@
             return;
         }
 
-        dom.search.container.classList.remove('hidden');
-        dom.search.empty.classList.add('hidden');
+        container.classList.remove('hidden');
+
+        const empty = safeGet('#empty-state');
+        if (empty) empty.classList.add('hidden');
 
         const fragment = document.createDocumentFragment();
 
@@ -1220,23 +1293,32 @@
                 </div>
             `;
 
-            card.querySelector('.details-btn').addEventListener('click', () => showJob(job));
-            card.querySelector('.card-title').addEventListener('click', () => showJob(job));
+            const detailsBtn = card.querySelector('.details-btn');
+            if (detailsBtn) detailsBtn.addEventListener('click', () => showJob(job));
 
-            card.querySelector('.save-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleSave(job.id, card.querySelector('.save-btn'));
-            });
+            const titleEl = card.querySelector('.card-title');
+            if (titleEl) titleEl.addEventListener('click', () => showJob(job));
 
-            card.querySelector('.discard-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleDiscard(job.id, card, card.querySelector('.discard-btn'));
-            });
+            const saveBtn = card.querySelector('.save-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleSave(job.id, saveBtn);
+                });
+            }
+
+            const discardBtn = card.querySelector('.discard-btn');
+            if (discardBtn) {
+                discardBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleDiscard(job.id, card, discardBtn);
+                });
+            }
 
             fragment.appendChild(card);
         });
 
-        dom.search.container.appendChild(fragment);
+        container.appendChild(fragment);
         updateMetrics();
     }
 
@@ -1246,12 +1328,12 @@
         if (state.saved.includes(id)) {
             state.saved = state.saved.filter(x => x !== id);
             btn.classList.remove('saved');
-            icon.className = 'fa-regular fa-bookmark';
+            if (icon) icon.className = 'fa-regular fa-bookmark';
             toast('info', 'Guardado removido', '');
         } else {
             state.saved.push(id);
             btn.classList.add('saved');
-            icon.className = 'fa-solid fa-bookmark';
+            if (icon) icon.className = 'fa-solid fa-bookmark';
             toast('success', 'Empleo guardado', '');
 
             if (state.discarded.includes(id)) {
@@ -1262,7 +1344,8 @@
                     const db = card.querySelector('.discard-btn');
                     if (db) {
                         db.classList.remove('discarded');
-                        db.querySelector('i').className = 'fa-solid fa-eye-slash';
+                        const dbIcon = db.querySelector('i');
+                        if (dbIcon) dbIcon.className = 'fa-solid fa-eye-slash';
                     }
                 }
             }
@@ -1279,13 +1362,13 @@
             state.discarded = state.discarded.filter(x => x !== id);
             card.classList.remove('dimmed');
             btn.classList.remove('discarded');
-            icon.className = 'fa-solid fa-eye-slash';
+            if (icon) icon.className = 'fa-solid fa-eye-slash';
             btn.title = 'Descartar';
         } else {
             state.discarded.push(id);
             card.classList.add('dimmed');
             btn.classList.add('discarded');
-            icon.className = 'fa-solid fa-eye';
+            if (icon) icon.className = 'fa-solid fa-eye';
             btn.title = 'Restaurar';
 
             if (state.saved.includes(id)) {
@@ -1293,7 +1376,8 @@
                 const sb = card.querySelector('.save-btn');
                 if (sb) {
                     sb.classList.remove('saved');
-                    sb.querySelector('i').className = 'fa-regular fa-bookmark';
+                    const sbIcon = sb.querySelector('i');
+                    if (sbIcon) sbIcon.className = 'fa-regular fa-bookmark';
                 }
             }
         }
@@ -1303,20 +1387,33 @@
 
     // ─── STATS ───────────────────────────────────────────────────
     function updateStats(jobs) {
-        dom.stats.total.textContent = jobs.length;
+        const totalEl = safeGet('#stat-total');
+        const avgEl = safeGet('#stat-avg');
+        const highEl = safeGet('#stat-high');
 
-        if (jobs.length) {
-            const total = jobs.reduce((s, j) => s + j.match_score, 0);
+        if (totalEl) totalEl.textContent = jobs.length || '0';
+
+        if (jobs && jobs.length) {
+            const total = jobs.reduce((s, j) => s + (j.match_score || 0), 0);
             const avg = Math.round(total / jobs.length);
-            dom.stats.avg.textContent = `${avg}%`;
-            dom.stats.high.textContent = jobs.filter(j => j.match_score >= 70).length;
-            dom.metrics.count.textContent = jobs.length;
+            if (avgEl) avgEl.textContent = `${avg}%`;
+            if (highEl) highEl.textContent = jobs.filter(j => (j.match_score || 0) >= 70).length;
+
+            const countEl = safeGet('#header-count');
+            if (countEl) countEl.textContent = jobs.length;
         } else {
-            dom.stats.avg.textContent = '0%';
-            dom.stats.high.textContent = '0';
+            if (avgEl) avgEl.textContent = '0%';
+            if (highEl) highEl.textContent = '0';
         }
 
         // Distribution
+        const distContainer = safeGet('#distributions');
+        if (!distContainer) return;
+
+        distContainer.innerHTML = '';
+
+        if (!jobs || !jobs.length) return;
+
         const counts = {};
         jobs.forEach(j => { counts[j.source] = (counts[j.source] || 0) + 1; });
 
@@ -1324,8 +1421,6 @@
         const googleCount = jobs.filter(j => !channels.slice(0, -1).includes(j.source)).length;
         const toShow = Object.entries(counts).filter(([k]) => channels.includes(k));
         if (googleCount > 0) toShow.push(['Google (Web)', googleCount]);
-
-        dom.stats.dist.innerHTML = '';
 
         toShow.slice(0, 6).forEach(([ch, count]) => {
             const pct = jobs.length ? Math.round((count / jobs.length) * 100) : 0;
@@ -1338,7 +1433,7 @@
                     <span class="count">${count} (${pct}%)</span>
                 </div>
                 <div class="dist-bar"><div class="fill ${slug}" style="width:0%;" data-pct="${pct}"></div></div>`;
-            dom.stats.dist.appendChild(el);
+            distContainer.appendChild(el);
 
             setTimeout(() => {
                 const bar = el.querySelector('.fill');
@@ -1348,19 +1443,22 @@
     }
 
     function updateMetrics() {
-        dom.metrics.count.textContent = state.jobs.length || '0';
-        dom.metrics.saved.textContent = state.saved.length;
+        const countEl = safeGet('#header-count');
+        if (countEl) countEl.textContent = state.jobs.length || '0';
+
+        const savedEl = safeGet('#header-saved');
+        if (savedEl) savedEl.textContent = state.saved.length;
     }
 
     // ─── RECALCULATE SCORES ─────────────────────────────────────
     function recalcScores() {
-        if (!state.profile || !state.jobs.length) return;
+        if (!state.profile || !state.jobs || !state.jobs.length) return;
 
         const allSkills = state.profile.all_skills_flat || [];
         const roles = (state.profile.preferred_roles || []).map(r => r.toLowerCase());
         const title = (state.profile.title || '').toLowerCase();
         const years = parseInt(state.profile.experience_years || 0, 10) || 0;
-        const modality = dom.search.modality.value || 'any';
+        const modality = safeGet('#modality')?.value || 'any';
 
         state.jobs.forEach(job => {
             const jt = (job.title || '').toLowerCase();
@@ -1414,7 +1512,7 @@
             job.matched_skills = [...new Set(matched)];
         });
 
-        state.jobs.sort((a, b) => b.match_score - a.match_score);
+        state.jobs.sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
         applyFilters();
         toast('success', 'Scores recalculados', 'Los porcentajes de match fueron actualizados.');
     }
@@ -1426,137 +1524,196 @@
 
         resetModal();
 
-        dom.modal.title.textContent = job.title;
-        dom.modal.company.textContent = job.company;
-        dom.modal.location.textContent = `${job.location} · ${formatModality(job.work_modality)}`;
-        dom.modal.salary.textContent = job.salary;
-        dom.modal.date.textContent = job.date;
-        dom.modal.score.textContent = `${job.match_score}%`;
+        const titleEl = safeGet('#modal-title');
+        if (titleEl) titleEl.textContent = job.title;
 
-        const sourceSlug = job.source?.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g, '') || '';
-        dom.modal.source.textContent = job.source;
-        dom.modal.source.className = `badge badge-platform ${sourceSlug}`;
+        const companyEl = safeGet('#modal-company');
+        if (companyEl) companyEl.textContent = job.company;
 
-        dom.modal.matched.innerHTML = '';
-        if (job.matched_skills && job.matched_skills.length) {
-            job.matched_skills.forEach(s => {
-                const el = document.createElement('span');
-                el.className = 'skill-tag';
-                el.textContent = s;
-                dom.modal.matched.appendChild(el);
-            });
-        } else {
-            dom.modal.matched.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem;">Ninguna habilidad directa.</span>';
+        const locationEl = safeGet('#modal-location');
+        if (locationEl) locationEl.textContent = `${job.location} · ${formatModality(job.work_modality)}`;
+
+        const salaryEl = safeGet('#modal-salary');
+        if (salaryEl) salaryEl.textContent = job.salary;
+
+        const dateEl = safeGet('#modal-date');
+        if (dateEl) dateEl.textContent = job.date;
+
+        const scoreEl = safeGet('#modal-score');
+        if (scoreEl) scoreEl.textContent = `${job.match_score || 0}%`;
+
+        const sourceEl = safeGet('#modal-source');
+        if (sourceEl) {
+            const sourceSlug = job.source?.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g, '') || '';
+            sourceEl.textContent = job.source;
+            sourceEl.className = `badge badge-platform ${sourceSlug}`;
         }
 
-        dom.modal.apply.href = job.link;
+        const matchedEl = safeGet('#modal-matched');
+        if (matchedEl) {
+            matchedEl.innerHTML = '';
+            if (job.matched_skills && job.matched_skills.length) {
+                job.matched_skills.forEach(s => {
+                    const el = document.createElement('span');
+                    el.className = 'skill-tag';
+                    el.textContent = s;
+                    matchedEl.appendChild(el);
+                });
+            } else {
+                matchedEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.8rem;">Ninguna habilidad directa.</span>';
+            }
+        }
+
+        const applyEl = safeGet('#modal-apply');
+        if (applyEl) applyEl.href = job.link;
+
         updateModalSave(job.id);
         populateATS(job);
         loadDeep(job);
-        generateLetter(job, dom.modal.letterTone.value);
 
-        dom.modal.el.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+        const tone = safeGet('#letter-tone');
+        if (tone) generateLetter(job, tone.value);
+
+        const modal = safeGet('#job-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
     }
 
     function updateModalSave(id) {
+        const saveBtn = safeGet('#modal-save');
+        if (!saveBtn) return;
+
         const saved = state.saved.includes(id);
-        dom.modal.save.innerHTML = saved
+        saveBtn.innerHTML = saved
             ? '<i class="fa-solid fa-bookmark"></i> Guardado'
             : '<i class="fa-regular fa-bookmark"></i> Guardar';
-        dom.modal.save.classList.toggle('btn-primary', saved);
-        dom.modal.save.classList.toggle('btn-ghost', !saved);
+        saveBtn.classList.toggle('btn-primary', saved);
+        saveBtn.classList.toggle('btn-ghost', !saved);
     }
 
     function resetModal() {
-        dom.modal.tabs.forEach(b => b.classList.remove('active'));
-        dom.modal.contents.forEach(c => c.classList.add('hidden'));
-        const firstTab = dom.modal.tabs[0];
-        const firstContent = document.getElementById('tab-desc');
+        document.querySelectorAll('.modal-tabs .tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+        const firstTab = document.querySelector('.modal-tabs .tab');
         if (firstTab) firstTab.classList.add('active');
+
+        const firstContent = document.getElementById('tab-desc');
         if (firstContent) firstContent.classList.remove('hidden');
     }
 
     // ─── MODAL TABS ──────────────────────────────────────────────
     function initModalTabs() {
-        dom.modal.tabs.forEach(btn => {
+        document.querySelectorAll('.modal-tabs .tab').forEach(btn => {
             btn.addEventListener('click', () => {
-                dom.modal.tabs.forEach(b => b.classList.remove('active'));
-                dom.modal.contents.forEach(c => c.classList.add('hidden'));
+                document.querySelectorAll('.modal-tabs .tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
                 btn.classList.add('active');
+
                 const content = document.getElementById(btn.dataset.tab);
                 if (content) content.classList.remove('hidden');
 
                 if (btn.dataset.tab === 'tab-letter' && state.currentJob) {
-                    generateLetter(state.currentJob, dom.modal.letterTone.value);
+                    const tone = safeGet('#letter-tone');
+                    if (tone) generateLetter(state.currentJob, tone.value);
                 }
             });
         });
 
-        dom.modal.letterRegen.addEventListener('click', () => {
-            if (state.currentJob) generateLetter(state.currentJob, dom.modal.letterTone.value);
-        });
-
-        dom.modal.letterTone.addEventListener('change', () => {
-            if (state.currentJob) generateLetter(state.currentJob, dom.modal.letterTone.value);
-        });
-
-        dom.modal.letterCopy.addEventListener('click', () => {
-            const text = dom.modal.letterText.value;
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(() => {
-                toast('success', 'Copiado', 'Carta copiada al portapapeles.');
-                dom.modal.letterCopy.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
-                setTimeout(() => {
-                    dom.modal.letterCopy.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar';
-                }, 2000);
-            });
-        });
-
-        dom.modal.letterEmail.addEventListener('click', () => {
-            const text = dom.modal.letterText.value;
-            if (!text) return;
-            const subject = encodeURIComponent(`Postulación — ${state.currentJob?.title || ''}`);
-            const body = encodeURIComponent(text);
-            dom.modal.letterEmail.href = `mailto:reclutamiento@empresa.com?subject=${subject}&body=${body}`;
-        });
-
-        dom.modal.save.addEventListener('click', () => {
-            if (!state.currentJob) return;
-            const card = document.getElementById(`card-${state.currentJob.id}`);
-            const btn = card?.querySelector('.save-btn');
-            if (btn) toggleSave(state.currentJob.id, btn);
-            else {
-                if (state.saved.includes(state.currentJob.id)) {
-                    state.saved = state.saved.filter(x => x !== state.currentJob.id);
-                } else {
-                    state.saved.push(state.currentJob.id);
+        const regenBtn = safeGet('#letter-regen');
+        if (regenBtn) {
+            regenBtn.addEventListener('click', () => {
+                if (state.currentJob) {
+                    const tone = safeGet('#letter-tone');
+                    if (tone) generateLetter(state.currentJob, tone.value);
                 }
-                setStore(STORAGE.SAVED, state.saved);
-                updateMetrics();
-            }
-            updateModalSave(state.currentJob.id);
-        });
+            });
+        }
+
+        const toneSelect = safeGet('#letter-tone');
+        if (toneSelect) {
+            toneSelect.addEventListener('change', () => {
+                if (state.currentJob) generateLetter(state.currentJob, toneSelect.value);
+            });
+        }
+
+        const copyBtn = safeGet('#letter-copy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const textEl = safeGet('#letter-text');
+                if (!textEl || !textEl.value) return;
+                navigator.clipboard.writeText(textEl.value).then(() => {
+                    toast('success', 'Copiado', 'Carta copiada al portapapeles.');
+                    copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar';
+                    }, 2000);
+                });
+            });
+        }
+
+        const emailBtn = safeGet('#letter-email');
+        if (emailBtn) {
+            emailBtn.addEventListener('click', () => {
+                const textEl = safeGet('#letter-text');
+                if (!textEl || !textEl.value) return;
+                const subject = encodeURIComponent(`Postulación — ${state.currentJob?.title || ''}`);
+                const body = encodeURIComponent(textEl.value);
+                emailBtn.href = `mailto:reclutamiento@empresa.com?subject=${subject}&body=${body}`;
+            });
+        }
+
+        const saveBtn = safeGet('#modal-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                if (!state.currentJob) return;
+                const card = document.getElementById(`card-${state.currentJob.id}`);
+                const btn = card?.querySelector('.save-btn');
+                if (btn) toggleSave(state.currentJob.id, btn);
+                else {
+                    if (state.saved.includes(state.currentJob.id)) {
+                        state.saved = state.saved.filter(x => x !== state.currentJob.id);
+                    } else {
+                        state.saved.push(state.currentJob.id);
+                    }
+                    setStore(STORAGE.SAVED, state.saved);
+                    updateMetrics();
+                }
+                updateModalSave(state.currentJob.id);
+            });
+        }
     }
 
     // ─── MODAL CLOSE ─────────────────────────────────────────────
     function initModalClose() {
-        dom.modal.close.addEventListener('click', () => {
-            dom.modal.el.classList.add('hidden');
-            document.body.style.overflow = '';
-        });
-
-        dom.modal.el.addEventListener('click', (e) => {
-            if (e.target === dom.modal.el) {
-                dom.modal.el.classList.add('hidden');
+        const closeBtn = safeGet('#modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                const modal = safeGet('#job-modal');
+                if (modal) modal.classList.add('hidden');
                 document.body.style.overflow = '';
-            }
-        });
+            });
+        }
+
+        const modal = safeGet('#job-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !dom.modal.el.classList.contains('hidden')) {
-                dom.modal.el.classList.add('hidden');
-                document.body.style.overflow = '';
+            if (e.key === 'Escape') {
+                const modalEl = safeGet('#job-modal');
+                if (modalEl && !modalEl.classList.contains('hidden')) {
+                    modalEl.classList.add('hidden');
+                    document.body.style.overflow = '';
+                }
             }
         });
     }
@@ -1577,47 +1734,60 @@
             { label: 'Cobertura', pct: allSkills.length ? Math.round(((job.deep_analysis?.matched_skills_deep || matched).length / allSkills.length) * 100) : 0, color: 'var(--green)' }
         ];
 
-        dom.modal.atsBreakdown.innerHTML = '';
-        categories.forEach(cat => {
-            const el = document.createElement('div');
-            el.className = 'break-item';
-            el.innerHTML = `
-                <div class="break-meta"><span>${cat.label}</span><span>${cat.pct}%</span></div>
-                <div class="break-bar"><div class="fill" style="width:0%;background:${cat.color};" data-pct="${cat.pct}"></div></div>`;
-            dom.modal.atsBreakdown.appendChild(el);
-            setTimeout(() => {
-                const bar = el.querySelector('.fill');
-                if (bar) bar.style.width = `${cat.pct}%`;
-            }, 150);
-        });
-
-        dom.modal.atsMissing.innerHTML = '';
-        if (missing.length) {
-            missing.forEach(s => {
-                const el = document.createElement('span');
-                el.className = 'missing-tag';
-                el.textContent = s;
-                dom.modal.atsMissing.appendChild(el);
+        const breakdownEl = safeGet('#ats-breakdown');
+        if (breakdownEl) {
+            breakdownEl.innerHTML = '';
+            categories.forEach(cat => {
+                const el = document.createElement('div');
+                el.className = 'break-item';
+                el.innerHTML = `
+                    <div class="break-meta"><span>${cat.label}</span><span>${cat.pct}%</span></div>
+                    <div class="break-bar"><div class="fill" style="width:0%;background:${cat.color};" data-pct="${cat.pct}"></div></div>`;
+                breakdownEl.appendChild(el);
+                setTimeout(() => {
+                    const bar = el.querySelector('.fill');
+                    if (bar) bar.style.width = `${cat.pct}%`;
+                }, 150);
             });
-        } else {
-            dom.modal.atsMissing.innerHTML = '<span style="color:var(--green);">✓ Tu perfil cubre todas las habilidades.</span>';
         }
 
-        if (job.deep_analysis?.recommendation) {
-            dom.modal.atsRec.innerHTML = `<p>${job.deep_analysis.recommendation}</p>`;
-        } else if (score >= 75) {
-            dom.modal.atsRec.innerHTML = `<p>Alta compatibilidad (${score}%). Tu perfil es sólido. Postúlate de inmediato.</p>`;
-        } else if (score >= 50) {
-            dom.modal.atsRec.innerHTML = `<p>Compatibilidad media (${score}%). Considera adquirir: ${missing.slice(0, 3).join(', ')}.</p>`;
-        } else {
-            dom.modal.atsRec.innerHTML = `<p>Compatibilidad baja (${score}%). Úsalo como referencia de desarrollo.</p>`;
+        const missingEl = safeGet('#ats-missing');
+        if (missingEl) {
+            missingEl.innerHTML = '';
+            if (missing.length) {
+                missing.forEach(s => {
+                    const el = document.createElement('span');
+                    el.className = 'missing-tag';
+                    el.textContent = s;
+                    missingEl.appendChild(el);
+                });
+            } else {
+                missingEl.innerHTML = '<span style="color:var(--green);">✓ Tu perfil cubre todas las habilidades.</span>';
+            }
         }
 
-        renderList(dom.modal.requirements, job.deep_analysis?.requirements || []);
-        renderList(dom.modal.benefits, job.deep_analysis?.benefits || []);
+        const recEl = safeGet('#ats-recommendation');
+        if (recEl) {
+            if (job.deep_analysis?.recommendation) {
+                recEl.innerHTML = `<p>${job.deep_analysis.recommendation}</p>`;
+            } else if (score >= 75) {
+                recEl.innerHTML = `<p>Alta compatibilidad (${score}%). Tu perfil es sólido. Postúlate de inmediato.</p>`;
+            } else if (score >= 50) {
+                recEl.innerHTML = `<p>Compatibilidad media (${score}%). Considera adquirir: ${missing.slice(0, 3).join(', ')}.</p>`;
+            } else {
+                recEl.innerHTML = `<p>Compatibilidad baja (${score}%). Úsalo como referencia de desarrollo.</p>`;
+            }
+        }
+
+        const reqEl = safeGet('#modal-requirements');
+        if (reqEl) renderList(reqEl, job.deep_analysis?.requirements || []);
+
+        const benEl = safeGet('#modal-benefits');
+        if (benEl) renderList(benEl, job.deep_analysis?.benefits || []);
     }
 
     function renderList(container, items) {
+        if (!container) return;
         container.innerHTML = '';
         if (!items || !items.length) {
             container.innerHTML = '<span class="empty-data">Sin datos detectados.</span>';
@@ -1657,7 +1827,8 @@
             applyDeep(job);
         } catch (error) {
             if (token !== state.analysisToken || state.currentJob?.id !== job.id) return;
-            dom.modal.atsRec.innerHTML = `<p>No se pudo enriquecer la vacante. ${error.message}</p>`;
+            const recEl = safeGet('#ats-recommendation');
+            if (recEl) recEl.innerHTML = `<p>No se pudo enriquecer la vacante. ${error.message}</p>`;
             populateATS(job);
             populatePlan(job);
         }
@@ -1665,15 +1836,26 @@
 
     function applyDeep(job) {
         const deep = job.deep_analysis;
-        dom.modal.summary.textContent = deep.deep_description || deep.summary || 'Descripción no disponible.';
+
+        const summaryEl = safeGet('#modal-summary');
+        if (summaryEl) summaryEl.textContent = deep.deep_description || deep.summary || 'Descripción no disponible.';
 
         if (deep.location_deep) {
-            dom.modal.location.textContent = `${deep.location_deep} · ${formatModality(deep.work_modality_deep || job.work_modality)}`;
+            const locEl = safeGet('#modal-location');
+            if (locEl) locEl.textContent = `${deep.location_deep} · ${formatModality(deep.work_modality_deep || job.work_modality)}`;
         }
-        if (deep.salary_deep) dom.modal.salary.textContent = deep.salary_deep;
 
-        renderList(dom.modal.requirements, deep.requirements || []);
-        renderList(dom.modal.benefits, deep.benefits || []);
+        if (deep.salary_deep) {
+            const salEl = safeGet('#modal-salary');
+            if (salEl) salEl.textContent = deep.salary_deep;
+        }
+
+        const reqEl = safeGet('#modal-requirements');
+        if (reqEl) renderList(reqEl, deep.requirements || []);
+
+        const benEl = safeGet('#modal-benefits');
+        if (benEl) renderList(benEl, deep.benefits || []);
+
         populateATS(job);
         populatePlan(job);
     }
@@ -1683,8 +1865,11 @@
         const deep = job.deep_analysis;
         const plan = deep?.action_plan;
 
-        dom.modal.planGaps.innerHTML = '';
-        dom.modal.planSteps.innerHTML = '';
+        const gapsEl = safeGet('#plan-gaps');
+        const stepsEl = safeGet('#plan-steps');
+
+        if (gapsEl) gapsEl.innerHTML = '';
+        if (stepsEl) stepsEl.innerHTML = '';
 
         const gaps = plan?.gaps || [];
         if (!gaps.length) {
@@ -1698,12 +1883,14 @@
             }
         }
 
-        gaps.forEach(gap => {
-            const el = document.createElement('div');
-            el.className = 'gap-item';
-            el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>${gap}</span>`;
-            dom.modal.planGaps.appendChild(el);
-        });
+        if (gapsEl) {
+            gaps.forEach(gap => {
+                const el = document.createElement('div');
+                el.className = 'gap-item';
+                el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>${gap}</span>`;
+                gapsEl.appendChild(el);
+            });
+        }
 
         let steps = plan?.steps || [];
         if (!steps.length) {
@@ -1734,28 +1921,30 @@
             ];
         }
 
-        steps.forEach((step, idx) => {
-            const card = document.createElement('div');
-            card.className = 'step-card';
+        if (stepsEl) {
+            steps.forEach((step, idx) => {
+                const card = document.createElement('div');
+                card.className = 'step-card';
 
-            let itemsHtml = '';
-            step.items.forEach(item => {
-                itemsHtml += `
-                    <div class="item">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>${item}</span>
-                    </div>`;
+                let itemsHtml = '';
+                step.items.forEach(item => {
+                    itemsHtml += `
+                        <div class="item">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>${item}</span>
+                        </div>`;
+                });
+
+                card.innerHTML = `
+                    <div class="step-head">
+                        <div class="num">${idx + 1}</div>
+                        <div class="title"><i class="fa-solid ${step.icon}"></i>${step.title}</div>
+                    </div>
+                    <div class="step-body">${itemsHtml}</div>
+                `;
+                stepsEl.appendChild(card);
             });
-
-            card.innerHTML = `
-                <div class="step-head">
-                    <div class="num">${idx + 1}</div>
-                    <div class="title"><i class="fa-solid ${step.icon}"></i>${step.title}</div>
-                </div>
-                <div class="step-body">${itemsHtml}</div>
-            `;
-            dom.modal.planSteps.appendChild(card);
-        });
+        }
     }
 
     // ─── CARTA DE PRESENTACIÓN ──────────────────────────────────
@@ -1804,16 +1993,21 @@ ${name}
 ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         };
 
-        dom.modal.letterText.value = templates[tone] || templates.formal;
+        const textEl = safeGet('#letter-text');
+        if (textEl) textEl.value = templates[tone] || templates.formal;
 
         const subject = encodeURIComponent(`Postulación — ${job.title} | ${name}`);
-        const body = encodeURIComponent(dom.modal.letterText.value);
-        dom.modal.letterEmail.href = `mailto:reclutamiento@${job.company?.toLowerCase().replace(/\s+/g, '') || 'empresa'}.com?subject=${subject}&body=${body}`;
+        const body = encodeURIComponent(textEl?.value || '');
+
+        const emailBtn = safeGet('#letter-email');
+        if (emailBtn) {
+            emailBtn.href = `mailto:reclutamiento@${job.company?.toLowerCase().replace(/\s+/g, '') || 'empresa'}.com?subject=${subject}&body=${body}`;
+        }
     }
 
     // ─── EXPORT ──────────────────────────────────────────────────
     async function exportJobs() {
-        if (!state.jobs.length) return;
+        if (!state.jobs || !state.jobs.length) return;
 
         try {
             const res = await fetch(`${API}/api/export`, {
@@ -1843,8 +2037,6 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
 
     // ─── INIT ────────────────────────────────────────────────────
     function init() {
-        cacheDom();
-
         state.saved = getStore(STORAGE.SAVED, []);
         state.discarded = getStore(STORAGE.DISCARDED, []);
         updateMetrics();
@@ -1859,7 +2051,7 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         initModalTabs();
         initModalClose();
 
-        console.log('🚀 PostulacionAuto Hub v2.0 cargado');
+        console.log('🚀 PostulacionAuto Hub v2.0 cargado correctamente');
     }
 
     document.addEventListener('DOMContentLoaded', init);

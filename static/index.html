@@ -155,6 +155,30 @@
                         </button>
                     </div>
 
+                    <!-- Formulario de edición -->
+                    <div id="edit-form" class="edit-form hidden">
+                        <div class="edit-grid">
+                            <input type="text" id="edit-name" placeholder="Nombre" class="input-sm">
+                            <input type="text" id="edit-title" placeholder="Título" class="input-sm">
+                            <input type="email" id="edit-email" placeholder="Email" class="input-sm">
+                            <input type="text" id="edit-phone" placeholder="Teléfono" class="input-sm">
+                            <input type="text" id="edit-location" placeholder="Ubicación" class="input-sm">
+                            <input type="text" id="edit-linkedin" placeholder="LinkedIn" class="input-sm">
+                            <input type="text" id="edit-github" placeholder="GitHub" class="input-sm">
+                            <input type="number" id="edit-years" placeholder="Años de exp." class="input-sm" min="0" max="50">
+                            <input type="text" id="edit-roles" placeholder="Roles objetivo" class="input-sm full">
+                            <textarea id="edit-summary" placeholder="Resumen profesional" class="input-sm full"></textarea>
+                            <textarea id="edit-experience" placeholder="Experiencia (una línea por experiencia)" class="input-sm full"></textarea>
+                            <input type="text" id="edit-languages" placeholder="Idiomas" class="input-sm full">
+                            <textarea id="edit-education" placeholder="Educación" class="input-sm full"></textarea>
+                            <textarea id="edit-certifications" placeholder="Certificaciones" class="input-sm full"></textarea>
+                        </div>
+                        <div class="edit-actions">
+                            <button id="edit-cancel" class="btn-ghost btn-sm">Cancelar</button>
+                            <button id="edit-save" class="btn-primary btn-sm">Guardar</button>
+                        </div>
+                    </div>
+
                     <!-- Métricas -->
                     <div class="profile-metrics">
                         <div class="metric"><span>Experiencia</span><strong id="profile-years">0 años</strong></div>
