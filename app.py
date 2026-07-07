@@ -2,6 +2,7 @@ import os
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from backend.parser import parse_cv
+from backend.latex_generator import generate_latex_from_image, LatexGenerationError
 from backend.search_manager import search_jobs
 from werkzeug.utils import secure_filename
 import json
@@ -186,6 +187,57 @@ def export_jobs():
         return jsonify({
             "status": "error",
             "message": str(e)
+        }), 500
+
+
+@app.route('/api/generate-cv-latex', methods=['POST'])
+def generate_cv_latex():
+    if 'image' not in request.files:
+        return jsonify({
+            "status": "error",
+            "message": "Falta la imagen de la página PDF en la petición."
+        }), 400
+
+    image = request.files['image']
+    if image.filename == '':
+        return jsonify({
+            "status": "error",
+            "message": "Nombre de archivo vacío."
+        }), 400
+
+    filename = secure_filename(image.filename)
+    mime_type = image.mimetype or ""
+    image_bytes = image.read()
+
+    try:
+        latex = generate_latex_from_image(
+            image_bytes=image_bytes,
+            mime_type=mime_type,
+            filename=filename,
+        )
+        suggested_name = f"{os.path.splitext(filename)[0] or 'cv_latex'}.tex"
+        return jsonify({
+            "status": "success",
+            "message": "Código LaTeX generado correctamente con OCR local.",
+            "data": {
+                "latex": latex,
+                "suggested_filename": suggested_name
+            }
+        })
+    except ValueError as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+    except LatexGenerationError as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Error interno al generar LaTeX: {str(e)}"
         }), 500
 
 if __name__ == "__main__":

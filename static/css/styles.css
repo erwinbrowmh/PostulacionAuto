@@ -637,6 +637,11 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
   border-bottom: 1px solid var(--border);
 }
 
+.profile-edit-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .avatar {
   width: 56px;
   height: 56px;
@@ -666,6 +671,37 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
   line-height: 1.4;
 }
 
+.profile-edit-form {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.profile-edit-form label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.profile-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
 /* Upload zone */
 .upload-zone {
   border: 1.5px dashed var(--border);
@@ -690,6 +726,46 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
 .upload-zone.processing { border-style: solid; border-color: var(--indigo); cursor: not-allowed; }
 .upload-zone.processing .upload-icon { animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.upload-zone-vertical {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.latex-section {
+  border-top: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.latex-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.latex-file-name {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.latex-helper-text {
+  margin: 0.625rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.latex-output-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.875rem;
+}
 
 /* Profile details */
 .profile-details {
@@ -826,6 +902,12 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
 .input-add-group { display: flex; gap: 0.5rem; }
 .select-sm { height: 32px !important; font-size: 0.78rem !important; padding: 0 0.5rem !important; }
 .text-sm { height: 32px !important; font-size: 0.78rem !important; padding: 0 0.625rem !important; }
+
+@media (min-width: 768px) {
+  .profile-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(-6px); }
@@ -1431,6 +1513,14 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
 }
 .cl-textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-soft); }
 .cl-actions { display: flex; gap: 0.625rem; justify-content: flex-end; }
+
+.latex-textarea {
+  min-height: 340px;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  resize: vertical;
+  white-space: pre;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    TOAST NOTIFICATIONS

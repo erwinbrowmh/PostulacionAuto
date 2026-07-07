@@ -322,6 +322,50 @@
                             <h2 id="cand-name">Cargando...</h2>
                             <p id="cand-title" class="cand-subtitle">Cargando perfil...</p>
                         </div>
+                        <button id="toggle-edit-profile" class="btn-icon-toggle profile-edit-toggle" title="Editar perfil">
+                            <i class="fa-solid fa-user-pen"></i>
+                        </button>
+                    </div>
+
+                    <div id="profile-edit-form" class="profile-edit-form hidden">
+                        <div class="profile-form-grid">
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-name-input">Nombre</label>
+                                <input type="text" id="profile-name-input" class="text-input text-sm" placeholder="Nombre completo">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-title-input">Título</label>
+                                <input type="text" id="profile-title-input" class="text-input text-sm" placeholder="Ej. Desarrollador Full Stack">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-email-input">Correo</label>
+                                <input type="email" id="profile-email-input" class="text-input text-sm" placeholder="correo@dominio.com">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-phone-input">Teléfono</label>
+                                <input type="text" id="profile-phone-input" class="text-input text-sm" placeholder="Ej. 229-000-0000">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-location-input">Ubicación</label>
+                                <input type="text" id="profile-location-input" class="text-input text-sm" placeholder="Ej. Veracruz, México">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-linkedin-input">LinkedIn</label>
+                                <input type="text" id="profile-linkedin-input" class="text-input text-sm" placeholder="linkedin.com/in/usuario">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-github-input">GitHub</label>
+                                <input type="text" id="profile-github-input" class="text-input text-sm" placeholder="github.com/usuario">
+                            </div>
+                        </div>
+                        <div class="profile-edit-actions">
+                            <button id="profile-cancel-btn" class="btn btn-ghost btn-sm" type="button">
+                                <i class="fa-solid fa-xmark"></i> Cancelar
+                            </button>
+                            <button id="profile-save-btn" class="btn btn-primary btn-sm" type="button">
+                                <i class="fa-solid fa-floppy-disk"></i> Guardar perfil
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Drag & Drop Upload Zone -->
@@ -329,6 +373,39 @@
                         <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
                         <span class="upload-text">Reemplazar CV — arrastra o haz clic</span>
                         <input type="file" id="cv-file-input" accept=".pdf" style="display:none;">
+                    </div>
+
+                    <div class="latex-section">
+                        <div class="skills-section-header" style="margin-bottom: 0.75rem;">
+                            <h3>Generar CV LaTeX</h3>
+                        </div>
+                        <div class="upload-zone upload-zone-vertical" id="latex-image-upload-zone">
+                            <i class="fa-solid fa-file-code upload-icon"></i>
+                            <span class="upload-text">
+                                Sube una imagen de una página PDF para transcribirla a LaTeX compilable con OCR local.
+                            </span>
+                            <input type="file" id="latex-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                        </div>
+                        <div class="latex-actions-row">
+                            <span id="latex-file-name" class="latex-file-name">Sin imagen seleccionada</span>
+                            <button id="latex-generate-btn" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generar CV LaTeX
+                            </button>
+                        </div>
+                        <p class="latex-helper-text">
+                            Formatos permitidos: PNG, JPG/JPEG y WEBP. OCR local usando Tesseract en español e inglés.
+                        </p>
+                        <div id="latex-output-panel" class="latex-output-panel hidden">
+                            <textarea id="latex-output" class="cl-textarea latex-textarea" readonly placeholder="\documentclass{article}"></textarea>
+                            <div class="cl-actions">
+                                <button id="latex-copy-btn" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-copy"></i> Copiar LaTeX
+                                </button>
+                                <button id="latex-download-btn" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-download"></i> Descargar .tex
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="profile-details">

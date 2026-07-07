@@ -27,6 +27,9 @@
   let savedJobIds = [];
   let discardedJobIds = [];
   let activeChips = { modality: ["remoto","hibrido","presencial"], level: ["junior","semi","senior","lead"] };
+  let latexSourceFile = null;
+  let latexSuggestedFilename = "cv_latex.tex";
+  let profileEditSnapshot = null;
 
   // ── DOM refs ──────────────────────────────────────────────
   const searchBtn      = document.getElementById("search-btn");
@@ -81,9 +84,28 @@
   const candLocation   = document.getElementById("cand-location");
   const candLinkedin   = document.getElementById("cand-linkedin");
   const candGithub     = document.getElementById("cand-github");
+  const toggleEditProfileBtn = document.getElementById("toggle-edit-profile");
+  const profileEditForm = document.getElementById("profile-edit-form");
+  const profileNameInput = document.getElementById("profile-name-input");
+  const profileTitleInput = document.getElementById("profile-title-input");
+  const profileEmailInput = document.getElementById("profile-email-input");
+  const profilePhoneInput = document.getElementById("profile-phone-input");
+  const profileLocationInput = document.getElementById("profile-location-input");
+  const profileLinkedinInput = document.getElementById("profile-linkedin-input");
+  const profileGithubInput = document.getElementById("profile-github-input");
+  const profileSaveBtn = document.getElementById("profile-save-btn");
+  const profileCancelBtn = document.getElementById("profile-cancel-btn");
   const skillsContainer = document.getElementById("skills-container");
   const cvUploadZone   = document.getElementById("cv-upload-zone");
   const cvFileInput    = document.getElementById("cv-file-input");
+  const latexUploadZone = document.getElementById("latex-image-upload-zone");
+  const latexImageInput = document.getElementById("latex-image-input");
+  const latexGenerateBtn = document.getElementById("latex-generate-btn");
+  const latexFileName = document.getElementById("latex-file-name");
+  const latexOutputPanel = document.getElementById("latex-output-panel");
+  const latexOutput = document.getElementById("latex-output");
+  const latexCopyBtn = document.getElementById("latex-copy-btn");
+  const latexDownloadBtn = document.getElementById("latex-download-btn");
   const toggleEditSkillsBtn = document.getElementById("toggle-edit-skills");
   const addSkillForm   = document.getElementById("add-skill-form");
   const addSkillBtn    = document.getElementById("add-skill-btn");
@@ -153,17 +175,42 @@
     candEmail.textContent     = profile.email || "Sin email";
     candPhone.textContent     = profile.phone || "Sin teléfono";
     candLocation.textContent  = profile.location || "Sin ubicación";
-
-    if (profile.linkedin) {
-      candLinkedin.href = profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`;
-    }
-    if (profile.github) {
-      candGithub.href = profile.github.startsWith("http") ? profile.github : `https://github.com/${profile.github}`;
-    }
+    applyProfileLink(candLinkedin, profile.linkedin, "linkedin");
+    applyProfileLink(candGithub, profile.github, "github");
+    fillProfileEditForm(profile);
 
     renderSkills(profile.skills || {});
     saveProfileToStorage(profile);
     updateStatSkillsCount(profile);
+  }
+
+  function applyProfileLink(element, value, type) {
+    if (!element) return;
+    const normalized = normalizeProfileUrl(value, type);
+    if (normalized) {
+      element.href = normalized;
+      element.style.pointerEvents = "";
+      element.style.opacity = "";
+    } else {
+      element.href = "#";
+      element.style.pointerEvents = "none";
+      element.style.opacity = "0.55";
+    }
+  }
+
+  function normalizeProfileUrl(value, type) {
+    const raw = (value || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (type === "github") {
+      if (/^github\.com\//i.test(raw)) return `https://${raw}`;
+      return `https://github.com/${raw.replace(/^\/+/, "")}`;
+    }
+    if (type === "linkedin") {
+      if (/^linkedin\.com\//i.test(raw)) return `https://${raw}`;
+      return `https://${raw.replace(/^\/+/, "")}`;
+    }
+    return `https://${raw.replace(/^\/+/, "")}`;
   }
 
   function updateStatSkillsCount(profile) {
@@ -240,6 +287,97 @@
     newSkillName.addEventListener("keydown", (e) => {
       if (e.key === "Enter") addSkillBtn.click();
     });
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  PROFILE EDITOR
+  // ══════════════════════════════════════════════════════════
+  function initProfileEditor() {
+    if (!toggleEditProfileBtn || !profileEditForm) return;
+
+    toggleEditProfileBtn.addEventListener("click", () => {
+      const isEditing = !profileEditForm.classList.contains("hidden");
+      if (isEditing) {
+        cancelProfileEdit();
+      } else {
+        profileEditSnapshot = JSON.parse(JSON.stringify(activeProfile || {}));
+        fillProfileEditForm(activeProfile || {});
+        setProfileEditMode(true);
+      }
+    });
+
+    profileCancelBtn?.addEventListener("click", cancelProfileEdit);
+    profileSaveBtn?.addEventListener("click", saveProfileEdits);
+
+    [
+      profileNameInput,
+      profileTitleInput,
+      profileEmailInput,
+      profilePhoneInput,
+      profileLocationInput,
+      profileLinkedinInput,
+      profileGithubInput
+    ].forEach(input => {
+      input?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          saveProfileEdits();
+        }
+      });
+    });
+  }
+
+  function setProfileEditMode(enabled) {
+    profileEditForm?.classList.toggle("hidden", !enabled);
+    toggleEditProfileBtn?.classList.toggle("active", enabled);
+    toggleEditProfileBtn.title = enabled ? "Cancelar edición de perfil" : "Editar perfil";
+  }
+
+  function fillProfileEditForm(profile) {
+    if (!profileEditForm) return;
+    profileNameInput.value = profile?.name || "";
+    profileTitleInput.value = profile?.title || "";
+    profileEmailInput.value = profile?.email || "";
+    profilePhoneInput.value = profile?.phone || "";
+    profileLocationInput.value = profile?.location || "";
+    profileLinkedinInput.value = profile?.linkedin || "";
+    profileGithubInput.value = profile?.github || "";
+  }
+
+  function cancelProfileEdit() {
+    fillProfileEditForm(profileEditSnapshot || activeProfile || {});
+    setProfileEditMode(false);
+  }
+
+  async function saveProfileEdits() {
+    if (!activeProfile) return;
+
+    const updatedProfile = {
+      ...activeProfile,
+      name: profileNameInput.value.trim(),
+      title: profileTitleInput.value.trim(),
+      email: profileEmailInput.value.trim(),
+      phone: profilePhoneInput.value.trim(),
+      location: profileLocationInput.value.trim(),
+      linkedin: profileLinkedinInput.value.trim(),
+      github: profileGithubInput.value.trim(),
+    };
+
+    if (!updatedProfile.name) {
+      showToast("warning", "Nombre requerido", "Escribe al menos tu nombre para guardar el perfil.");
+      profileNameInput?.focus();
+      return;
+    }
+
+    if (!updatedProfile.skills) updatedProfile.skills = {};
+    updatedProfile.all_skills_flat = flattenSkills(updatedProfile.skills);
+
+    activeProfile = updatedProfile;
+    renderProfile(updatedProfile);
+    await syncProfileToBackend();
+    profileEditSnapshot = JSON.parse(JSON.stringify(updatedProfile));
+    setProfileEditMode(false);
+    showToast("success", "Perfil actualizado", "Ya puedes corregir manualmente tu información cuando el parser falle.");
   }
 
   function renderSkillsEditMode() {
@@ -373,6 +511,122 @@
     } finally {
       cvUploadZone.classList.remove("processing");
       cvUploadZone.querySelector(".upload-icon").className = "fa-solid fa-cloud-arrow-up upload-icon";
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  //  CV LATEX GENERATOR
+  // ══════════════════════════════════════════════════════════
+  function initLatexGenerator() {
+    if (!latexUploadZone || !latexImageInput || !latexGenerateBtn) return;
+
+    latexUploadZone.addEventListener("click", () => {
+      if (!latexUploadZone.classList.contains("processing")) latexImageInput.click();
+    });
+
+    latexImageInput.addEventListener("change", () => {
+      if (latexImageInput.files[0]) handleLatexImageSelection(latexImageInput.files[0]);
+    });
+
+    latexUploadZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      latexUploadZone.classList.add("dragover");
+    });
+
+    latexUploadZone.addEventListener("dragleave", () => latexUploadZone.classList.remove("dragover"));
+
+    latexUploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      latexUploadZone.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file) handleLatexImageSelection(file);
+    });
+
+    latexGenerateBtn.addEventListener("click", generateCvLatex);
+
+    latexCopyBtn?.addEventListener("click", async () => {
+      if (!latexOutput?.value) return;
+      try {
+        await navigator.clipboard.writeText(latexOutput.value);
+        showToast("success", "LaTeX copiado", "El código se copió al portapapeles.");
+      } catch {
+        showToast("error", "No se pudo copiar", "Copia el código manualmente desde el cuadro de texto.");
+      }
+    });
+
+    latexDownloadBtn?.addEventListener("click", () => {
+      if (!latexOutput?.value) return;
+      const blob = new Blob([latexOutput.value], { type: "application/x-tex;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = latexSuggestedFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  function handleLatexImageSelection(file) {
+    if (!isSupportedLatexImage(file)) {
+      showToast("error", "Formato inválido", "Usa una imagen PNG, JPG/JPEG o WEBP.");
+      return;
+    }
+
+    latexSourceFile = file;
+    latexSuggestedFilename = `${file.name.replace(/\.[^.]+$/, "") || "cv_latex"}.tex`;
+    if (latexFileName) latexFileName.textContent = file.name;
+    if (latexOutputPanel) latexOutputPanel.classList.add("hidden");
+    if (latexOutput) latexOutput.value = "";
+    showToast("info", "Imagen lista", "Ahora puedes generar el documento LaTeX.");
+  }
+
+  function isSupportedLatexImage(file) {
+    const validTypes = ["image/png", "image/jpeg", "image/webp"];
+    return validTypes.includes(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name || "");
+  }
+
+  function setLatexProcessingState(isProcessing) {
+    latexGenerateBtn.disabled = isProcessing;
+    latexUploadZone.classList.toggle("processing", isProcessing);
+    latexGenerateBtn.innerHTML = isProcessing
+      ? `<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...`
+      : `<i class="fa-solid fa-wand-magic-sparkles"></i> Generar CV LaTeX`;
+  }
+
+  async function generateCvLatex() {
+    if (!latexSourceFile) {
+      showToast("warning", "Falta imagen", "Selecciona primero una imagen de la página PDF.");
+      return;
+    }
+
+    setLatexProcessingState(true);
+    showToast("info", "Generando LaTeX", "Transcribiendo la página con OCR local de Tesseract...");
+
+    const formData = new FormData();
+    formData.append("image", latexSourceFile);
+
+    try {
+      const res = await fetch(`${API_URL}/api/generate-cv-latex`, {
+        method: "POST",
+        body: formData
+      });
+      const json = await res.json();
+
+      if (!res.ok || json.status !== "success") {
+        showToast("error", "No se pudo generar", json.message || "Intenta de nuevo con otra imagen.");
+        return;
+      }
+
+      latexOutput.value = json.data?.latex || "";
+      latexSuggestedFilename = json.data?.suggested_filename || latexSuggestedFilename;
+      latexOutputPanel?.classList.remove("hidden");
+      showToast("success", "CV LaTeX listo", "Se generó un documento LaTeX desde OCR local, listo para copiar o descargar.");
+    } catch {
+      showToast("error", "Sin conexión", "No se pudo conectar con el servidor para generar el LaTeX.");
+    } finally {
+      setLatexProcessingState(false);
     }
   }
 
@@ -1227,8 +1481,10 @@ ${activeProfile?.email || ''} | ${activeProfile?.phone || ''}`
 
     // Init UI systems
     initUpload();
+    initLatexGenerator();
     initSearch();
     initFilters();
+    initProfileEditor();
     initSkillsEditor();
     initModalTabs();
     initCoverLetterActions();
