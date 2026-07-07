@@ -5,378 +5,572 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PostulacionAuto Hub</title>
     <meta name="description" content="Motor de búsqueda inteligente de empleo con IA y análisis ATS">
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-    <!-- ═══ HEADER ═══ -->
-    <header class="header">
-        <div class="header-inner">
-            <div class="logo">
-                <i class="fa-solid fa-rocket"></i>
-                <span>PostulacionAuto <span class="highlight">Hub</span></span>
-            </div>
-            <div class="header-status">
-                <span class="status-dot"></span>
-                <span>Motor <strong>Activo</strong></span>
-                <span class="divider">|</span>
-                <span>Empleos: <strong id="header-count">0</strong></span>
-                <span class="divider">|</span>
-                <span>Guardados: <strong id="header-saved">0</strong></span>
-            </div>
-            <div class="header-badge">
-                <span class="badge"><i class="fa-solid fa-robot"></i> IA</span>
+    <!-- ═══ NAVBAR ═══ -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-rocket-takeoff text-primary"></i>
+                PostulacionAuto <span class="text-primary">Hub</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-section="profile" href="#">
+                            <i class="bi bi-person"></i> Mi Perfil
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-section="search" href="#">
+                            <i class="bi bi-search"></i> Buscar Trabajo
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-section="latex" href="#">
+                            <i class="bi bi-file-code"></i> Generar LaTeX
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-section="saved" href="#">
+                            <i class="bi bi-bookmark-star"></i> Guardados
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="navbar-status d-flex align-items-center gap-3">
+                    <span class="badge bg-success">
+                        <span class="status-dot"></span> Motor Activo
+                    </span>
+                    <span class="text-light-emphasis small">
+                        <i class="bi bi-briefcase"></i> <span id="header-count">0</span>
+                    </span>
+                    <span class="text-light-emphasis small">
+                        <i class="bi bi-bookmark"></i> <span id="header-saved">0</span>
+                    </span>
+                </div>
             </div>
         </div>
-    </header>
+    </nav>
 
-    <!-- ═══ MAIN ═══ -->
-    <main class="main">
+    <!-- ═══ MAIN CONTENT ═══ -->
+    <div class="container-fluid main-content">
 
-        <!-- ═══ PANEL DE BÚSQUEDA ═══ -->
-        <section class="search-panel">
-            <div class="search-grid">
-                <div class="search-field keywords-field">
-                    <label><i class="fa-solid fa-keyboard"></i> Palabras Clave</label>
-                    <textarea id="keywords" placeholder="Ej. PHP, Java, Flutter, Laravel">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
-                </div>
-                <div class="search-field">
-                    <label><i class="fa-solid fa-laptop-house"></i> Modalidad</label>
-                    <select id="modality">
-                        <option value="remoto">🌐 Remoto</option>
-                        <option value="hibrido">🔀 Híbrido</option>
-                        <option value="presencial">🏢 Presencial</option>
-                    </select>
-                </div>
-                <div class="search-field">
-                    <label><i class="fa-solid fa-location-dot"></i> Ubicación</label>
-                    <input type="text" id="location" value="México" placeholder="Ciudad, país">
-                </div>
-                <div class="search-field">
-                    <label><i class="fa-solid fa-list"></i> Resultados</label>
-                    <div class="range-wrapper">
-                        <input type="range" id="max-results" min="5" max="40" value="20">
-                        <span id="range-value">20</span>
+        <!-- ═══ SECCIÓN: MI PERFIL ═══ -->
+        <section id="section-profile" class="section-content">
+            <div class="row g-4">
+                <!-- Perfil -->
+                <div class="col-lg-4">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="avatar-lg">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="card-title mb-0" id="profile-name">Cargando...</h5>
+                                    <p class="text-muted small" id="profile-title">Cargando perfil...</p>
+                                </div>
+                                <button id="edit-profile-btn" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </div>
+
+                            <!-- Métricas -->
+                            <div class="row g-2 mb-3">
+                                <div class="col-3">
+                                    <div class="metric-box text-center">
+                                        <span class="metric-label">Exp.</span>
+                                        <strong id="profile-years">0</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="metric-box text-center">
+                                        <span class="metric-label">Keywords</span>
+                                        <strong id="profile-keywords">0</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="metric-box text-center">
+                                        <span class="metric-label">Fuente</span>
+                                        <strong id="profile-source">ATS</strong>
+                                    </div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="metric-box text-center">
+                                        <span class="metric-label">OCR</span>
+                                        <strong id="profile-ocr">No</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="card-text small text-light-emphasis" id="profile-summary-text">
+                                Sin resumen disponible.
+                            </p>
+
+                            <!-- Upload CV -->
+                            <div class="upload-zone mb-3" id="cv-zone">
+                                <i class="bi bi-cloud-arrow-up"></i>
+                                <span>Reemplazar CV — arrastra o haz clic</span>
+                                <input type="file" id="cv-input" accept=".pdf" style="display:none;">
+                            </div>
+
+                            <!-- Detalles -->
+                            <div class="profile-details mb-3">
+                                <div><i class="bi bi-envelope"></i> <span id="detail-email">—</span></div>
+                                <div><i class="bi bi-phone"></i> <span id="detail-phone">—</span></div>
+                                <div><i class="bi bi-geo-alt"></i> <span id="detail-location">—</span></div>
+                            </div>
+
+                            <div class="d-flex gap-2 mb-3">
+                                <a id="link-linkedin" href="#" target="_blank" class="btn btn-outline-primary btn-sm flex-grow-1">
+                                    <i class="bi bi-linkedin"></i> LinkedIn
+                                </a>
+                                <a id="link-github" href="#" target="_blank" class="btn btn-outline-secondary btn-sm flex-grow-1">
+                                    <i class="bi bi-github"></i> GitHub
+                                </a>
+                            </div>
+
+                            <!-- Datos estructurados -->
+                            <div class="structured-data">
+                                <div class="data-block"><h6>Roles Objetivo</h6><div id="roles-list" class="chip-list"></div></div>
+                                <div class="data-block"><h6>Idiomas</h6><div id="languages-list" class="chip-list"></div></div>
+                                <div class="data-block full"><h6>Experiencia</h6><div id="experience-list" class="line-list"></div></div>
+                                <div class="data-block full"><h6>Educación</h6><div id="education-list" class="line-list"></div></div>
+                                <div class="data-block full"><h6>Certificaciones</h6><div id="certifications-list" class="line-list"></div></div>
+                                <div class="data-block full"><h6>Keywords</h6><div id="keywords-list" class="chip-list"></div></div>
+                            </div>
+
+                            <!-- Habilidades -->
+                            <div class="skills-section">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">Habilidades</h6>
+                                    <button id="edit-skills-btn" class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+                                <div id="skills-container" class="skills-grid"></div>
+                                <div id="add-skill-form" class="add-skill hidden mt-2">
+                                    <div class="row g-2">
+                                        <div class="col-7">
+                                            <select id="skill-category" class="form-select form-select-sm">
+                                                <option value="languages">Lenguajes</option>
+                                                <option value="backend">Backend</option>
+                                                <option value="infrastructure">Infraestructura</option>
+                                                <option value="security">Seguridad</option>
+                                                <option value="iot">IoT / Hardware</option>
+                                                <option value="management">Gestión</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-5">
+                                            <div class="input-group input-group-sm">
+                                                <input type="text" id="skill-name" class="form-control" placeholder="Habilidad...">
+                                                <button id="add-skill-btn" class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="search-field search-btn-wrap">
-                    <button id="search-btn" class="btn-primary">
-                        <span class="btn-text"><i class="fa-solid fa-magnifying-glass"></i> Buscar</span>
-                        <span class="btn-spinner hidden"><i class="fa-solid fa-spinner fa-spin"></i></span>
-                    </button>
-                </div>
-            </div>
 
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label><i class="fa-solid fa-bullseye"></i> Match Mín:</label>
-                    <div class="range-wrapper small">
-                        <input type="range" id="min-score" min="0" max="90" value="0">
-                        <span id="score-value">0%</span>
-                    </div>
-                </div>
-                <div class="filter-group">
-                    <label><i class="fa-solid fa-money-bill"></i> Salario Mín:</label>
-                    <input type="number" id="min-salary" placeholder="Ej. 20000" min="0">
-                </div>
-                <div class="filter-group">
-                    <label><i class="fa-solid fa-arrow-down-wide-short"></i> Ordenar:</label>
-                    <select id="sort-by">
-                        <option value="match">Mayor Match</option>
-                        <option value="date">Más Reciente</option>
-                        <option value="salary">Mayor Salario</option>
-                        <option value="company">Empresa A-Z</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label><i class="fa-solid fa-filter"></i> Buscar:</label>
-                    <div class="search-input-wrap">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" id="live-search" placeholder="Filtrar resultados...">
-                    </div>
-                </div>
-            </div>
+                <!-- Resumen Stats -->
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> Resumen del Perfil</h5>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-3 col-6">
+                                    <div class="stat-box">
+                                        <span class="stat-number" id="stat-skills-profile">0</span>
+                                        <span class="stat-label">Habilidades</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="stat-box">
+                                        <span class="stat-number" id="stat-keywords-profile">0</span>
+                                        <span class="stat-label">Keywords</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="stat-box">
+                                        <span class="stat-number" id="stat-roles-profile">0</span>
+                                        <span class="stat-label">Roles</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <div class="stat-box">
+                                        <span class="stat-number" id="stat-experience-profile">0</span>
+                                        <span class="stat-label">Años Exp.</span>
+                                    </div>
+                                </div>
+                            </div>
 
-            <div class="chips-row">
-                <div class="chips-group">
-                    <span class="chips-label">Modalidad:</span>
-                    <button class="chip active" data-group="modality" data-value="remoto">🌐 Remoto</button>
-                    <button class="chip active" data-group="modality" data-value="hibrido">🔀 Híbrido</button>
-                    <button class="chip active" data-group="modality" data-value="presencial">🏢 Presencial</button>
-                </div>
-                <div class="chips-group">
-                    <span class="chips-label">Nivel:</span>
-                    <button class="chip active" data-group="level" data-value="junior">Junior</button>
-                    <button class="chip active" data-group="level" data-value="semi">Semi-sr</button>
-                    <button class="chip active" data-group="level" data-value="senior">Senior</button>
-                    <button class="chip active" data-group="level" data-value="lead">Lead</button>
-                </div>
-                <div class="chips-group toggles">
-                    <label><input type="checkbox" id="hide-discarded"> Ocultar descartados</label>
-                    <label><input type="checkbox" id="only-saved"> Solo guardados</label>
+                            <!-- Formulario de edición -->
+                            <div id="edit-form" class="edit-form hidden mt-3">
+                                <h6 class="text-muted">Editar Perfil</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-6"><input type="text" id="edit-name" class="form-control form-control-sm" placeholder="Nombre"></div>
+                                    <div class="col-md-6"><input type="text" id="edit-title" class="form-control form-control-sm" placeholder="Título"></div>
+                                    <div class="col-md-6"><input type="email" id="edit-email" class="form-control form-control-sm" placeholder="Email"></div>
+                                    <div class="col-md-6"><input type="text" id="edit-phone" class="form-control form-control-sm" placeholder="Teléfono"></div>
+                                    <div class="col-md-6"><input type="text" id="edit-location" class="form-control form-control-sm" placeholder="Ubicación"></div>
+                                    <div class="col-md-6"><input type="text" id="edit-linkedin" class="form-control form-control-sm" placeholder="LinkedIn"></div>
+                                    <div class="col-md-6"><input type="text" id="edit-github" class="form-control form-control-sm" placeholder="GitHub"></div>
+                                    <div class="col-md-6"><input type="number" id="edit-years" class="form-control form-control-sm" placeholder="Años de exp." min="0"></div>
+                                    <div class="col-12"><input type="text" id="edit-roles" class="form-control form-control-sm" placeholder="Roles objetivo (separados por coma)"></div>
+                                    <div class="col-12"><textarea id="edit-summary" class="form-control form-control-sm" rows="2" placeholder="Resumen profesional"></textarea></div>
+                                    <div class="col-12"><textarea id="edit-experience" class="form-control form-control-sm" rows="2" placeholder="Experiencia (una línea por experiencia)"></textarea></div>
+                                    <div class="col-12"><input type="text" id="edit-languages" class="form-control form-control-sm" placeholder="Idiomas (separados por coma)"></div>
+                                    <div class="col-12"><textarea id="edit-education" class="form-control form-control-sm" rows="2" placeholder="Educación (una línea por título)"></textarea></div>
+                                    <div class="col-12"><textarea id="edit-certifications" class="form-control form-control-sm" rows="2" placeholder="Certificaciones (una línea por certificación)"></textarea></div>
+                                </div>
+                                <div class="d-flex gap-2 mt-3">
+                                    <button id="edit-cancel" class="btn btn-outline-secondary btn-sm">Cancelar</button>
+                                    <button id="edit-save" class="btn btn-primary btn-sm">Guardar Cambios</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Últimas búsquedas / Actividad -->
+                    <div class="card glass-card mt-3">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-clock-history"></i> Actividad Reciente</h5>
+                            <div id="recent-activity" class="text-muted small">
+                                Sube tu CV o realiza una búsqueda para comenzar.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- ═══ BODY LAYOUT ═══ -->
-        <div class="body-layout">
-
-            <!-- ═══ SIDEBAR ═══ -->
-            <aside class="sidebar">
-
-                <div class="profile-card">
-                    <div class="profile-header">
-                        <div class="avatar"><i class="fa-solid fa-user"></i></div>
-                        <div class="profile-info">
-                            <h3 id="profile-name">Cargando...</h3>
-                            <p id="profile-title">Cargando perfil...</p>
+        <!-- ═══ SECCIÓN: BUSCAR TRABAJO ═══ -->
+        <section id="section-search" class="section-content hidden">
+            <!-- Panel de búsqueda -->
+            <div class="card glass-card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-search"></i> Búsqueda Inteligente</h5>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label small text-muted">Palabras Clave</label>
+                            <textarea id="keywords" class="form-control" rows="2" placeholder="PHP, Java, Flutter, Laravel">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
                         </div>
-                        <button id="edit-profile-btn" class="icon-btn" title="Editar perfil">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                    </div>
-
-                    <div id="edit-form" class="edit-form hidden">
-                        <div class="edit-grid">
-                            <input type="text" id="edit-name" placeholder="Nombre" class="input-sm">
-                            <input type="text" id="edit-title" placeholder="Título" class="input-sm">
-                            <input type="email" id="edit-email" placeholder="Email" class="input-sm">
-                            <input type="text" id="edit-phone" placeholder="Teléfono" class="input-sm">
-                            <input type="text" id="edit-location" placeholder="Ubicación" class="input-sm">
-                            <input type="text" id="edit-linkedin" placeholder="LinkedIn" class="input-sm">
-                            <input type="text" id="edit-github" placeholder="GitHub" class="input-sm">
-                            <input type="number" id="edit-years" placeholder="Años de exp." class="input-sm" min="0" max="50">
-                            <input type="text" id="edit-roles" placeholder="Roles objetivo" class="input-sm full">
-                            <textarea id="edit-summary" placeholder="Resumen profesional" class="input-sm full"></textarea>
-                            <textarea id="edit-experience" placeholder="Experiencia (una línea por experiencia)" class="input-sm full"></textarea>
-                            <input type="text" id="edit-languages" placeholder="Idiomas" class="input-sm full">
-                            <textarea id="edit-education" placeholder="Educación" class="input-sm full"></textarea>
-                            <textarea id="edit-certifications" placeholder="Certificaciones" class="input-sm full"></textarea>
-                        </div>
-                        <div class="edit-actions">
-                            <button id="edit-cancel" class="btn-ghost btn-sm">Cancelar</button>
-                            <button id="edit-save" class="btn-primary btn-sm">Guardar</button>
-                        </div>
-                    </div>
-
-                    <div class="profile-metrics">
-                        <div class="metric"><span>Experiencia</span><strong id="profile-years">0 años</strong></div>
-                        <div class="metric"><span>Keywords</span><strong id="profile-keywords">0</strong></div>
-                        <div class="metric"><span>Fuente</span><strong id="profile-source">ATS</strong></div>
-                        <div class="metric"><span>OCR</span><strong id="profile-ocr">No</strong></div>
-                    </div>
-
-                    <div class="profile-summary" id="profile-summary-text">
-                        Sin resumen disponible.
-                    </div>
-
-                    <div class="upload-zone" id="cv-zone">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span>Reemplazar CV — arrastra o haz clic</span>
-                        <input type="file" id="cv-input" accept=".pdf" style="display:none;">
-                    </div>
-
-                    <div class="profile-details">
-                        <div><i class="fa-solid fa-envelope"></i> <span id="detail-email">—</span></div>
-                        <div><i class="fa-solid fa-phone"></i> <span id="detail-phone">—</span></div>
-                        <div><i class="fa-solid fa-location-dot"></i> <span id="detail-location">—</span></div>
-                    </div>
-
-                    <div class="profile-links">
-                        <a id="link-linkedin" href="#" target="_blank"><i class="fa-brands fa-linkedin"></i> LinkedIn</a>
-                        <a id="link-github" href="#" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
-                    </div>
-
-                    <div class="structured-data">
-                        <div class="data-block"><h4>Roles Objetivo</h4><div id="roles-list" class="chip-list"></div></div>
-                        <div class="data-block"><h4>Idiomas</h4><div id="languages-list" class="chip-list"></div></div>
-                        <div class="data-block full"><h4>Experiencia</h4><div id="experience-list" class="line-list"></div></div>
-                        <div class="data-block full"><h4>Educación</h4><div id="education-list" class="line-list"></div></div>
-                        <div class="data-block full"><h4>Certificaciones</h4><div id="certifications-list" class="line-list"></div></div>
-                        <div class="data-block full"><h4>Keywords</h4><div id="keywords-list" class="chip-list"></div></div>
-                    </div>
-
-                    <div class="skills-section">
-                        <div class="skills-header">
-                            <h4>Habilidades</h4>
-                            <button id="edit-skills-btn" class="icon-btn" title="Editar habilidades">
-                                <i class="fa-solid fa-pencil"></i>
-                            </button>
-                        </div>
-                        <div id="skills-container" class="skills-grid"></div>
-                        <div id="add-skill-form" class="add-skill hidden">
-                            <select id="skill-category">
-                                <option value="languages">Lenguajes</option>
-                                <option value="backend">Backend</option>
-                                <option value="infrastructure">Infraestructura</option>
-                                <option value="security">Seguridad</option>
-                                <option value="iot">IoT / Hardware</option>
-                                <option value="management">Gestión</option>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small text-muted">Modalidad</label>
+                            <select id="modality" class="form-select">
+                                <option value="remoto">🌐 Remoto</option>
+                                <option value="hibrido">🔀 Híbrido</option>
+                                <option value="presencial">🏢 Presencial</option>
                             </select>
-                            <div class="add-skill-row">
-                                <input type="text" id="skill-name" placeholder="Nueva habilidad...">
-                                <button id="add-skill-btn" class="btn-primary btn-sm"><i class="fa-solid fa-plus"></i></button>
-                            </div>
                         </div>
-                    </div>
-
-                    <!-- ═══ LATEX SECTION con OCR en navegador ═══ -->
-                    <div class="latex-section">
-                        <h4>Generar CV LaTeX</h4>
-                        <div class="upload-zone small" id="latex-zone">
-                            <i class="fa-solid fa-file-code"></i>
-                            <span>Sube imagen o PDF (OCR en navegador)</span>
-                            <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small text-muted">Ubicación</label>
+                            <input type="text" id="location" class="form-control" value="México" placeholder="Ciudad">
                         </div>
-                        <div class="latex-actions">
-                            <span id="latex-filename">Sin imagen</span>
-                            <button id="latex-generate" class="btn-primary btn-sm">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generar
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small text-muted">Resultados</label>
+                            <input type="range" id="max-results" class="form-range" min="5" max="40" value="20">
+                            <span class="small text-muted" id="range-value">20</span>
+                        </div>
+                        <div class="col-6 col-md-2 d-flex align-items-end">
+                            <button id="search-btn" class="btn btn-primary w-100">
+                                <span class="btn-text"><i class="bi bi-search"></i> Buscar</span>
+                                <span class="btn-spinner hidden"><i class="bi bi-arrow-repeat spinner-border"></i></span>
                             </button>
                         </div>
-                        <div id="latex-progress" class="latex-progress hidden">
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="latex-progress-fill" style="width:0%"></div>
-                            </div>
-                            <span id="latex-progress-text">Iniciando OCR...</span>
-                        </div>
-                        <div id="latex-output" class="latex-output hidden">
-                            <textarea id="latex-text" readonly></textarea>
-                            <div class="latex-buttons">
-                                <button id="latex-copy" class="btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copiar</button>
-                                <button id="latex-download" class="btn-ghost btn-sm"><i class="fa-solid fa-download"></i> Descargar .tex</button>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row g-2 mt-3 pt-3 border-top border-secondary">
+                        <div class="col-md-3 col-6">
+                            <label class="form-label small text-muted">Match Mín:</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="range" id="min-score" class="form-range flex-grow-1" min="0" max="90" value="0">
+                                <span id="score-value" class="badge bg-primary">0%</span>
                             </div>
                         </div>
-                        <p class="latex-helper-text">
-                            <i class="fa-solid fa-info-circle"></i> OCR en el navegador usando Tesseract.js. 
-                            El procesamiento puede tomar unos segundos dependiendo del tamaño del documento.
-                        </p>
+                        <div class="col-md-2 col-6">
+                            <label class="form-label small text-muted">Salario Mín:</label>
+                            <input type="number" id="min-salary" class="form-control form-control-sm" placeholder="20000">
+                        </div>
+                        <div class="col-md-2 col-6">
+                            <label class="form-label small text-muted">Ordenar:</label>
+                            <select id="sort-by" class="form-select form-select-sm">
+                                <option value="match">Mayor Match</option>
+                                <option value="date">Más Reciente</option>
+                                <option value="salary">Mayor Salario</option>
+                                <option value="company">Empresa A-Z</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label small text-muted">Filtrar:</label>
+                            <input type="text" id="live-search" class="form-control form-control-sm" placeholder="Buscar en resultados...">
+                        </div>
+                        <div class="col-md-2 col-12 d-flex align-items-end gap-2">
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" id="hide-discarded" class="form-check-input">
+                                <label class="form-check-label small" for="hide-discarded">Ocultar descartados</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" id="only-saved" class="form-check-input">
+                                <label class="form-check-label small" for="only-saved">Solo guardados</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chips -->
+                    <div class="row g-2 mt-2 pt-2 border-top border-secondary">
+                        <div class="col-auto">
+                            <span class="badge bg-secondary">Modalidad:</span>
+                        </div>
+                        <div class="col-auto">
+                            <button class="chip active" data-group="modality" data-value="remoto">🌐 Remoto</button>
+                            <button class="chip active" data-group="modality" data-value="hibrido">🔀 Híbrido</button>
+                            <button class="chip active" data-group="modality" data-value="presencial">🏢 Presencial</button>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-secondary">Nivel:</span>
+                        </div>
+                        <div class="col-auto">
+                            <button class="chip active" data-group="level" data-value="junior">Junior</button>
+                            <button class="chip active" data-group="level" data-value="semi">Semi-sr</button>
+                            <button class="chip active" data-group="level" data-value="senior">Senior</button>
+                            <button class="chip active" data-group="level" data-value="lead">Lead</button>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="stats-card hidden" id="stats-card">
-                    <h4><i class="fa-solid fa-chart-pie"></i> Resumen</h4>
-                    <div class="stats-grid">
-                        <div><span class="stat-number" id="stat-total">0</span><span class="stat-label">Analizados</span></div>
-                        <div><span class="stat-number cyan" id="stat-avg">0%</span><span class="stat-label">Match Prom.</span></div>
-                        <div><span class="stat-number" id="stat-high">0</span><span class="stat-label">Alto Match</span></div>
-                        <div><span class="stat-number" id="stat-skills">0</span><span class="stat-label">Habilidades</span></div>
+            <!-- Resultados -->
+            <div class="results-header d-flex justify-content-between align-items-center mb-3">
+                <p id="results-summary" class="text-muted small mb-0">Selecciona parámetros y presiona <strong>Buscar</strong>.</p>
+                <button id="export-btn" class="btn btn-outline-secondary btn-sm hidden"><i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV</button>
+            </div>
+
+            <!-- Loader -->
+            <div id="loader" class="loader hidden text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <h5 class="mt-3">Analizando vacantes con IA</h5>
+                <div class="loader-steps text-start mx-auto" style="max-width:300px;">
+                    <div class="step" id="step-1"><i class="bi bi-circle"></i> Iniciando motor...</div>
+                    <div class="step" id="step-2"><i class="bi bi-circle"></i> Buscando en LinkedIn...</div>
+                    <div class="step" id="step-3"><i class="bi bi-circle"></i> Buscando en OCC...</div>
+                    <div class="step" id="step-4"><i class="bi bi-circle"></i> Buscando en Computrabajo...</div>
+                    <div class="step" id="step-5"><i class="bi bi-circle"></i> Buscando en Get on Board...</div>
+                    <div class="step" id="step-6"><i class="bi bi-circle"></i> Calculando score ATS...</div>
+                </div>
+                <span class="text-muted small"><i class="bi bi-info-circle"></i> Escanea 7 portales. Puede tardar 10-20 segundos.</span>
+            </div>
+
+            <!-- Empty -->
+            <div id="empty-state" class="empty-state text-center py-5">
+                <i class="bi bi-search display-1 text-muted"></i>
+                <h4 class="mt-3">Listo para comenzar</h4>
+                <p class="text-muted">Configura tus palabras clave y presiona <strong>Buscar</strong>.</p>
+            </div>
+
+            <!-- Jobs -->
+            <div id="jobs-container" class="jobs-grid hidden"></div>
+        </section>
+
+        <!-- ═══ SECCIÓN: GENERAR LATEX ═══ -->
+        <section id="section-latex" class="section-content hidden">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-file-code"></i> Generar CV LaTeX</h5>
+                            <p class="text-muted small">Sube una imagen o PDF de tu CV para convertirlo a LaTeX con OCR en el navegador.</p>
+                            
+                            <div class="upload-zone large" id="latex-zone">
+                                <i class="bi bi-cloud-upload fs-1"></i>
+                                <p class="mb-0">Arrastra tu CV aquí o haz clic para seleccionarlo</p>
+                                <span class="text-muted small">Formatos: PDF, PNG, JPG, WEBP</span>
+                                <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
+                            </div>
+                            
+                            <div class="d-flex align-items-center gap-3 mt-3">
+                                <span id="latex-filename" class="text-muted small">Sin imagen seleccionada</span>
+                                <button id="latex-generate" class="btn btn-primary">
+                                    <i class="bi bi-wand-2"></i> Generar LaTeX
+                                </button>
+                            </div>
+
+                            <div id="latex-progress" class="latex-progress hidden mt-3">
+                                <div class="progress" style="height:6px;">
+                                    <div id="latex-progress-fill" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
+                                </div>
+                                <span id="latex-progress-text" class="text-muted small d-block mt-1">Iniciando OCR...</span>
+                            </div>
+
+                            <div id="latex-output" class="latex-output hidden mt-3">
+                                <label class="form-label small">Código LaTeX generado:</label>
+                                <textarea id="latex-text" class="form-control font-monospace" rows="12" readonly></textarea>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button id="latex-copy" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard"></i> Copiar</button>
+                                    <button id="latex-download" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Descargar .tex</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="distributions" id="distributions"></div>
                 </div>
-
-            </aside>
-
-            <!-- ═══ RESULTS ═══ -->
-            <section class="results">
-
-                <div class="results-header">
-                    <p id="results-summary">Selecciona parámetros y presiona <strong>Buscar</strong>.</p>
-                    <button id="export-btn" class="btn-ghost btn-sm hidden"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
-                </div>
-
-                <div id="loader" class="loader hidden">
-                    <div class="spinner"></div>
-                    <h3>Analizando vacantes con IA</h3>
-                    <div class="loader-steps">
-                        <div class="step" id="step-1"><i class="fa-regular fa-circle"></i> Iniciando motor...</div>
-                        <div class="step" id="step-2"><i class="fa-regular fa-circle"></i> Buscando en LinkedIn...</div>
-                        <div class="step" id="step-3"><i class="fa-regular fa-circle"></i> Buscando en OCC...</div>
-                        <div class="step" id="step-4"><i class="fa-regular fa-circle"></i> Buscando en Computrabajo...</div>
-                        <div class="step" id="step-5"><i class="fa-regular fa-circle"></i> Buscando en Get on Board...</div>
-                        <div class="step" id="step-6"><i class="fa-regular fa-circle"></i> Calculando score ATS...</div>
+                
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-info-circle"></i> ¿Cómo funciona?</h5>
+                            <ol class="text-muted small">
+                                <li>Sube tu CV en formato PDF o imagen (PNG, JPG, WEBP).</li>
+                                <li>El OCR se ejecuta en tu navegador usando Tesseract.js.</li>
+                                <li>El texto extraído se envía al servidor para generar el documento LaTeX.</li>
+                                <li>El código LaTeX generado es compatible con Overleaf y compiladores LaTeX.</li>
+                            </ol>
+                            <div class="alert alert-info mt-3">
+                                <i class="bi bi-shield-check"></i> El OCR se ejecuta en tu navegador. No se envía tu documento a servicios externos.
+                            </div>
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> Para archivos PDF, se renderizan las páginas como imágenes antes del OCR.
+                            </div>
+                        </div>
                     </div>
-                    <span class="loader-tip"><i class="fa-solid fa-info-circle"></i> Escanea 7 portales. Puede tardar 10-20 segundos.</span>
                 </div>
+            </div>
+        </section>
 
-                <div id="empty-state" class="empty-state">
-                    <div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                    <h3>Listo para comenzar</h3>
-                    <p>Configura tus palabras clave y presiona <strong>Buscar</strong>.</p>
+        <!-- ═══ SECCIÓN: GUARDADOS ═══ -->
+        <section id="section-saved" class="section-content hidden">
+            <div class="card glass-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title"><i class="bi bi-bookmark-star"></i> Empleos Guardados</h5>
+                        <span id="saved-count" class="badge bg-primary">0</span>
+                    </div>
+                    <div id="saved-jobs-container" class="saved-jobs-grid mt-3">
+                        <div class="text-muted text-center py-4">
+                            <i class="bi bi-bookmark fs-1"></i>
+                            <p class="mt-2">No tienes empleos guardados aún.</p>
+                            <p class="small">Guarda empleos desde los resultados de búsqueda.</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </section>
 
-                <div id="jobs-container" class="jobs-grid hidden"></div>
+    </div>
 
-            </section>
-        </div>
-    </main>
+    <!-- ═══ MODAL DE DETALLE ═══ -->
+    <div id="job-modal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content glass-modal">
+                <div class="modal-header">
+                    <div>
+                        <span class="badge" id="modal-source">Plataforma</span>
+                        <h4 class="modal-title mt-1" id="modal-title">Título</h4>
+                        <h6 class="text-muted" id="modal-company">Empresa</h6>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-3"><i class="bi bi-geo-alt"></i> <span id="modal-location">Ubicación</span></div>
+                        <div class="col-6 col-md-3"><i class="bi bi-cash"></i> <span id="modal-salary">Salario</span></div>
+                        <div class="col-6 col-md-3"><i class="bi bi-calendar"></i> <span id="modal-date">Fecha</span></div>
+                        <div class="col-6 col-md-3"><i class="bi bi-graph-up"></i> <span id="modal-score" class="fw-bold text-primary">0%</span></div>
+                    </div>
 
-    <!-- ═══ MODAL ═══ -->
-    <div id="job-modal" class="modal hidden">
-        <div class="modal-content">
-            <button id="modal-close" class="modal-close">&times;</button>
-            <div class="modal-header">
-                <span class="badge" id="modal-source">Plataforma</span>
-                <h2 id="modal-title">Título</h2>
-                <h3 id="modal-company">Empresa</h3>
-            </div>
-            <div class="modal-meta">
-                <div><i class="fa-solid fa-location-dot"></i> <span id="modal-location">Ubicación</span></div>
-                <div><i class="fa-solid fa-money-bill"></i> <span id="modal-salary">Salario</span></div>
-                <div><i class="fa-solid fa-calendar"></i> <span id="modal-date">Fecha</span></div>
-                <div><i class="fa-solid fa-chart-simple"></i> <span id="modal-score">0%</span></div>
-            </div>
-            <div class="modal-skills">
-                <h4>Habilidades Coincidentes</h4>
-                <div id="modal-matched" class="skills-badges"></div>
-            </div>
-            <div class="modal-tabs">
-                <button class="tab active" data-tab="tab-desc">Descripción</button>
-                <button class="tab" data-tab="tab-ats">Análisis ATS</button>
-                <button class="tab" data-tab="tab-plan">Plan de Acción</button>
-                <button class="tab" data-tab="tab-letter">Carta</button>
-            </div>
-            <div id="tab-desc" class="tab-content">
-                <div class="job-summary">
-                    <p id="modal-summary">Cargando descripción...</p>
+                    <div class="modal-skills mb-3">
+                        <h6>Habilidades Coincidentes</h6>
+                        <div id="modal-matched" class="skills-badges"></div>
+                    </div>
+
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-desc">Descripción</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ats">Análisis ATS</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-plan">Plan de Acción</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-letter">Carta</button></li>
+                    </ul>
+
+                    <div class="tab-content mt-3">
+                        <div id="tab-desc" class="tab-pane active">
+                            <p id="modal-summary" class="small">Cargando descripción...</p>
+                            <div class="row g-3">
+                                <div class="col-md-6"><h6>Requisitos</h6><div id="modal-requirements" class="list"></div></div>
+                                <div class="col-md-6"><h6>Beneficios</h6><div id="modal-benefits" class="list"></div></div>
+                            </div>
+                        </div>
+                        <div id="tab-ats" class="tab-pane">
+                            <div id="ats-breakdown" class="mb-3"></div>
+                            <div id="ats-missing" class="mb-3"></div>
+                            <div id="ats-recommendation"></div>
+                        </div>
+                        <div id="tab-plan" class="tab-pane">
+                            <div id="plan-gaps" class="mb-3"></div>
+                            <div id="plan-steps"></div>
+                        </div>
+                        <div id="tab-letter" class="tab-pane">
+                            <div class="d-flex gap-2 flex-wrap mb-2">
+                                <label class="small text-muted">Tono:</label>
+                                <select id="letter-tone" class="form-select form-select-sm w-auto">
+                                    <option value="formal">Profesional</option>
+                                    <option value="enthusiastic">Entusiasta</option>
+                                    <option value="technical">Técnico</option>
+                                    <option value="short">Corto</option>
+                                </select>
+                                <button id="letter-regen" class="btn btn-outline-secondary btn-sm">Regenerar</button>
+                            </div>
+                            <textarea id="letter-text" class="form-control font-monospace" rows="8" readonly></textarea>
+                            <div class="d-flex gap-2 mt-2">
+                                <button id="letter-copy" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard"></i> Copiar</button>
+                                <button id="letter-email" class="btn btn-primary btn-sm"><i class="bi bi-envelope"></i> Enviar</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="job-details">
-                    <div><h4>Requisitos</h4><div id="modal-requirements" class="list"></div></div>
-                    <div><h4>Beneficios</h4><div id="modal-benefits" class="list"></div></div>
+                <div class="modal-footer">
+                    <button id="modal-save" class="btn btn-outline-secondary btn-sm"><i class="bi bi-bookmark"></i> Guardar</button>
+                    <a id="modal-apply" href="#" target="_blank" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-up-right"></i> Postularse</a>
                 </div>
-            </div>
-            <div id="tab-ats" class="tab-content hidden">
-                <div class="ats-breakdown" id="ats-breakdown"></div>
-                <div class="ats-missing" id="ats-missing"></div>
-                <div class="ats-recommendation" id="ats-recommendation"></div>
-            </div>
-            <div id="tab-plan" class="tab-content hidden">
-                <div id="plan-gaps"></div>
-                <div id="plan-steps"></div>
-            </div>
-            <div id="tab-letter" class="tab-content hidden">
-                <div class="letter-controls">
-                    <label>Tono:</label>
-                    <select id="letter-tone">
-                        <option value="formal">Profesional</option>
-                        <option value="enthusiastic">Entusiasta</option>
-                        <option value="technical">Técnico</option>
-                        <option value="short">Corto</option>
-                    </select>
-                    <button id="letter-regen" class="btn-ghost btn-sm">Regenerar</button>
-                </div>
-                <textarea id="letter-text" readonly></textarea>
-                <div class="letter-actions">
-                    <button id="letter-copy" class="btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copiar</button>
-                    <button id="letter-email" class="btn-primary btn-sm"><i class="fa-solid fa-envelope"></i> Enviar</button>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="modal-save" class="btn-ghost btn-sm"><i class="fa-regular fa-bookmark"></i> Guardar</button>
-                <a id="modal-apply" href="#" target="_blank" class="btn-primary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Postularse</a>
             </div>
         </div>
     </div>
 
     <!-- ═══ TOASTS ═══ -->
-    <div id="toasts" class="toast-container"></div>
+    <div id="toasts" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
-    <!-- ═══ TESSERACT.JS CDN ═══ -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- PDF.js para renderizar PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Tesseract.js -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
+    <!-- Main JS -->
     <script src="js/main.js"></script>
 </body>
 </html>
