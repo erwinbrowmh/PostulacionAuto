@@ -40,13 +40,10 @@
         <!-- ═══ PANEL DE BÚSQUEDA ═══ -->
         <section class="search-panel">
             <div class="search-grid">
-                <!-- Palabras Clave -->
                 <div class="search-field keywords-field">
                     <label><i class="fa-solid fa-keyboard"></i> Palabras Clave</label>
                     <textarea id="keywords" placeholder="Ej. PHP, Java, Flutter, Laravel">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
                 </div>
-
-                <!-- Modalidad -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-laptop-house"></i> Modalidad</label>
                     <select id="modality">
@@ -55,14 +52,10 @@
                         <option value="presencial">🏢 Presencial</option>
                     </select>
                 </div>
-
-                <!-- Ubicación -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-location-dot"></i> Ubicación</label>
                     <input type="text" id="location" value="México" placeholder="Ciudad, país">
                 </div>
-
-                <!-- Resultados -->
                 <div class="search-field">
                     <label><i class="fa-solid fa-list"></i> Resultados</label>
                     <div class="range-wrapper">
@@ -70,8 +63,6 @@
                         <span id="range-value">20</span>
                     </div>
                 </div>
-
-                <!-- Buscar -->
                 <div class="search-field search-btn-wrap">
                     <button id="search-btn" class="btn-primary">
                         <span class="btn-text"><i class="fa-solid fa-magnifying-glass"></i> Buscar</span>
@@ -80,7 +71,6 @@
                 </div>
             </div>
 
-            <!-- Filtros -->
             <div class="filters-row">
                 <div class="filter-group">
                     <label><i class="fa-solid fa-bullseye"></i> Match Mín:</label>
@@ -89,12 +79,10 @@
                         <span id="score-value">0%</span>
                     </div>
                 </div>
-
                 <div class="filter-group">
                     <label><i class="fa-solid fa-money-bill"></i> Salario Mín:</label>
                     <input type="number" id="min-salary" placeholder="Ej. 20000" min="0">
                 </div>
-
                 <div class="filter-group">
                     <label><i class="fa-solid fa-arrow-down-wide-short"></i> Ordenar:</label>
                     <select id="sort-by">
@@ -104,7 +92,6 @@
                         <option value="company">Empresa A-Z</option>
                     </select>
                 </div>
-
                 <div class="filter-group">
                     <label><i class="fa-solid fa-filter"></i> Buscar:</label>
                     <div class="search-input-wrap">
@@ -114,7 +101,6 @@
                 </div>
             </div>
 
-            <!-- Chips -->
             <div class="chips-row">
                 <div class="chips-group">
                     <span class="chips-label">Modalidad:</span>
@@ -139,10 +125,9 @@
         <!-- ═══ BODY LAYOUT ═══ -->
         <div class="body-layout">
 
-            <!-- ═══ SIDEBAR: MI PERFIL ═══ -->
+            <!-- ═══ SIDEBAR ═══ -->
             <aside class="sidebar">
 
-                <!-- Perfil -->
                 <div class="profile-card">
                     <div class="profile-header">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
@@ -155,7 +140,6 @@
                         </button>
                     </div>
 
-                    <!-- Formulario de edición -->
                     <div id="edit-form" class="edit-form hidden">
                         <div class="edit-grid">
                             <input type="text" id="edit-name" placeholder="Nombre" class="input-sm">
@@ -179,7 +163,6 @@
                         </div>
                     </div>
 
-                    <!-- Métricas -->
                     <div class="profile-metrics">
                         <div class="metric"><span>Experiencia</span><strong id="profile-years">0 años</strong></div>
                         <div class="metric"><span>Keywords</span><strong id="profile-keywords">0</strong></div>
@@ -191,14 +174,12 @@
                         Sin resumen disponible.
                     </div>
 
-                    <!-- Upload CV -->
                     <div class="upload-zone" id="cv-zone">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                         <span>Reemplazar CV — arrastra o haz clic</span>
                         <input type="file" id="cv-input" accept=".pdf" style="display:none;">
                     </div>
 
-                    <!-- Detalles -->
                     <div class="profile-details">
                         <div><i class="fa-solid fa-envelope"></i> <span id="detail-email">—</span></div>
                         <div><i class="fa-solid fa-phone"></i> <span id="detail-phone">—</span></div>
@@ -210,7 +191,6 @@
                         <a id="link-github" href="#" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
                     </div>
 
-                    <!-- Datos estructurados -->
                     <div class="structured-data">
                         <div class="data-block"><h4>Roles Objetivo</h4><div id="roles-list" class="chip-list"></div></div>
                         <div class="data-block"><h4>Idiomas</h4><div id="languages-list" class="chip-list"></div></div>
@@ -220,7 +200,6 @@
                         <div class="data-block full"><h4>Keywords</h4><div id="keywords-list" class="chip-list"></div></div>
                     </div>
 
-                    <!-- Habilidades -->
                     <div class="skills-section">
                         <div class="skills-header">
                             <h4>Habilidades</h4>
@@ -245,29 +224,40 @@
                         </div>
                     </div>
 
-                    <!-- LaTeX -->
+                    <!-- ═══ LATEX SECTION con OCR en navegador ═══ -->
                     <div class="latex-section">
                         <h4>Generar CV LaTeX</h4>
                         <div class="upload-zone small" id="latex-zone">
                             <i class="fa-solid fa-file-code"></i>
-                            <span>Sube imagen o PDF</span>
+                            <span>Sube imagen o PDF (OCR en navegador)</span>
                             <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
                         </div>
                         <div class="latex-actions">
                             <span id="latex-filename">Sin imagen</span>
-                            <button id="latex-generate" class="btn-primary btn-sm">Generar</button>
+                            <button id="latex-generate" class="btn-primary btn-sm">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generar
+                            </button>
+                        </div>
+                        <div id="latex-progress" class="latex-progress hidden">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="latex-progress-fill" style="width:0%"></div>
+                            </div>
+                            <span id="latex-progress-text">Iniciando OCR...</span>
                         </div>
                         <div id="latex-output" class="latex-output hidden">
                             <textarea id="latex-text" readonly></textarea>
                             <div class="latex-buttons">
                                 <button id="latex-copy" class="btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copiar</button>
-                                <button id="latex-download" class="btn-ghost btn-sm"><i class="fa-solid fa-download"></i> Descargar</button>
+                                <button id="latex-download" class="btn-ghost btn-sm"><i class="fa-solid fa-download"></i> Descargar .tex</button>
                             </div>
                         </div>
+                        <p class="latex-helper-text">
+                            <i class="fa-solid fa-info-circle"></i> OCR en el navegador usando Tesseract.js. 
+                            El procesamiento puede tomar unos segundos dependiendo del tamaño del documento.
+                        </p>
                     </div>
                 </div>
 
-                <!-- Stats -->
                 <div class="stats-card hidden" id="stats-card">
                     <h4><i class="fa-solid fa-chart-pie"></i> Resumen</h4>
                     <div class="stats-grid">
@@ -289,7 +279,6 @@
                     <button id="export-btn" class="btn-ghost btn-sm hidden"><i class="fa-solid fa-file-csv"></i> Exportar CSV</button>
                 </div>
 
-                <!-- Loader -->
                 <div id="loader" class="loader hidden">
                     <div class="spinner"></div>
                     <h3>Analizando vacantes con IA</h3>
@@ -304,14 +293,12 @@
                     <span class="loader-tip"><i class="fa-solid fa-info-circle"></i> Escanea 7 portales. Puede tardar 10-20 segundos.</span>
                 </div>
 
-                <!-- Empty -->
                 <div id="empty-state" class="empty-state">
                     <div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
                     <h3>Listo para comenzar</h3>
                     <p>Configura tus palabras clave y presiona <strong>Buscar</strong>.</p>
                 </div>
 
-                <!-- Jobs -->
                 <div id="jobs-container" class="jobs-grid hidden"></div>
 
             </section>
@@ -388,6 +375,8 @@
     <!-- ═══ TOASTS ═══ -->
     <div id="toasts" class="toast-container"></div>
 
+    <!-- ═══ TESSERACT.JS CDN ═══ -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

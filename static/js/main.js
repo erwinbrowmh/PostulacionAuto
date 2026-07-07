@@ -1,6 +1,6 @@
 /**
  * PostulacionAuto Hub v2.0 - Main Controller
- * Todas las referencias DOM son verificadas antes de usar
+ * Con OCR en navegador usando Tesseract.js
  */
 
 (function () {
@@ -158,7 +158,6 @@
 
         const el = (id) => safeGet('#' + id);
 
-        // Actualizar elementos del perfil
         const nameEl = el('profile-name');
         if (nameEl) nameEl.textContent = p.name || 'Sin nombre';
 
@@ -189,7 +188,6 @@
         const locationEl = el('detail-location');
         if (locationEl) locationEl.textContent = p.location || '—';
 
-        // Links
         const linkedinEl = el('link-linkedin');
         if (linkedinEl) {
             const li = normalizeUrl(p.linkedin, 'linkedin');
@@ -206,7 +204,6 @@
             githubEl.style.pointerEvents = gh ? '' : 'none';
         }
 
-        // Lists
         const rolesList = el('roles-list');
         if (rolesList) renderChips(rolesList, p.preferred_roles || []);
 
@@ -225,18 +222,14 @@
         const keywordsList = el('keywords-list');
         if (keywordsList) renderChips(keywordsList, (p.search_keywords || []).slice(0, 30));
 
-        // Skills
         const skillsContainer = el('skills-container');
         if (skillsContainer) renderSkills(skillsContainer, p.skills || {});
 
-        // Edit form
         fillEditForm(p);
 
-        // Stats
         const statsSkills = el('stat-skills');
         if (statsSkills) statsSkills.textContent = (p.all_skills_flat || []).length;
 
-        // Guardar y sincronizar
         saveProfile(p);
         syncProfile(p);
         autoFillSearch(p);
@@ -607,7 +600,7 @@
         }
     }
 
-    // ─── LATEX GENERATOR ─────────────────────────────────────────
+    // ─── LATEX GENERATOR CON TESSERACT.JS ──────────────────────
     function initLatex() {
         const zone = safeGet('#latex-zone');
         const input = safeGet('#latex-input');
@@ -637,7 +630,7 @@
         });
 
         const genBtn = safeGet('#latex-generate');
-        if (genBtn) genBtn.addEventListener('click', generateLatex);
+        if (genBtn) genBtn.addEventListener('click', generateLatexWithTesseract);
 
         const copyBtn = safeGet('#latex-copy');
         if (copyBtn) copyBtn.addEventListener('click', copyLatex);
@@ -662,10 +655,13 @@
         const outputEl = safeGet('#latex-output');
         if (outputEl) outputEl.classList.add('hidden');
 
+        const progressEl = safeGet('#latex-progress');
+        if (progressEl) progressEl.classList.add('hidden');
+
         const textEl = safeGet('#latex-text');
         if (textEl) textEl.value = '';
 
-        toast('info', 'Imagen lista', 'Ahora puedes generar el LaTeX.');
+        toast('info', 'Imagen lista', 'Ahora puedes generar el LaTeX con OCR en navegador.');
     }
 
     function setLatexProcessing(isProcessing) {
@@ -675,42 +671,114 @@
         const zone = safeGet('#latex-zone');
         if (zone) zone.classList.toggle('processing', isProcessing);
         btn.innerHTML = isProcessing
-            ? '<i class="fa-solid fa-spinner fa-spin"></i> Generando...'
-            : 'Generar';
+            ? '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...'
+            : '<i class="fa-solid fa-wand-magic-sparkles"></i> Generar';
     }
 
-    async function generateLatex() {
+    function updateProgress(percent, text) {
+        const fill = safeGet('#latex-progress-fill');
+        const label = safeGet('#latex-progress-text');
+        if (fill) fill.style.width = `${percent}%`;
+        if (label) label.textContent = text;
+    }
+
+    async function generateLatexWithTesseract() {
         if (!state.latexFile) {
             toast('warning', 'Falta imagen', 'Selecciona primero una imagen.');
             return;
         }
 
-        setLatexProcessing(true);
-        toast('info', 'Generando LaTeX', 'Transcribiendo con OCR local...');
+        // Verificar que Tesseract esté disponible
+        if (typeof Tesseract === 'undefined') {
+            toast('error', 'Tesseract no disponible', 'Carga la librería Tesseract.js.');
+            return;
+        }
 
-        const fd = new FormData();
-        fd.append('image', state.latexFile);
+        setLatexProcessing(true);
+
+        const progressEl = safeGet('#latex-progress');
+        if (progressEl) progressEl.classList.remove('hidden');
+
+        updateProgress(5, 'Iniciando OCR en el navegador...');
 
         try {
-            const res = await fetch(`${API}/api/generate-cv-latex`, { method: 'POST', body: fd });
-            const json = await res.json();
+            // Crear worker de Tesseract
+            const worker = await Tesseract.createWorker('spa+eng');
 
-            if (!res.ok || json.status !== 'success') {
-                toast('error', 'Error', json.message || 'Intenta de nuevo.');
+            updateProgress(20, 'Cargando modelo de reconocimiento...');
+
+            // Preparar la imagen
+            let imageData = state.latexFile;
+
+            // Si es PDF, necesitamos convertirlo a imagen
+            if (state.latexFile.type === 'application/pdf' || state.latexFile.name.toLowerCase().endsWith('.pdf')) {
+                updateProgress(30, 'Procesando PDF (puede tomar varios segundos)...');
+                // Para PDFs, Tesseract.js puede manejarlos directamente en v5
+                // Pero convertimos a imagen usando canvas para mejor compatibilidad
+                try {
+                    const pdfData = await state.latexFile.arrayBuffer();
+                    const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+                    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+                    // Usar PDF.js para renderizar la primera página
+                    // Tesseract.js v5 soporta PDF nativamente, así que usamos el archivo directamente
+                    imageData = state.latexFile;
+                } catch (pdfError) {
+                    console.warn('Error procesando PDF, usando archivo original:', pdfError);
+                    imageData = state.latexFile;
+                }
+            }
+
+            updateProgress(40, 'Reconociendo texto con Tesseract.js...');
+
+            // Realizar OCR
+            const result = await worker.recognize(imageData);
+
+            updateProgress(80, 'Procesando texto extraído...');
+
+            const text = result.data.text || '';
+
+            if (!text || !text.trim()) {
+                toast('error', 'No se detectó texto', 'La imagen no contiene texto legible.');
+                updateProgress(100, '❌ No se detectó texto');
+                setLatexProcessing(false);
                 return;
             }
 
-            const textEl = safeGet('#latex-text');
-            if (textEl) textEl.value = json.data?.latex || '';
+            updateProgress(90, 'Generando documento LaTeX...');
 
-            state.latexFilename = json.data?.suggested_filename || state.latexFilename;
+            // Enviar el texto al servidor para generar LaTeX
+            const res = await fetch(`${API}/api/generate-latex-from-text`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
 
-            const outputEl = safeGet('#latex-output');
-            if (outputEl) outputEl.classList.remove('hidden');
+            const json = await res.json();
 
-            toast('success', 'CV LaTeX listo', 'Documento generado desde OCR local.');
-        } catch {
-            toast('error', 'Sin conexión', 'No se pudo conectar con el servidor.');
+            updateProgress(100, '✅ ¡Completado!');
+
+            if (json.status === 'success') {
+                const textEl = safeGet('#latex-text');
+                if (textEl) textEl.value = json.data?.latex || '';
+
+                state.latexFilename = json.data?.suggested_filename || state.latexFilename;
+
+                const outputEl = safeGet('#latex-output');
+                if (outputEl) outputEl.classList.remove('hidden');
+
+                toast('success', 'CV LaTeX listo', 'Documento generado desde OCR en navegador.');
+            } else {
+                toast('error', 'Error', json.message || 'No se pudo generar el LaTeX.');
+            }
+
+            // Terminar worker
+            await worker.terminate();
+
+        } catch (error) {
+            console.error('Error en Tesseract OCR:', error);
+            updateProgress(100, '❌ Error en OCR');
+            toast('error', 'Error en OCR', error.message || 'No se pudo procesar la imagen.');
         } finally {
             setLatexProcessing(false);
         }
@@ -720,7 +788,7 @@
         const textEl = safeGet('#latex-text');
         if (!textEl || !textEl.value) return;
         navigator.clipboard.writeText(textEl.value).then(() => {
-            toast('success', 'Copiado', 'Código copiado al portapapeles.');
+            toast('success', 'Copiado', 'Código LaTeX copiado al portapapeles.');
         }).catch(() => {
             toast('error', 'No se pudo copiar', 'Copia manualmente.');
         });
@@ -738,6 +806,7 @@
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        toast('success', 'Descargado', `Archivo ${state.latexFilename} descargado.`);
     }
 
     // ─── SEARCH ──────────────────────────────────────────────────
@@ -1030,7 +1099,6 @@
                 if (spinner) spinner.classList.add('hidden');
             }
 
-            // Fallback jobs
             const fallbackJobs = getFallbackJobs(keywords || 'desarrollador', location, modality);
             if (fallbackJobs.length) {
                 state.jobs = fallbackJobs;
@@ -1087,7 +1155,6 @@
         const only = safeGet('#only-saved');
         if (only) only.addEventListener('change', applyFilters);
 
-        // Chips
         document.querySelectorAll('.chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 chip.classList.toggle('active');
@@ -1406,7 +1473,6 @@
             if (highEl) highEl.textContent = '0';
         }
 
-        // Distribution
         const distContainer = safeGet('#distributions');
         if (!distContainer) return;
 
@@ -2052,6 +2118,7 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         initModalClose();
 
         console.log('🚀 PostulacionAuto Hub v2.0 cargado correctamente');
+        console.log('📷 OCR en navegador con Tesseract.js disponible');
     }
 
     document.addEventListener('DOMContentLoaded', init);
