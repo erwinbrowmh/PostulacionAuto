@@ -3,51 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="PostulacionAuto Hub - La plataforma de búsqueda de empleo con IA en México">
-    <meta name="theme-color" content="#0d1320">
-    <title>PostulacionAuto Hub - Búsqueda de Empleo con IA</title>
-    
+    <title>PostulacionAuto Hub — Motor de Búsqueda Inteligente de Empleo</title>
+    <meta name="description" content="La plataforma más avanzada de México para encontrar el empleo que más se adapta a tu perfil. Búsqueda automatizada con IA y análisis ATS de compatibilidad.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- Header -->
+    <!-- ══════════════════════════════════════════════
+         HEADER — Command Bar
+    ══════════════════════════════════════════════ -->
     <header class="app-header">
         <div class="header-container">
             <div class="logo">
                 <i class="fa-solid fa-rocket logo-icon"></i>
-                <span class="logo-text">PostulacionAuto<span class="accent-text">Hub</span></span>
+                <span class="logo-text">PostulacionAuto <span class="accent-text">Hub</span></span>
             </div>
-            
+            <!-- Live metrics bar -->
             <div class="header-metrics" id="header-metrics">
-                <div class="header-metric" id="hm-status">
+                <div class="header-metric live" id="hm-status">
                     <i class="fa-solid fa-circle-dot"></i>
                     <span>Motor <strong>Activo</strong></span>
                 </div>
                 <div class="header-metric" id="hm-jobs">
                     <i class="fa-solid fa-briefcase"></i>
-                    <span>Empleos: <strong id="hm-jobs-count">0</strong></span>
+                    <span>Empleos encontrados: <strong id="hm-jobs-count">—</strong></span>
                 </div>
                 <div class="header-metric" id="hm-avg">
                     <i class="fa-solid fa-chart-line"></i>
-                    <span>Match: <strong id="hm-avg-score">—</strong></span>
+                    <span>Match promedio: <strong id="hm-avg-score">—</strong></span>
+                </div>
+                <div class="header-metric" id="hm-saved">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span>Guardados: <strong id="hm-saved-count">0</strong></span>
                 </div>
             </div>
-            
-            <div class="header-badge">
+            <div class="header-tag">
                 <span class="badge badge-pulse">
-                    <i class="fa-solid fa-robot mr-5"></i> IA Avanzada
+                    <i class="fa-solid fa-robot mr-5"></i> Búsqueda con IA
                 </span>
             </div>
         </div>
     </header>
 
-    <!-- Onboarding Modal -->
+    <!-- ══════════════════════════════════════════════
+         ONBOARDING WIZARD (first-time users)
+    ══════════════════════════════════════════════ -->
     <div class="onboarding-modal" id="onboarding-modal">
         <div class="onboarding-card">
+            <!-- Step dots -->
             <div class="onboarding-steps">
                 <div class="onboarding-step-dot active" id="ob-dot-1"></div>
                 <div class="onboarding-step-dot" id="ob-dot-2"></div>
@@ -55,230 +61,802 @@
             </div>
 
             <!-- Step 1: Upload CV -->
-            <div id="ob-step-1" class="onboarding-step-content">
-                <h2>¡Bienvenido! 🚀</h2>
-                <p>Sube tu CV y encontraremos las vacantes perfectas para ti</p>
-                
+            <div id="ob-step-1">
+                <h2>¡Bienvenido al Hub! 🚀</h2>
+                <p>Sube tu CV y en segundos tendrás vacantes compatibles con tu perfil, ordenadas por afinidad.</p>
                 <div class="onboarding-upload-zone" id="ob-upload-zone">
                     <i class="fa-solid fa-file-arrow-up"></i>
-                    <p>Arrastra tu CV o haz clic para seleccionarlo</p>
-                    <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.6;">(PDF)</p>
+                    <p>Arrastra tu CV aquí o haz clic para seleccionarlo</p>
+                    <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.6;">(Formato PDF)</p>
                 </div>
-                
                 <div class="onboarding-actions">
-                    <button class="btn btn-ghost btn-sm" id="ob-skip-btn">Omitir</button>
+                    <button class="btn btn-ghost btn-sm" id="ob-skip-btn">Omitir — usar perfil de demo</button>
                     <button class="btn btn-primary" id="ob-next-btn">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
             </div>
 
-            <!-- Step 2: Preferences -->
-            <div id="ob-step-2" class="onboarding-step-content hidden">
+            <!-- Step 2: Configure preferences (hidden) -->
+            <div id="ob-step-2" class="hidden">
                 <h2>Configura tu búsqueda ⚙️</h2>
-                <p>Define tus preferencias para mejores resultados</p>
-                
-                <div class="form-group">
-                    <label for="ob-modality">Modalidad</label>
-                    <select id="ob-modality" class="select-input">
-                        <option value="any" selected>Cualquiera</option>
-                        <option value="remoto">Remoto</option>
-                        <option value="presencial">Presencial</option>
-                        <option value="hibrido">Híbrido</option>
-                    </select>
+                <p>Define tus preferencias para obtener resultados más precisos.</p>
+                <div style="display: flex; flex-direction: column; gap: 0.875rem; text-align: left; margin-bottom: 1.5rem;">
+                    <div class="form-group" style="gap: 0.4rem;">
+                        <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Modalidad preferida</label>
+                        <select id="ob-modality" class="select-input" style="height: 42px;">
+                            <option value="remoto" selected>🌐 Remoto</option>
+                            <option value="presencial">🏢 Presencial</option>
+                            <option value="hibrido">🔀 Híbrido</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="gap: 0.4rem;">
+                        <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Salario mensual mínimo (MXN)</label>
+                        <input type="number" id="ob-salary" class="num-input" placeholder="Ej. 25000" style="height: 42px;">
+                    </div>
                 </div>
-                
                 <div class="onboarding-actions">
                     <button class="btn btn-ghost btn-sm" id="ob-back-btn">← Atrás</button>
                     <button class="btn btn-primary" id="ob-next-btn-2">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
             </div>
 
-            <!-- Step 3: Ready -->
-            <div id="ob-step-3" class="onboarding-step-content hidden">
+            <!-- Step 3: Ready! (hidden) -->
+            <div id="ob-step-3" class="hidden">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">🎯</div>
                 <h2>¡Listo para comenzar!</h2>
-                <p>Tu perfil está configurado. Inicia la búsqueda de empleos con IA.</p>
-                
-                <div class="onboarding-actions" style="margin-top: 2rem;">
-                    <button class="btn btn-primary" id="ob-finish-btn">
-                        <i class="fa-solid fa-magnifying-glass mr-5"></i> Empezar
+                <p>Tu perfil ha sido configurado. Haz clic en <strong>Buscar</strong> para descubrir vacantes con alta afinidad a tu perfil.</p>
+                <div class="onboarding-actions" style="margin-top: 1.75rem;">
+                    <button class="btn btn-primary" id="ob-finish-btn" style="padding: 0.75rem 2rem;">
+                        <i class="fa-solid fa-magnifying-glass mr-5"></i> ¡Empezar búsqueda!
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Main App -->
     <main class="app-layout">
-        <!-- Search Panel -->
-        <section class="search-panel">
-            <div class="card search-card">
-                <div class="search-row">
+
+        <!-- ══════════════════════════════════════════════
+             SEARCH COMMAND CENTER PANEL
+        ══════════════════════════════════════════════ -->
+        <section class="search-head-panel">
+            <div class="card search-head-card">
+
+                <!-- Main search row -->
+                <div class="search-main-row">
+                    <!-- Keywords -->
                     <div class="form-group flex-keywords">
                         <label for="search-keywords">
                             <i class="fa-solid fa-keyboard mr-5"></i> Palabras Clave
                         </label>
-                        <textarea id="search-keywords" 
-                                placeholder="Ej. PHP, Java, Flutter, Sistemas"
-                                class="text-input search-keywords-input"
-                                rows="2"></textarea>
+                        <textarea id="search-keywords"
+                                  placeholder="Ej. PHP, Java, Flutter, Sistemas"
+                                  class="text-input search-keywords-input">PHP, Flutter, Desarrollador, Sistemas, Laravel</textarea>
                     </div>
 
+                    <!-- Modality -->
                     <div class="form-group">
-                        <label for="search-type">Modalidad</label>
+                        <label for="search-type">
+                            <i class="fa-solid fa-laptop-house mr-5"></i> Modalidad
+                        </label>
                         <select id="search-type" class="select-input">
-                            <option value="any" selected>Cualquiera</option>
-                            <option value="remoto">Remoto</option>
-                            <option value="presencial">Presencial</option>
-                            <option value="hibrido">Híbrido</option>
+                            <option value="remoto" selected>🌐 Remoto</option>
+                            <option value="presencial">🏢 Presencial</option>
+                            <option value="hibrido">🔀 Híbrido</option>
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label for="search-location">Ubicación</label>
-                        <input type="text" id="search-location" class="text-input" placeholder="Ej. Veracruz">
+                    <!-- Location -->
+                    <div class="form-group flex-location">
+                        <label for="search-loc-input">
+                            <i class="fa-solid fa-location-dot mr-5"></i> Lugar / Región
+                        </label>
+                        <input type="text" id="search-loc-input" value="México"
+                               placeholder="Ej. Veracruz, México, USA"
+                               list="location-suggestions" class="text-input">
+                        <datalist id="location-suggestions">
+                            <option value="México">
+                            <option value="Veracruz, Veracruz">
+                            <option value="LatAm">
+                            <option value="Global">
+                            <option value="Estados Unidos">
+                            <option value="España">
+                        </datalist>
+                    </div>
+
+                    <!-- Results count -->
+                    <div class="form-group flex-limit">
+                        <label for="max-results">
+                            <i class="fa-solid fa-list-ol mr-5"></i> Máx: <span id="range-val" class="range-inline-val">20</span>
+                        </label>
+                        <div class="range-container">
+                            <input type="range" id="max-results" min="5" max="40" value="20" class="range-slider">
+                        </div>
+                    </div>
+
+                    <!-- Search button -->
+                    <div class="form-group search-btn-wrapper">
+                        <label style="opacity:0; pointer-events:none;">&#8203;</label>
+                        <button id="search-btn" class="btn btn-primary btn-block">
+                            <span class="btn-content"><i class="fa-solid fa-magnifying-glass mr-5"></i> Buscar</span>
+                            <span class="btn-loader hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                        </button>
                     </div>
                 </div>
 
-                <div class="search-actions">
-                    <button id="search-btn" class="btn btn-primary">
-                        <i class="fa-solid fa-magnifying-glass mr-5"></i> Buscar
-                    </button>
-                    <button id="export-btn" class="btn btn-secondary" disabled>
-                        <i class="fa-solid fa-download mr-5"></i> Exportar
-                    </button>
+                <!-- Filters sub-row -->
+                <div class="filters-sub-row" id="advanced-filters-card">
+
+                    <!-- Match Score slider -->
+                    <div class="filter-item slider-item">
+                        <label for="filter-score">
+                            <i class="fa-solid fa-bullseye mr-5"></i> Match Mín: <span id="filter-score-val" style="color:var(--cyan);font-weight:700;">0%</span>
+                        </label>
+                        <div class="range-container">
+                            <input type="range" id="filter-score" min="0" max="90" value="0" class="range-slider">
+                        </div>
+                    </div>
+
+                    <!-- Salary filter -->
+                    <div class="filter-item salary-item">
+                        <label for="filter-salary">
+                            <i class="fa-solid fa-money-bill mr-5"></i> Salario Mín ($)
+                        </label>
+                        <input type="number" id="filter-salary" placeholder="Ej. 20000" min="0" class="num-input text-input" style="height:36px; font-size:0.82rem;">
+                    </div>
+
+                    <!-- Sort -->
+                    <div class="filter-item sort-select-wrap">
+                        <label for="filter-sort">
+                            <i class="fa-solid fa-arrow-down-wide-short mr-5"></i> Ordenar por
+                        </label>
+                        <select id="filter-sort" class="select-input" style="height:36px; font-size:0.82rem;">
+                            <option value="match">Mayor Match</option>
+                            <option value="date">Más Reciente</option>
+                            <option value="salary">Mayor Salario</option>
+                            <option value="company">Empresa A-Z</option>
+                        </select>
+                    </div>
+
+                    <!-- Live search in results -->
+                    <div class="filter-item" style="flex:1; min-width: 160px;">
+                        <label for="filter-live-search">
+                            <i class="fa-solid fa-filter mr-5"></i> Buscar en resultados
+                        </label>
+                        <div class="live-search-wrap">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="filter-live-search" class="text-input" placeholder="Filtrar resultados..." style="height:36px; font-size:0.82rem;">
+                        </div>
+                    </div>
+
+                    <!-- Platform filters -->
+                    <div class="filter-item channels-item">
+                        <label><i class="fa-solid fa-layer-group mr-5"></i> Canales</label>
+                        <div class="checkbox-group-horizontal">
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="LinkedIn" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">LinkedIn</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="OCC Mundial" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">OCC</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="Computrabajo" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">Computrabajo</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="Get on Board" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">GetOnBrd</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="Infojobs" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">Infojobs</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" class="platform-filter" value="Google (Web)" checked>
+                                <span class="checkbox-custom"></span>
+                                <span class="label-text">Google</span>
+                            </label>
+                        </div>
+                    </div>
+
                 </div>
 
-                <div id="search-status" class="search-status hidden">
-                    <div class="spinner"></div>
-                    <span id="search-status-text">Buscando empleos...</span>
+                <!-- Quick filter chips row (modality / level) -->
+                <div class="filters-sub-row" style="border-top: 1px solid var(--border); padding-top: 0.75rem; gap: 1rem; align-items: center;">
+                    <div class="filter-item" style="flex-direction:row; align-items:center; gap: 0.625rem; flex-wrap:wrap;">
+                        <span style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap;">Modalidad</span>
+                        <div class="filter-chips-group" id="chips-modality">
+                            <button class="filter-chip active" data-group="modality" data-val="remoto">🌐 Remoto</button>
+                            <button class="filter-chip active" data-group="modality" data-val="hibrido">🔀 Híbrido</button>
+                            <button class="filter-chip active" data-group="modality" data-val="presencial">🏢 Presencial</button>
+                        </div>
+                    </div>
+                    <div class="filter-item" style="flex-direction:row; align-items:center; gap: 0.625rem; flex-wrap:wrap;">
+                        <span style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap;">Nivel</span>
+                        <div class="filter-chips-group" id="chips-level">
+                            <button class="filter-chip active" data-group="level" data-val="junior">Junior</button>
+                            <button class="filter-chip active" data-group="level" data-val="semi">Semi-sr</button>
+                            <button class="filter-chip active" data-group="level" data-val="senior">Senior</button>
+                            <button class="filter-chip active" data-group="level" data-val="lead">Lead</button>
+                        </div>
+                    </div>
+                    <div style="margin-left:auto; display:flex; gap:0.625rem; align-items:center;">
+                        <label class="checkbox-label" style="gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-hide-discarded">
+                            <span class="checkbox-custom"></span>
+                            <span class="label-text" style="font-size:0.78rem;">Ocultar descartados</span>
+                        </label>
+                        <label class="checkbox-label" style="gap: 0.5rem;">
+                            <input type="checkbox" id="toggle-only-saved">
+                            <span class="checkbox-custom"></span>
+                            <span class="label-text" style="font-size:0.78rem;">Solo guardados</span>
+                        </label>
+                    </div>
                 </div>
+
             </div>
         </section>
 
-        <!-- Results Grid -->
-        <section class="results-section">
-            <div class="results-header">
-                <h2 id="results-title">Resultados de la búsqueda</h2>
-                <div class="results-controls">
-                    <select id="sort-by" class="select-input select-sm">
-                        <option value="match">Mejor compatibilidad</option>
-                        <option value="recent">Más reciente</option>
-                        <option value="salary">Mayor salario</option>
-                    </select>
-                </div>
-            </div>
+        <!-- ══════════════════════════════════════════════
+             APP BODY: Sidebar + Feed
+        ══════════════════════════════════════════════ -->
+        <div class="app-body-layout">
 
-            <div id="jobs-grid" class="jobs-grid">
-                <div class="empty-state">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <p>Realiza una búsqueda para ver empleos</p>
+            <!-- ─── SIDEBAR ─────────────────────────── -->
+            <aside class="sidebar-aside">
+
+                <!-- Candidate Profile Card -->
+                <div class="card profile-card">
+                    <div class="profile-header">
+                        <div class="avatar">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <div class="profile-meta">
+                            <h2 id="cand-name">Cargando...</h2>
+                            <p id="cand-title" class="cand-subtitle">Cargando perfil...</p>
+                        </div>
+                        <button id="toggle-edit-profile" class="btn-icon-toggle profile-edit-toggle" title="Editar perfil">
+                            <i class="fa-solid fa-user-pen"></i>
+                        </button>
+                    </div>
+
+                    <div id="profile-edit-form" class="profile-edit-form hidden">
+                        <div class="profile-form-grid">
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-name-input">Nombre</label>
+                                <input type="text" id="profile-name-input" class="text-input text-sm" placeholder="Nombre completo">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-title-input">Título</label>
+                                <input type="text" id="profile-title-input" class="text-input text-sm" placeholder="Ej. Desarrollador Full Stack">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-email-input">Correo</label>
+                                <input type="email" id="profile-email-input" class="text-input text-sm" placeholder="correo@dominio.com">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-phone-input">Teléfono</label>
+                                <input type="text" id="profile-phone-input" class="text-input text-sm" placeholder="Ej. 229-000-0000">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-location-input">Ubicación</label>
+                                <input type="text" id="profile-location-input" class="text-input text-sm" placeholder="Ej. Veracruz, México">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-linkedin-input">LinkedIn</label>
+                                <input type="text" id="profile-linkedin-input" class="text-input text-sm" placeholder="linkedin.com/in/usuario">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-github-input">GitHub</label>
+                                <input type="text" id="profile-github-input" class="text-input text-sm" placeholder="github.com/usuario">
+                            </div>
+                            <div class="form-group" style="gap: 0.35rem;">
+                                <label for="profile-years-input">Años de experiencia</label>
+                                <input type="number" id="profile-years-input" class="text-input text-sm" min="0" max="50" placeholder="Ej. 5">
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-roles-input">Roles objetivo</label>
+                                <input type="text" id="profile-roles-input" class="text-input text-sm" placeholder="Ej. DevOps Engineer, Full Stack Developer, Sysadmin">
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-summary-input">Resumen profesional</label>
+                                <textarea id="profile-summary-input" class="text-input profile-textarea" placeholder="Resume aquí tu experiencia, stack y fortalezas clave."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-experience-input">Experiencia</label>
+                                <textarea id="profile-experience-input" class="text-input profile-textarea" placeholder="Una línea por experiencia o bloque detectado del CV."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-languages-input">Idiomas</label>
+                                <input type="text" id="profile-languages-input" class="text-input text-sm" placeholder="Ej. Español, English">
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-education-input">Educación</label>
+                                <textarea id="profile-education-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una línea por estudio o grado."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-certifications-input">Certificaciones</label>
+                                <textarea id="profile-certifications-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una línea por certificación, curso o licencia."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-keywords-input">Keywords Manuales</label>
+                                <textarea id="profile-keywords-input" class="text-input profile-textarea profile-textarea-sm" placeholder="Una keyword por línea o separadas por coma."></textarea>
+                            </div>
+                            <div class="form-group profile-form-full" style="gap: 0.35rem;">
+                                <label for="profile-advanced-json-input">Editor Avanzado JSON</label>
+                                <textarea id="profile-advanced-json-input" class="text-input profile-textarea profile-json-textarea" placeholder='{"sections":{"experience":["..."]}}'></textarea>
+                            </div>
+                        </div>
+                        <div class="profile-edit-actions">
+                            <button id="profile-cancel-btn" class="btn btn-ghost btn-sm" type="button">
+                                <i class="fa-solid fa-xmark"></i> Cancelar
+                            </button>
+                            <button id="profile-save-btn" class="btn btn-primary btn-sm" type="button">
+                                <i class="fa-solid fa-floppy-disk"></i> Guardar perfil
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="profile-overview-panel">
+                        <div class="profile-metrics-grid">
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Experiencia</span>
+                                <strong id="cand-years">0 años</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Keywords</span>
+                                <strong id="cand-keywords-count">0</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">Fuente</span>
+                                <strong id="cand-analysis-source">ATS</strong>
+                            </div>
+                            <div class="profile-metric-card">
+                                <span class="profile-metric-label">OCR</span>
+                                <strong id="cand-ocr-flag">No</strong>
+                            </div>
+                        </div>
+                        <div class="profile-summary-block">
+                            <div class="profile-block-head">
+                                <h3>Resumen Profesional</h3>
+                            </div>
+                            <p id="cand-summary" class="profile-summary-text">Sin resumen disponible.</p>
+                        </div>
+                    </div>
+
+                    <!-- Drag & Drop Upload Zone -->
+                    <div class="upload-zone" id="cv-upload-zone">
+                        <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                        <span class="upload-text">Reemplazar CV — arrastra o haz clic</span>
+                        <input type="file" id="cv-file-input" accept=".pdf" style="display:none;">
+                    </div>
+
+                    <div class="latex-section">
+                        <div class="skills-section-header" style="margin-bottom: 0.75rem;">
+                            <h3>Generar CV LaTeX</h3>
+                        </div>
+                        <div class="upload-zone upload-zone-vertical" id="latex-image-upload-zone">
+                            <i class="fa-solid fa-file-code upload-icon"></i>
+                            <span class="upload-text">
+                                Sube una imagen o PDF para transcribirlo a LaTeX compilable con OCR local.
+                            </span>
+                            <input type="file" id="latex-image-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
+                        </div>
+                        <div class="latex-actions-row">
+                            <span id="latex-file-name" class="latex-file-name">Sin imagen seleccionada</span>
+                            <button id="latex-generate-btn" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generar CV LaTeX
+                            </button>
+                        </div>
+                        <p class="latex-helper-text">
+                            Formatos permitidos: PDF, PNG, JPG/JPEG y WEBP. OCR local usando Tesseract en español e inglés.
+                        </p>
+                        <div id="latex-output-panel" class="latex-output-panel hidden">
+                            <textarea id="latex-output" class="cl-textarea latex-textarea" readonly placeholder="\documentclass{article}"></textarea>
+                            <div class="cl-actions">
+                                <button id="latex-copy-btn" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-copy"></i> Copiar LaTeX
+                                </button>
+                                <button id="latex-download-btn" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-download"></i> Descargar .tex
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-details">
+                        <div class="detail-item">
+                            <i class="fa-solid fa-envelope detail-icon"></i>
+                            <span id="cand-email">—</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fa-solid fa-phone detail-icon"></i>
+                            <span id="cand-phone">—</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fa-solid fa-location-dot detail-icon"></i>
+                            <span id="cand-location">—</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-links">
+                        <a id="cand-linkedin" href="#" target="_blank" class="link-btn">
+                            <i class="fa-brands fa-linkedin"></i> LinkedIn
+                        </a>
+                        <a id="cand-github" href="#" target="_blank" class="link-btn">
+                            <i class="fa-brands fa-github"></i> GitHub
+                        </a>
+                    </div>
+
+                    <div class="profile-structured-grid">
+                        <div class="profile-info-block">
+                            <div class="profile-block-head">
+                                <h3>Roles Objetivo</h3>
+                            </div>
+                            <div id="cand-roles" class="profile-chip-list"></div>
+                        </div>
+                        <div class="profile-info-block">
+                            <div class="profile-block-head">
+                                <h3>Idiomas</h3>
+                            </div>
+                            <div id="cand-languages" class="profile-chip-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Experiencia Detectada</h3>
+                            </div>
+                            <div id="cand-experience" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Educación</h3>
+                            </div>
+                            <div id="cand-education" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Certificaciones</h3>
+                            </div>
+                            <div id="cand-certifications" class="profile-line-list"></div>
+                        </div>
+                        <div class="profile-info-block profile-info-block-full">
+                            <div class="profile-block-head">
+                                <h3>Keywords del Perfil</h3>
+                            </div>
+                            <div id="cand-keywords" class="profile-chip-list"></div>
+                        </div>
+                    </div>
+
+                    <!-- Skills section with editor -->
+                    <div class="skills-section">
+                        <div class="skills-section-header">
+                            <h3>Habilidades Clave</h3>
+                            <button id="toggle-edit-skills" class="btn-icon-toggle" title="Editar habilidades">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                        <div id="skills-container" class="skills-grid">
+                            <!-- Skills injected by JS -->
+                        </div>
+                        <div id="add-skill-form" class="add-skill-form hidden">
+                            <select id="new-skill-category" class="select-input select-sm">
+                                <option value="languages">Lenguajes</option>
+                                <option value="backend">Backend</option>
+                                <option value="infrastructure">Infraestructura</option>
+                                <option value="security">Seguridad</option>
+                                <option value="iot">IoT / Hardware</option>
+                                <option value="management">Gestión</option>
+                            </select>
+                            <div class="input-add-group">
+                                <input type="text" id="new-skill-name" placeholder="Nueva habilidad..." class="text-input text-sm">
+                                <button id="add-skill-btn" class="btn btn-primary btn-sm">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </section>
+
+                <!-- Stats Card (shows after search) -->
+                <div class="card stats-card hidden" id="results-stats-card">
+                    <h3><i class="fa-solid fa-chart-pie mr-10"></i> Resumen de Búsqueda</h3>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-num" id="stat-total">0</span>
+                            <span class="stat-label">Analizados</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-num text-cyan" id="stat-avg-match">0%</span>
+                            <span class="stat-label">Match Prom.</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-num" id="stat-high-match">0</span>
+                            <span class="stat-label">Alto Match</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-num" id="stat-skills-count">0</span>
+                            <span class="stat-label">Habilidades</span>
+                        </div>
+                    </div>
+                    <div class="stats-distribution">
+                        <h4>Distribución por Canal:</h4>
+                        <div class="distribution-bars" id="stats-dist-bars">
+                            <!-- Dynamic bars inserted by JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- ─── RESULTS FEED ─────────────────────── -->
+            <section class="results-feed">
+
+                <!-- Results header bar -->
+                <div class="results-bar-header">
+                    <p class="results-summary-text" id="results-summary">
+                        Selecciona tus parámetros y presiona <strong>Buscar</strong>.
+                    </p>
+                    <div class="results-actions hidden" id="results-actions-bar">
+                        <button id="export-btn" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step-by-step search loader -->
+                <div id="search-loader" class="loader-container hidden">
+                    <div class="spinner">
+                        <div class="double-bounce1"></div>
+                        <div class="double-bounce2"></div>
+                    </div>
+                    <h3>Analizando vacantes con IA</h3>
+                    <div class="loader-steps">
+                        <div class="loader-step" id="step-init">
+                            <i class="fa-solid fa-circle-notch fa-spin step-icon"></i>
+                            Iniciando motor de búsqueda v2...
+                        </div>
+                        <div class="loader-step" id="step-li">
+                            <i class="fa-regular fa-circle step-icon"></i>
+                            Buscando en LinkedIn...
+                        </div>
+                        <div class="loader-step" id="step-occ">
+                            <i class="fa-regular fa-circle step-icon"></i>
+                            Buscando en OCC Mundial...
+                        </div>
+                        <div class="loader-step" id="step-ct">
+                            <i class="fa-regular fa-circle step-icon"></i>
+                            Buscando en Computrabajo...
+                        </div>
+                        <div class="loader-step" id="step-gb">
+                            <i class="fa-regular fa-circle step-icon"></i>
+                            Buscando en Get on Board + Infojobs...
+                        </div>
+                        <div class="loader-step" id="step-ats">
+                            <i class="fa-regular fa-circle step-icon"></i>
+                            Calculando score ATS v2 y ranking...
+                        </div>
+                    </div>
+                    <span class="loader-tip">
+                        <i class="fa-solid fa-info-circle mr-5"></i>
+                        La búsqueda paralela escanea 7 portales simultáneamente. Puede tardar 10-20 segundos.
+                    </span>
+                </div>
+
+                <!-- Empty state -->
+                <div id="empty-state" class="empty-container">
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <h3>Listo para comenzar</h3>
+                    <p>
+                        Configura tus palabras clave, modalidad y ubicación, luego presiona
+                        <strong>Buscar</strong> para analizar vacantes en tiempo real.
+                    </p>
+                </div>
+
+                <!-- Jobs grid (inserted by JS) -->
+                <div id="jobs-container" class="jobs-grid hidden">
+                    <!-- Job cards injected here -->
+                </div>
+
+            </section>
+        </div>
     </main>
 
-    <!-- Job Detail Modal -->
-    <div class="modal hidden" id="job-modal">
+    <!-- ══════════════════════════════════════════════
+         JOB DETAIL MODAL
+    ══════════════════════════════════════════════ -->
+    <div id="job-modal" class="modal">
         <div class="modal-content">
-            <button class="modal-close" id="modal-close">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <span class="close-btn" id="modal-close">&times;</span>
 
+            <div class="modal-header">
+                <span class="badge platform-badge" id="modal-source-badge">Plataforma</span>
+                <h2 id="modal-title">Título del Puesto</h2>
+                <h3 id="modal-company">Empresa</h3>
+            </div>
+
+            <div class="modal-meta-grid">
+                <div class="meta-item">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span id="modal-location">Ubicación</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                    <span id="modal-salary">Salario</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fa-solid fa-calendar"></i>
+                    <span id="modal-date">Publicación</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    <div class="modal-match-display">
+                        <span class="modal-match-value" id="modal-score">—%</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Compatibilidad</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matched skills -->
+            <div class="modal-skills">
+                <h4><i class="fa-solid fa-check-double mr-5"></i> Habilidades Coincidentes con tu Perfil:</h4>
+                <div id="modal-matched-skills" class="skills-badges">
+                    <!-- Badges inserted by JS -->
+                </div>
+            </div>
+
+            <!-- Tabs -->
             <div class="modal-tabs">
-                <button class="modal-tab-btn active" data-tab="overview">
-                    <i class="fa-solid fa-briefcase"></i> Descripción
+                <button class="modal-tab-btn active" data-tab="tab-details">
+                    <i class="fa-solid fa-file-lines mr-5"></i> Descripción
                 </button>
-                <button class="modal-tab-btn" data-tab="analysis">
-                    <i class="fa-solid fa-chart-bar"></i> Análisis
+                <button class="modal-tab-btn" data-tab="tab-analysis">
+                    <i class="fa-solid fa-brain mr-5"></i> Análisis ATS
                 </button>
-                <button class="modal-tab-btn" data-tab="cover-letter">
-                    <i class="fa-solid fa-envelope"></i> Carta
+                <button class="modal-tab-btn" data-tab="tab-action-plan">
+                    <i class="fa-solid fa-graduation-cap mr-5"></i> ¿Qué te falta?
+                </button>
+                <button class="modal-tab-btn" data-tab="tab-cover-letter">
+                    <i class="fa-solid fa-envelope-open-text mr-5"></i> Carta de Presentación
                 </button>
             </div>
 
-            <!-- Overview Tab -->
-            <div id="tab-overview" class="modal-tab-content active">
-                <div class="job-header">
-                    <div>
-                        <h2 id="job-title">—</h2>
-                        <p id="job-company">—</p>
+            <!-- Tab: Description -->
+            <div id="tab-details" class="modal-tab-content">
+                <div class="job-deep-summary-card">
+                    <div class="job-deep-summary-head">
+                        <h4><i class="fa-solid fa-magnifying-glass-chart mr-5"></i> Lectura Profunda del Puesto</h4>
+                        <span id="job-analysis-status" class="badge">Analizando...</span>
                     </div>
-                    <div class="job-match-badge" id="job-match-badge">—</div>
+                    <p id="job-analysis-summary" class="job-deep-summary-text">Leyendo el detalle real de la vacante...</p>
+                    <div class="job-analysis-mini-grid">
+                        <div class="job-mini-card">
+                            <span>Modalidad</span>
+                            <strong id="job-analysis-modality">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Nivel</span>
+                            <strong id="job-analysis-seniority">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Tipo</span>
+                            <strong id="job-analysis-employment">—</strong>
+                        </div>
+                        <div class="job-mini-card">
+                            <span>Confianza</span>
+                            <strong id="job-analysis-confidence">—</strong>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="job-mini-info">
-                    <div class="job-mini-card">
-                        <span>Ubicación</span>
-                        <strong id="job-location">—</strong>
-                    </div>
-                    <div class="job-mini-card">
-                        <span>Modalidad</span>
-                        <strong id="job-modality">—</strong>
-                    </div>
-                    <div class="job-mini-card">
-                        <span>Salario</span>
-                        <strong id="job-salary">—</strong>
-                    </div>
-                </div>
-
                 <div class="modal-description">
-                    <h4>Descripción del Puesto</h4>
-                    <p id="job-description">Cargando...</p>
+                    <h4>Descripción y Requisitos del Puesto:</h4>
+                    <p id="modal-desc-text">Cargando descripción...</p>
                 </div>
-
-                <div class="job-columns">
-                    <div class="job-column">
-                        <h4><i class="fa-solid fa-list-check mr-5"></i> Requisitos</h4>
-                        <div id="job-requirements" class="skills-list"></div>
+                <div class="job-analysis-columns">
+                    <div class="job-analysis-list-card">
+                        <h4><i class="fa-solid fa-list-check mr-5"></i> Requisitos Detectados</h4>
+                        <div id="job-analysis-requirements" class="job-analysis-list"></div>
                     </div>
-                    <div class="job-column">
-                        <h4><i class="fa-solid fa-star mr-5"></i> Habilidades Coincidentes</h4>
-                        <div id="job-matched-skills" class="skills-badges"></div>
+                    <div class="job-analysis-list-card">
+                        <h4><i class="fa-solid fa-gift mr-5"></i> Beneficios / Condiciones</h4>
+                        <div id="job-analysis-benefits" class="job-analysis-list"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Analysis Tab -->
+            <!-- Tab: ATS Analysis -->
             <div id="tab-analysis" class="modal-tab-content hidden">
-                <div class="analysis-box">
-                    <h4>Análisis de Compatibilidad</h4>
-                    <div id="ats-breakdown" class="breakdown-bars"></div>
-                </div>
-
-                <div class="analysis-box warning">
-                    <h4><i class="fa-solid fa-triangle-exclamation mr-5"></i> Habilidades Faltantes</h4>
-                    <div id="ats-missing-skills" class="skills-badges"></div>
-                </div>
-
-                <div class="analysis-box success">
-                    <h4><i class="fa-solid fa-lightbulb mr-5"></i> Recomendación</h4>
-                    <p id="ats-recommendation">Analizando...</p>
+                <div id="ats-analysis-content" style="display: flex; flex-direction: column; gap: 1rem; animation: fadeSlideIn 0.25s ease-out;">
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem;">
+                        <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.875rem;">
+                            <i class="fa-solid fa-chart-bar mr-5"></i> Desglose de Compatibilidad
+                        </h4>
+                        <div id="ats-breakdown-bars" style="display: flex; flex-direction: column; gap: 0.625rem;">
+                            <!-- Breakdown injected by JS -->
+                        </div>
+                    </div>
+                    <div style="background: var(--rose-soft); border: 1px solid rgba(248,113,113,0.2); border-radius: var(--radius-md); padding: 1rem;">
+                        <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rose); margin-bottom: 0.625rem;">
+                            <i class="fa-solid fa-triangle-exclamation mr-5"></i> Habilidades Faltantes
+                        </h4>
+                        <div id="ats-missing-skills" class="skills-badges">
+                            <!-- Missing skills injected by JS -->
+                        </div>
+                    </div>
+                    <div style="background: var(--green-soft); border: 1px solid rgba(52,211,153,0.2); border-radius: var(--radius-md); padding: 1rem;">
+                        <h4 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--green); margin-bottom: 0.625rem;">
+                            <i class="fa-solid fa-lightbulb mr-5"></i> Recomendación de Postulación
+                        </h4>
+                        <p id="ats-recommendation" style="font-size: 0.83rem; color: var(--text-body); line-height: 1.6;">Analizando...</p>
+                    </div>
+                    <div class="job-analysis-columns">
+                        <div class="job-analysis-list-card">
+                            <h4><i class="fa-solid fa-circle-check mr-5"></i> Skills Detectadas en la Vacante</h4>
+                            <div id="job-analysis-detected-skills" class="skills-badges"></div>
+                        </div>
+                        <div class="job-analysis-list-card">
+                            <h4><i class="fa-solid fa-triangle-exclamation mr-5"></i> Riesgos / Alertas</h4>
+                            <div id="job-analysis-risks" class="job-analysis-list"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Cover Letter Tab -->
+            <!-- Tab: Action Plan -->
+            <div id="tab-action-plan" class="modal-tab-content hidden">
+                <div id="action-plan-content" style="display: flex; flex-direction: column; gap: 1rem; animation: fadeSlideIn 0.25s ease-out;">
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem;">
+                        <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.875rem;">
+                            <i class="fa-solid fa-triangle-exclamation mr-5"></i> Brechas Detectadas (Gaps)
+                        </h4>
+                        <div id="action-plan-gaps" class="job-analysis-list">
+                            <!-- Gaps injected by JS -->
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem;">
+                        <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.875rem; margin-top: 0.5rem;">
+                            <i class="fa-solid fa-road mr-5"></i> Ruta de Preparación y Plan de Acción
+                        </h4>
+                        <div id="action-plan-steps" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Action plan steps/cards injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Cover Letter -->
             <div id="tab-cover-letter" class="modal-tab-content hidden">
-                <div class="cover-letter-box">
+                <div class="cover-letter-generator">
                     <div class="cl-controls">
-                        <label for="cl-tone">Tono:</label>
-                        <select id="cl-tone" class="select-input select-sm">
-                            <option value="formal">Profesional</option>
-                            <option value="enthusiastic">Entusiasta</option>
-                            <option value="technical">Técnico</option>
-                            <option value="short">Breve</option>
+                        <label for="cl-tone-select">Tono:</label>
+                        <select id="cl-tone-select" class="select-input select-sm">
+                            <option value="formal">👔 Profesional Formal</option>
+                            <option value="enthusiastic">🚀 Entusiasta & Creativo</option>
+                            <option value="technical">💻 Técnico Avanzado</option>
+                            <option value="short">⚡ Corto & Directo</option>
                         </select>
-                        <button id="cl-regen-btn" class="btn btn-ghost btn-sm">
+                        <button id="cl-regen-btn" class="btn btn-ghost btn-sm" style="margin-left: auto;">
                             <i class="fa-solid fa-rotate-right"></i> Regenerar
                         </button>
                     </div>
-                    <textarea id="cl-text-output" class="cl-textarea" readonly></textarea>
-                    <div class="cl-actions">
-                        <button id="cl-copy-btn" class="btn btn-secondary btn-sm">
-                            <i class="fa-solid fa-copy"></i> Copiar
-                        </button>
-                        <a id="cl-email-btn" href="#" class="btn btn-primary btn-sm">
-                            <i class="fa-solid fa-envelope"></i> Correo
-                        </a>
+                    <div class="cl-output-wrapper">
+                        <textarea id="cl-text-output" class="cl-textarea" readonly></textarea>
+                        <div class="cl-actions">
+                            <button id="cl-copy-btn" class="btn btn-secondary btn-sm">
+                                <i class="fa-solid fa-copy"></i> Copiar Texto
+                            </button>
+                            <a id="cl-email-btn" href="#" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-envelope"></i> Redactar Correo
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -288,16 +866,16 @@
                     <i class="fa-regular fa-bookmark"></i> Guardar
                 </button>
                 <a id="modal-apply-link" href="#" target="_blank" class="btn btn-primary">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Postularse
+                    <i class="fa-solid fa-arrow-up-right-from-square mr-5"></i> Postularse
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notifications -->
+    <!-- Toast container -->
     <div class="toast-container" id="toast-container"></div>
 
-    <!-- Scripts -->
-    <script src="js/main.js" defer></script>
+    <!-- Main JS -->
+    <script src="js/main.js"></script>
 </body>
 </html>
