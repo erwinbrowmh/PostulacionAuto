@@ -73,6 +73,243 @@ def normalize_text(text):
     trans = str.maketrans(a, b)
     return text.translate(trans)
 
+
+SECTION_PATTERNS = {
+    "summary": [
+        r"^resumen(?: profesional)?$",
+        r"^perfil(?: profesional)?$",
+        r"^acerca de mi$",
+        r"^sobre mi$",
+        r"^professional summary$",
+    ],
+    "experience": [
+        r"^experiencia(?: profesional| laboral)?$",
+        r"^experience$",
+        r"^work experience$",
+    ],
+    "education": [
+        r"^educacion$",
+        r"^formacion(?: academica)?$",
+        r"^academic background$",
+        r"^education$",
+    ],
+    "certifications": [
+        r"^certificaciones?$",
+        r"^courses?$",
+        r"^cursos?$",
+        r"^licenses?$",
+    ],
+    "languages_spoken": [
+        r"^idiomas?$",
+        r"^languages?$",
+    ],
+    "skills": [
+        r"^habilidades(?: tecnicas)?$",
+        r"^skills?$",
+        r"^stack(?: tecnologico)?$",
+        r"^tecnologias?$",
+    ],
+}
+
+ROLE_KEYWORDS = [
+    "devops", "developer", "desarrollador", "engineer", "ingeniero", "full stack",
+    "backend", "frontend", "analista", "soporte", "administrador", "administrator",
+    "security", "ciberseguridad", "sysadmin", "cloud", "infraestructura", "sre",
+    "network", "redes", "qa", "data", "arquitecto", "architect"
+]
+
+LANGUAGE_KEYWORDS = [
+    "Español", "Inglés", "English", "Spanish", "Francés", "French", "Portugués", "Portuguese",
+    "Alemán", "German", "Italiano", "Italian"
+]
+
+
+def parse_cv_text(text):
+    if not text or not text.strip():
+        return FALLBACK_PROFILE
+
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    if not lines:
+        return FALLBACK_PROFILE
+
+    sections = extract_sections(lines)
+    skills, all_skills_flat = extract_skills_dynamically(text)
+    summary = extract_summary(lines, sections)
+    title = extract_title(lines, summary)
+    experience_years = extract_experience_years(text)
+    certifications = extract_certifications(sections)
+    education = extract_education(sections)
+    languages_spoken = extract_languages(text, sections)
+    preferred_roles = extract_preferred_roles(lines, title)
+
+    profile = {
+        "name": extract_name(lines),
+        "email": extract_email(text),
+        "phone": extract_phone(text),
+        "location": extract_location(text),
+        "title": title,
+        "linkedin": extract_link(text, "linkedin"),
+        "github": extract_link(text, "github"),
+        "summary": summary,
+        "experience_years": experience_years,
+        "education": education,
+        "certifications": certifications,
+        "languages_spoken": languages_spoken,
+        "preferred_roles": preferred_roles,
+        "sections": sections,
+        "skills": skills,
+        "all_skills_flat": all_skills_flat,
+    }
+    return profile
+
+
+def extract_sections(lines):
+    sections = {key: [] for key in SECTION_PATTERNS}
+    current_section = None
+
+    for line in lines:
+        normalized_line = normalize_text(line.lower()).strip(": ")
+        matched_section = None
+        for section_name, patterns in SECTION_PATTERNS.items():
+            if any(re.match(pattern, normalized_line) for pattern in patterns):
+                matched_section = section_name
+                break
+
+        if matched_section:
+            current_section = matched_section
+            continue
+
+        if current_section:
+            sections[current_section].append(line)
+
+    return {key: value for key, value in sections.items() if value}
+
+
+def extract_name(lines):
+    for line in lines[:8]:
+        clean = line.strip()
+        if '@' in clean or '/' in clean or re.search(r'\d', clean):
+            continue
+        if 5 < len(clean) < 50:
+            return clean
+    return "Candidato Extraído"
+
+
+def extract_email(text):
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
+    return email_match.group(0) if email_match else "No especificado"
+
+
+def extract_phone(text):
+    phone_match = re.search(r'(\+?\d{1,3}[\s-]?)?\(?\d{2,3}\)?[\s-]?\d{3,4}[\s-]?\d{4}', text)
+    return phone_match.group(0).strip() if phone_match else "No especificado"
+
+
+def extract_location(text):
+    location = "México"
+    cities = ["Veracruz", "Puebla", "Monterrey", "Guadalajara", "Queretaro", "Merida", "Cancun", "Xalapa", "Orizaba", "Boca del Rio", "CDMX", "Ciudad de Mexico"]
+    for city in cities:
+        if re.search(rf'\b{city}\b', text, re.IGNORECASE):
+            return f"{city}, México"
+    return location
+
+
+def extract_title(lines, summary):
+    title = "Especialista TI"
+    title_keywords = [
+        "ingeniero", "developer", "desarrollador", "programador", "analista",
+        "consultor", "administrator", "soporte", "systems", "devops",
+        "backend", "frontend", "full stack", "cloud", "security", "network"
+    ]
+
+    for line in lines[:8]:
+        lowered = line.lower()
+        if any(keyword in lowered for keyword in title_keywords):
+            return line.strip()
+
+    if summary:
+        for sentence in re.split(r'[.!?]\s+', summary):
+            lowered = sentence.lower()
+            if any(keyword in lowered for keyword in title_keywords):
+                return sentence.strip()[:90]
+
+    return title
+
+
+def extract_link(text, link_type):
+    if link_type == "linkedin":
+        match = re.search(r'linkedin\.com/in/[\w\.-]+', text, re.IGNORECASE)
+        return match.group(0) if match else ""
+    if link_type == "github":
+        match = re.search(r'github\.com/[\w\.-]+', text, re.IGNORECASE)
+        return match.group(0) if match else ""
+    return ""
+
+
+def extract_summary(lines, sections):
+    if sections.get("summary"):
+        return " ".join(sections["summary"][:4]).strip()[:600]
+
+    candidate_lines = []
+    for line in lines[1:10]:
+        lower = line.lower()
+        if '@' in line or re.search(r'linkedin|github|www\.|http', lower):
+            continue
+        if any(keyword in lower for keyword in ROLE_KEYWORDS) or len(line.split()) >= 6:
+            candidate_lines.append(line)
+        if len(candidate_lines) >= 2:
+            break
+    return " ".join(candidate_lines).strip()[:600]
+
+
+def extract_experience_years(text):
+    matches = re.findall(r'(\d{1,2})\+?\s*(?:anos|año|años|years?)\s+(?:de\s+)?experiencia', normalize_text(text.lower()))
+    years = [int(value) for value in matches if 0 < int(value) <= 50]
+    return max(years) if years else 0
+
+
+def extract_certifications(sections):
+    lines = sections.get("certifications", [])
+    values = []
+    for line in lines[:8]:
+        clean = line.strip("•- ").strip()
+        if clean and clean not in values:
+            values.append(clean)
+    return values
+
+
+def extract_education(sections):
+    lines = sections.get("education", [])
+    values = []
+    for line in lines[:8]:
+        clean = line.strip("•- ").strip()
+        if clean and clean not in values:
+            values.append(clean)
+    return values
+
+
+def extract_languages(text, sections):
+    results = []
+    corpus = " ".join(sections.get("languages_spoken", [])) + "\n" + text
+    for language in LANGUAGE_KEYWORDS:
+        if re.search(rf'\b{re.escape(language)}\b', corpus, re.IGNORECASE) and language not in results:
+            results.append(language)
+    return results
+
+
+def extract_preferred_roles(lines, title):
+    roles = []
+    role_sources = [title] + lines[:12]
+    for line in role_sources:
+        lowered = line.lower()
+        if any(keyword in lowered for keyword in ROLE_KEYWORDS):
+            clean = re.sub(r'\s+', ' ', line).strip()
+            if clean and clean not in roles:
+                roles.append(clean[:80])
+        if len(roles) >= 4:
+            break
+    return roles
+
 def parse_cv(pdf_path):
     if not os.path.exists(pdf_path):
         return FALLBACK_PROFILE
@@ -85,65 +322,8 @@ def parse_cv(pdf_path):
             
         if not text.strip():
             return FALLBACK_PROFILE
-            
-        profile = {}
-        
-        # 1. Parse Name
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
-        name = "Candidato Extraído"
-        for line in lines[:4]: # Check first 4 lines for a candidate name
-            # A valid name shouldn't have email symbols, slash path indicators, numbers, or be too long
-            if '@' not in line and '/' not in line and not re.search(r'\d', line) and 5 < len(line) < 40:
-                name = line
-                break
-        profile["name"] = name
-        
-        # 2. Parse Email
-        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
-        profile["email"] = email_match.group(0) if email_match else "No especificado"
-        
-        # 3. Parse Phone
-        # Match standard phone numbers (e.g. 229-232-4707 or +52 229 232 4707)
-        phone_match = re.search(r'(\+?\d{1,3}[\s-]?)?\(?\d{2,3}\)?[\s-]?\d{3,4}[\s-]?\d{4}', text)
-        profile["phone"] = phone_match.group(0).strip() if phone_match else "No especificado"
-        
-        # 4. Parse Location
-        location = "México"
-        # Match cities like Veracruz, Puebla, CDMX, Monterrey, Guadalajara
-        cities = ["Veracruz", "Puebla", "Monterrey", "Guadalajara", "Queretaro", "Merida", "Cancun", "Xalapa", "Orizaba", "Boca del Rio"]
-        for city in cities:
-            if re.search(rf'\b{city}\b', text, re.IGNORECASE):
-                location = f"{city}, México"
-                break
-        profile["location"] = location
-        
-        # 5. Extract Title
-        # Look for titles in first 5 lines
-        title = "Especialista TI"
-        for line in lines[1:5]:
-            if any(keyword in line.lower() for keyword in ["ingeniero", "developer", "desarrollador", "programador", "analista", "consultor", "administrator", "soporte", "systems"]):
-                title = line
-                break
-        profile["title"] = title
-        
-        profile["linkedin"] = "linkedin.com"
-        # Look for linkedin link
-        li_match = re.search(r'linkedin\.com/in/[\w\.-]+', text, re.IGNORECASE)
-        if li_match:
-            profile["linkedin"] = li_match.group(0)
-            
-        profile["github"] = "github.com"
-        # Look for github link
-        gh_match = re.search(r'github\.com/[\w\.-]+', text, re.IGNORECASE)
-        if gh_match:
-            profile["github"] = gh_match.group(0)
-            
-        # 6. Extract Skills Dynamically (ATS feature)
-        skills, all_skills_flat = extract_skills_dynamically(text)
-        profile["skills"] = skills
-        profile["all_skills_flat"] = all_skills_flat
-        
-        return profile
+
+        return parse_cv_text(text)
     except Exception as e:
         print(f"Error in dynamic parsing: {e}")
         return FALLBACK_PROFILE
@@ -157,6 +337,13 @@ FALLBACK_PROFILE = {
     "location": "Veracruz, México",
     "linkedin": "linkedin.com/in/erwin-brow-martinez-herrera",
     "github": "github.com/erwinbrowmh",
+    "summary": "Ingeniero en sistemas con experiencia en desarrollo full stack, infraestructura y ciberseguridad.",
+    "experience_years": 5,
+    "education": ["Ingeniería en Sistemas Computacionales"],
+    "certifications": [],
+    "languages_spoken": ["Español", "English"],
+    "preferred_roles": ["Full Stack Developer", "Ingeniero en Sistemas", "Especialista TI"],
+    "sections": {},
     "skills": {
         "languages": ["PHP", "Java", "JavaScript", "Flutter", "SQL", "HTML/CSS", "HTML", "CSS"],
         "backend": ["REST APIs", "Stripe API", "Clip Integration", "MySQL", "Git", "APIs"],

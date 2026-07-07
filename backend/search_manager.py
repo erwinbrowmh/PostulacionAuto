@@ -5,7 +5,7 @@ import re
 import time
 import hashlib
 import json
-from backend.parser import parse_cv, FALLBACK_PROFILE
+from backend.parser import parse_cv, FALLBACK_PROFILE, normalize_text
 from backend.scrapers.computrabajo import scrape_computrabajo
 from backend.scrapers.occ import scrape_occ
 from backend.scrapers.getonbrd import scrape_getonbrd
@@ -30,8 +30,8 @@ except ImportError:
 _SEARCH_CACHE = {}
 _CACHE_TTL = 1800  # 30 minutes
 
-def _cache_key(keywords, location, max_results):
-    raw = f"{sorted(keywords)}|{location}|{max_results}"
+def _cache_key(keywords, location, modality, max_results):
+    raw = f"{sorted(keywords)}|{location}|{modality}|{max_results}"
     return hashlib.md5(raw.encode()).hexdigest()
 
 def _get_cached(key):
@@ -48,16 +48,91 @@ def _set_cache(key, data):
     _SEARCH_CACHE[key] = {"ts": time.time(), "data": data}
 
 
+REMOTE_PATTERN = re.compile(r"\b(remoto|remote|home office|teletrabajo|work from home|100% remoto)\b", re.IGNORECASE)
+HYBRID_PATTERN = re.compile(r"\b(hibrido|híbrido|hybrid|esquema mixto)\b", re.IGNORECASE)
+ONSITE_PATTERN = re.compile(r"\b(presencial|onsite|on-site|en oficina|office-based)\b", re.IGNORECASE)
+SENIOR_PATTERN = re.compile(r"\b(senior|sr\.?|lead|líder|principal|architect)\b", re.IGNORECASE)
+JUNIOR_PATTERN = re.compile(r"\b(junior|jr\.?|trainee|practicante|entry)\b", re.IGNORECASE)
+SEMI_PATTERN = re.compile(r"\b(semi|semi senior|mid|pleno|ssr)\b", re.IGNORECASE)
+
+
+def normalize_modality(value):
+    value = (value or "").strip().lower()
+    if value in ("remoto", "remote"):
+        return "remoto"
+    if value in ("hibrido", "híbrido", "hybrid"):
+        return "hibrido"
+    if value in ("presencial", "onsite", "on-site"):
+        return "presencial"
+    return "any"
+
+
+def detect_job_modality(job):
+    text = " ".join([
+        job.get("title", ""),
+        job.get("location", ""),
+        job.get("description", ""),
+        job.get("source", ""),
+    ]).lower()
+
+    if HYBRID_PATTERN.search(text):
+        return "hibrido"
+    if REMOTE_PATTERN.search(text):
+        return "remoto"
+    if ONSITE_PATTERN.search(text):
+        return "presencial"
+    return "presencial"
+
+
+def detect_job_seniority(job):
+    text = " ".join([job.get("title", ""), job.get("description", "")]).lower()
+    if SENIOR_PATTERN.search(text):
+        return "senior"
+    if JUNIOR_PATTERN.search(text):
+        return "junior"
+    if SEMI_PATTERN.search(text):
+        return "semi"
+    return "general"
+
+
+def normalize_job(job, requested_location="México"):
+    normalized = dict(job)
+    normalized["work_modality"] = detect_job_modality(normalized)
+    normalized["seniority"] = detect_job_seniority(normalized)
+    normalized["location"] = (normalized.get("location") or requested_location or "México").strip()
+    return normalized
+
+
+def job_matches_requested_modality(job, requested_modality):
+    modality = normalize_modality(requested_modality)
+    if modality == "any":
+        return True
+    job_modality = job.get("work_modality") or detect_job_modality(job)
+    if modality == "remoto":
+        return job_modality == "remoto"
+    if modality == "hibrido":
+        return job_modality == "hibrido"
+    if modality == "presencial":
+        return job_modality == "presencial"
+    return True
+
+
 # ─────────────────────────────────────────────────────────────
 # ATS Match Score v2 — Weighted Scoring Engine
 # ─────────────────────────────────────────────────────────────
-def calculate_match_score(job, profile):
+def calculate_match_score(job, profile, requested_modality="any"):
     title = (job.get("title") or "").lower()
     description = (job.get("description") or "").lower()
     location_field = (job.get("location") or "").lower()
     
     matched_skills = set()
     score = 5  # Base score
+    breakdown = {
+        "skills": 0,
+        "modality": 0,
+        "seniority": 0,
+        "profile_strength": 0,
+    }
 
     all_skills = profile.get("all_skills_flat", [])
     
@@ -81,40 +156,73 @@ def calculate_match_score(job, profile):
         in_desc = bool(pattern.search(description))
         
         if in_title:
-            score += 30 if is_primary else 20
+            delta = 30 if is_primary else 20
+            score += delta
+            breakdown["skills"] += delta
             matched_skills.add(skill)
         elif in_desc:
-            score += 10 if is_primary else 6
+            delta = 10 if is_primary else 6
+            score += delta
+            breakdown["skills"] += delta
             matched_skills.add(skill)
 
-    # ── Modality bonus ───────────────────────────────────────
-    job_source = (job.get("source") or "").lower()
-    if "remoto" in location_field or "remote" in location_field or "home office" in location_field:
-        score += 8
+    # ── Modality bonus / penalty ─────────────────────────────
+    requested_modality = normalize_modality(requested_modality)
+    job_modality = job.get("work_modality") or detect_job_modality(job)
+    if requested_modality == "remoto":
+        if job_modality == "remoto":
+            score += 12
+            breakdown["modality"] += 12
+        else:
+            score -= 12
+            breakdown["modality"] -= 12
+    elif requested_modality == "hibrido":
+        if job_modality == "hibrido":
+            score += 10
+            breakdown["modality"] += 10
+        elif job_modality == "remoto":
+            score += 3
+            breakdown["modality"] += 3
+        else:
+            score -= 6
+            breakdown["modality"] -= 6
+    elif requested_modality == "presencial":
+        if job_modality == "presencial":
+            score += 10
+            breakdown["modality"] += 10
+        elif job_modality == "hibrido":
+            score += 3
+            breakdown["modality"] += 3
+        else:
+            score -= 4
+            breakdown["modality"] -= 4
 
     # ── Seniority / Level detection bonus ───────────────────
     profile_title = (profile.get("title") or "").lower()
-    senior_words = ["senior", "sr.", "lead", "líder", "principal", "architect"]
-    junior_words = ["junior", "jr.", "trainee", "practicante", "entry"]
-    
-    job_is_senior = any(w in title for w in senior_words)
-    job_is_junior = any(w in title for w in junior_words)
-    profile_is_senior = any(w in profile_title for w in senior_words)
-    profile_is_junior = any(w in profile_title for w in junior_words)
+    profile_years = profile.get("experience_years", 0) or 0
+    job_is_senior = bool(SENIOR_PATTERN.search(title))
+    job_is_junior = bool(JUNIOR_PATTERN.search(title))
+    profile_is_senior = bool(SENIOR_PATTERN.search(profile_title)) or profile_years >= 5
+    profile_is_junior = bool(JUNIOR_PATTERN.search(profile_title)) or (0 < profile_years <= 2)
 
     if job_is_senior and profile_is_senior:
         score += 12
+        breakdown["seniority"] += 12
     elif job_is_junior and profile_is_junior:
         score += 8
+        breakdown["seniority"] += 8
     elif job_is_senior and profile_is_junior:
-        score -= 8  # Penalize over-qualified mismatch
+        score -= 8
+        breakdown["seniority"] -= 8
 
     # ── Skill density bonus (more total matches = richer match) ──
     match_count = len(matched_skills)
     if match_count >= 5:
         score += 10
+        breakdown["skills"] += 10
     elif match_count >= 3:
         score += 5
+        breakdown["skills"] += 5
 
     # ── Category coverage bonus ──────────────────────────────
     skill_cats = profile.get("skills", {})
@@ -125,11 +233,27 @@ def calculate_match_score(job, profile):
             cats_hit += 1
     if cats_hit >= 3:
         score += 8
+        breakdown["profile_strength"] += 8
     elif cats_hit >= 2:
         score += 4
+        breakdown["profile_strength"] += 4
+
+    # ── Preferred roles / summary signal ─────────────────────
+    role_signals = [role.lower() for role in profile.get("preferred_roles", [])]
+    summary_text = (profile.get("summary") or "").lower()
+    for role in role_signals[:3]:
+        role_words = [part for part in re.split(r"[\s/|,]+", role) if len(part) >= 4]
+        if role_words and all(word in (title + " " + description) for word in role_words[:2]):
+            score += 6
+            breakdown["profile_strength"] += 6
+            break
+    if summary_text and any(word in description for word in re.findall(r"\b[a-z]{5,}\b", normalize_text(summary_text))[:6]):
+        score += 3
+        breakdown["profile_strength"] += 3
 
     score = min(score, 100)
-    return score, list(matched_skills)
+    score = max(score, 0)
+    return score, list(matched_skills), breakdown
 
 
 # ─────────────────────────────────────────────────────────────
@@ -144,6 +268,7 @@ def _expand_keywords(keywords, profile):
     expanded = list(keywords)  # start with the explicit keywords
     
     profile_title = profile.get("title", "")
+    preferred_roles = profile.get("preferred_roles", [])
     
     # Add job title words as standalone queries (e.g. "Desarrollador", "Full Stack")
     title_keywords = []
@@ -152,6 +277,7 @@ def _expand_keywords(keywords, profile):
         if len(word) >= 4 and word not in expanded:
             title_keywords.append(word)
     expanded.extend(title_keywords[:2])
+    expanded.extend(preferred_roles[:2])
     
     # Combine top skills into stack-based queries (e.g. "PHP Laravel")
     primary = profile.get("all_skills_flat", [])[:4]
@@ -186,15 +312,15 @@ def _expand_keywords(keywords, profile):
         if k_lower not in seen:
             seen.add(k_lower)
             result.append(k)
-    return result[:8]
+    return result[:10]
 
 
 # ─────────────────────────────────────────────────────────────
 # Main search orchestrator
 # ─────────────────────────────────────────────────────────────
-def search_jobs(profile=None, keywords=None, location="veracruz", max_results=20):
+def search_jobs(profile=None, keywords=None, location="México", modality="any", max_results=20):
     if not profile:
-        pdf_path = r"c:\Users\siste\OneDrive\Documentos\PostulacionAuto\cv\CV_Erwin_Brow.pdf"
+        pdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cv", "CV_Erwin_Brow.pdf")
         profile = parse_cv(pdf_path)
 
     # ── Keyword resolution ───────────────────────────────────
@@ -213,15 +339,13 @@ def search_jobs(profile=None, keywords=None, location="veracruz", max_results=20
     expanded_keywords = _expand_keywords(keywords, profile)
 
     # ── Location normalization ───────────────────────────────
-    loc_lower = location.lower()
-    if "remoto" in loc_lower or "remote" in loc_lower:
-        mexico_loc = "remoto"
-    else:
-        mexico_loc = loc_lower.split(',')[0].strip()
-    global_loc = location
+    modality = normalize_modality(modality)
+    loc_lower = (location or "México").lower()
+    mexico_loc = loc_lower.split(',')[0].strip() if loc_lower else "mexico"
+    global_loc = location or "México"
 
     # ── Cache check ──────────────────────────────────────────
-    cache_key = _cache_key(expanded_keywords, location, max_results)
+    cache_key = _cache_key(expanded_keywords, location, modality, max_results)
     cached = _get_cached(cache_key)
     if cached is not None:
         return cached
@@ -233,15 +357,15 @@ def search_jobs(profile=None, keywords=None, location="veracruz", max_results=20
         futures = []
 
         for kw in expanded_keywords:
-            futures.append(executor.submit(scrape_computrabajo, kw, mexico_loc, max_results))
-            futures.append(executor.submit(scrape_occ, kw, mexico_loc, max_results))
-            futures.append(executor.submit(scrape_getonbrd, kw, global_loc, max_results))
-            futures.append(executor.submit(scrape_linkedin, kw, global_loc, max_results))
-            futures.append(executor.submit(scrape_google_jobs, kw, global_loc, max_results))
+            futures.append(executor.submit(scrape_computrabajo, kw, mexico_loc, modality, max_results))
+            futures.append(executor.submit(scrape_occ, kw, mexico_loc, modality, max_results))
+            futures.append(executor.submit(scrape_getonbrd, kw, global_loc, modality, max_results))
+            futures.append(executor.submit(scrape_linkedin, kw, global_loc, modality, max_results))
+            futures.append(executor.submit(scrape_google_jobs, kw, global_loc, modality, max_results))
             if HAS_INFOJOBS:
-                futures.append(executor.submit(scrape_infojobs, kw, mexico_loc, max_results))
+                futures.append(executor.submit(scrape_infojobs, kw, mexico_loc, modality, max_results))
             if HAS_TALENTCOM:
-                futures.append(executor.submit(scrape_talentcom, kw, global_loc, max_results))
+                futures.append(executor.submit(scrape_talentcom, kw, global_loc, modality, max_results))
 
         for future in concurrent.futures.as_completed(futures):
             try:
@@ -249,20 +373,24 @@ def search_jobs(profile=None, keywords=None, location="veracruz", max_results=20
                 for job in results:
                     link = job.get("link", "")
                     if link and link not in combined_jobs:
-                        combined_jobs[link] = job
+                        normalized_job = normalize_job(job, requested_location=location)
+                        if job_matches_requested_modality(normalized_job, modality):
+                            combined_jobs[link] = normalized_job
             except Exception as e:
                 print(f"[SCRAPER ERROR] {e}")
 
     # ── ATS Scoring ──────────────────────────────────────────
     scored_jobs = []
     for job in combined_jobs.values():
-        score, matched = calculate_match_score(job, profile)
+        score, matched, breakdown = calculate_match_score(job, profile, requested_modality=modality)
         job["match_score"] = score
         job["matched_skills"] = list(set(matched))
-        # Score breakdown for UI display
         job["score_breakdown"] = {
+            "score_parts": breakdown,
             "skills_matched": len(set(matched)),
             "total_skills": len(profile.get("all_skills_flat", [])),
+            "work_modality": job.get("work_modality", "presencial"),
+            "seniority": job.get("seniority", "general"),
         }
         scored_jobs.append(job)
 
@@ -335,10 +463,19 @@ def search_jobs(profile=None, keywords=None, location="veracruz", max_results=20
             }
         ]
         for mj in mock_candidates:
-            score, matched = calculate_match_score(mj, profile)
+            mj = normalize_job(mj, requested_location=location)
+            if not job_matches_requested_modality(mj, modality):
+                continue
+            score, matched, breakdown = calculate_match_score(mj, profile, requested_modality=modality)
             mj["match_score"] = score
             mj["matched_skills"] = list(set(matched))
-            mj["score_breakdown"] = {"skills_matched": len(set(matched)), "total_skills": len(profile.get("all_skills_flat", []))}
+            mj["score_breakdown"] = {
+                "score_parts": breakdown,
+                "skills_matched": len(set(matched)),
+                "total_skills": len(profile.get("all_skills_flat", [])),
+                "work_modality": mj.get("work_modality", "presencial"),
+                "seniority": mj.get("seniority", "general"),
+            }
             scored_jobs.append(mj)
         scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
 

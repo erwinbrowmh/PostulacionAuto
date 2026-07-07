@@ -16,7 +16,7 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'upload
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-DEFAULT_PDF_PATH = r"c:\Users\siste\OneDrive\Documentos\PostulacionAuto\cv\CV_Erwin_Brow.pdf"
+DEFAULT_PDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cv", "CV_Erwin_Brow.pdf")
 
 # Global state in memory for the currently active profile
 CURRENT_PROFILE = parse_cv(DEFAULT_PDF_PATH)
@@ -109,6 +109,7 @@ def search():
     global CURRENT_PROFILE
     keywords_raw = request.args.get('keywords', '')
     location = request.args.get('location', 'veracruz')
+    modality = request.args.get('modality', 'any')
     max_results = request.args.get('max_results', 20, type=int)
     
     # Process keywords
@@ -120,7 +121,13 @@ def search():
     try:
         import time
         t0 = time.time()
-        jobs = search_jobs(profile=CURRENT_PROFILE, keywords=keywords, location=location, max_results=max_results)
+        jobs = search_jobs(
+            profile=CURRENT_PROFILE,
+            keywords=keywords,
+            location=location,
+            modality=modality,
+            max_results=max_results
+        )
         elapsed = round(time.time() - t0, 2)
         avg_score = round(sum(j.get("match_score", 0) for j in jobs) / len(jobs), 1) if jobs else 0
         return jsonify({
@@ -128,6 +135,7 @@ def search():
             "count": len(jobs),
             "search_time_s": elapsed,
             "avg_match_score": avg_score,
+            "modality": modality,
             "data": jobs
         })
     except Exception as e:
@@ -143,7 +151,10 @@ def search_suggestions():
     global CURRENT_PROFILE
     skills = CURRENT_PROFILE.get("all_skills_flat", [])
     title  = CURRENT_PROFILE.get("title", "")
-    suggestions = list(dict.fromkeys(skills[:8] + [w for w in title.split() if len(w) >= 3]))[:10]
+    preferred_roles = CURRENT_PROFILE.get("preferred_roles", [])
+    summary = CURRENT_PROFILE.get("summary", "")
+    summary_words = [w for w in summary.split() if len(w) >= 5][:4]
+    suggestions = list(dict.fromkeys(skills[:8] + preferred_roles[:3] + [w for w in title.split() if len(w) >= 3] + summary_words))[:12]
     return jsonify({"status": "success", "suggestions": suggestions})
 
 @app.route('/api/export', methods=['POST'])

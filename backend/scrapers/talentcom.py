@@ -14,11 +14,11 @@ def _clean_text(text):
     return re.sub(r'\s+', ' ', text or '').strip()
 
 
-def scrape_talentcom(keyword, location="veracruz", max_results=20):
+def scrape_talentcom(keyword, location="veracruz", modality="any", max_results=20):
     """Scrapes talent.com for aggregated job listings across many portals."""
     keyword_enc = urllib.parse.quote(keyword)
 
-    if location.lower() in ("remoto", "remote", "remoto (méxico)"):
+    if modality == "remoto":
         loc_enc = urllib.parse.quote("remote")
         url = f"https://mx.talent.com/jobs?k={keyword_enc}&l=remote"
     else:
@@ -137,5 +137,5 @@ def scrape_talentcom(keyword, location="veracruz", max_results=20):
 
 if __name__ == "__main__":
     import json
-    res = scrape_talentcom("php", "veracruz", 3)
+    res = scrape_talentcom("php", "veracruz", "presencial", 3)
     print(json.dumps(res, indent=2, ensure_ascii=False))

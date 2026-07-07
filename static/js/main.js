@@ -93,6 +93,9 @@
   const profileLocationInput = document.getElementById("profile-location-input");
   const profileLinkedinInput = document.getElementById("profile-linkedin-input");
   const profileGithubInput = document.getElementById("profile-github-input");
+  const profileYearsInput = document.getElementById("profile-years-input");
+  const profileRolesInput = document.getElementById("profile-roles-input");
+  const profileSummaryInput = document.getElementById("profile-summary-input");
   const profileSaveBtn = document.getElementById("profile-save-btn");
   const profileCancelBtn = document.getElementById("profile-cancel-btn");
   const skillsContainer = document.getElementById("skills-container");
@@ -178,6 +181,7 @@
     applyProfileLink(candLinkedin, profile.linkedin, "linkedin");
     applyProfileLink(candGithub, profile.github, "github");
     fillProfileEditForm(profile);
+    prefillSearchInputsFromProfile(profile);
 
     renderSkills(profile.skills || {});
     saveProfileToStorage(profile);
@@ -211,6 +215,37 @@
       return `https://${raw.replace(/^\/+/, "")}`;
     }
     return `https://${raw.replace(/^\/+/, "")}`;
+  }
+
+  function prefillSearchInputsFromProfile(profile) {
+    if (!profile) return;
+
+    const currentKeywords = (searchKeywords.value || "").trim();
+    const canReplaceKeywords = !currentKeywords || searchKeywords.dataset.autofilled === "1";
+    if (canReplaceKeywords) {
+      const suggestions = getProfileKeywordSuggestions(profile);
+      if (suggestions.length) {
+        searchKeywords.value = suggestions.join(", ");
+        searchKeywords.dataset.autofilled = "1";
+      }
+    }
+
+    const currentLocation = (searchLoc.value || "").trim();
+    const canReplaceLocation = !currentLocation || currentLocation === "México" || searchLoc.dataset.autofilled === "1";
+    if (canReplaceLocation && profile.location && searchType.value !== "remoto") {
+      searchLoc.value = profile.location;
+      searchLoc.dataset.autofilled = "1";
+    }
+  }
+
+  function getProfileKeywordSuggestions(profile) {
+    const titleWords = (profile.title || "")
+      .split(/[\s/|,]+/)
+      .map(word => word.trim())
+      .filter(word => word.length >= 4);
+    const preferredRoles = profile.preferred_roles || [];
+    const topSkills = profile.all_skills_flat || [];
+    return [...new Set([...preferredRoles, ...titleWords, ...topSkills])].slice(0, 6);
   }
 
   function updateStatSkillsCount(profile) {
@@ -316,7 +351,10 @@
       profilePhoneInput,
       profileLocationInput,
       profileLinkedinInput,
-      profileGithubInput
+      profileGithubInput,
+      profileYearsInput,
+      profileRolesInput,
+      profileSummaryInput
     ].forEach(input => {
       input?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
@@ -342,6 +380,9 @@
     profileLocationInput.value = profile?.location || "";
     profileLinkedinInput.value = profile?.linkedin || "";
     profileGithubInput.value = profile?.github || "";
+    profileYearsInput.value = profile?.experience_years || "";
+    profileRolesInput.value = (profile?.preferred_roles || []).join(", ");
+    profileSummaryInput.value = profile?.summary || "";
   }
 
   function cancelProfileEdit() {
@@ -361,6 +402,9 @@
       location: profileLocationInput.value.trim(),
       linkedin: profileLinkedinInput.value.trim(),
       github: profileGithubInput.value.trim(),
+      experience_years: parseInt(profileYearsInput.value || "0", 10) || 0,
+      preferred_roles: profileRolesInput.value.split(",").map(v => v.trim()).filter(Boolean),
+      summary: profileSummaryInput.value.trim(),
     };
 
     if (!updatedProfile.name) {
@@ -377,6 +421,9 @@
     await syncProfileToBackend();
     profileEditSnapshot = JSON.parse(JSON.stringify(updatedProfile));
     setProfileEditMode(false);
+    if (currentJobs.length > 0) {
+      recalculateMatchScoresClientSide();
+    }
     showToast("success", "Perfil actualizado", "Ya puedes corregir manualmente tu información cuando el parser falle.");
   }
 
@@ -636,6 +683,8 @@
   function initSearch() {
     maxResults.addEventListener("input", () => { rangeVal.textContent = maxResults.value; });
     searchBtn.addEventListener("click", performSearch);
+    searchKeywords.addEventListener("input", () => { searchKeywords.dataset.autofilled = "0"; });
+    searchLoc.addEventListener("input", () => { searchLoc.dataset.autofilled = "0"; });
     document.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.target === searchKeywords) performSearch();
     });
@@ -672,6 +721,7 @@
   async function performSearch() {
     const keywords = searchKeywords.value.trim();
     const location = searchLoc.value.trim() || "México";
+    const modality = searchType.value || "remoto";
     const max      = parseInt(maxResults.value) || 20;
 
     searchBtn.disabled = true;
@@ -691,6 +741,7 @@
     const queryParams = new URLSearchParams();
     if (keywords) queryParams.set("keywords", keywords);
     queryParams.set("location", location);
+    queryParams.set("modality", modality);
     queryParams.set("max_results", max);
 
     try {
@@ -709,7 +760,7 @@
         statsCard.classList.remove("hidden");
         resetFilterInputs();
         applyClientFilters();
-        showToast("success", "Búsqueda completada", `Se analizaron ${currentJobs.length} vacantes con ATS v2.`);
+        showToast("success", "Búsqueda completada", `Se analizaron ${currentJobs.length} vacantes con enfoque ${formatModalityLabel(modality)}.`);
         updateHeaderMetrics();
       } else {
         currentJobs = [];
@@ -801,6 +852,7 @@
 
         <div class="job-meta-row">
           <div class="meta-col"><i class="fa-solid fa-location-dot"></i> <span>${job.location}</span></div>
+          <div class="meta-col"><i class="fa-solid fa-laptop-house"></i> <span>${formatModalityLabel(job.work_modality)}</span></div>
           <div class="meta-col"><i class="fa-solid fa-money-bill-wave"></i> <span>${job.salary}</span></div>
           <div class="meta-col"><i class="fa-solid fa-calendar"></i> <span>${job.date}</span></div>
           <div class="meta-col"><span class="badge platform-badge ${sourceSlug}">${job.source}</span></div>
@@ -967,8 +1019,9 @@
       const titleLoc = (job.title + " " + job.location).toLowerCase();
       const modalityActive = activeChips.modality || [];
       if (modalityActive.length < 3) {
-        const isRemote = /remoto|remote|home office|teletrabajo/i.test(titleLoc);
-        const isHybrid = /h[íi]brido|hybrid/i.test(titleLoc);
+        const modality = job.work_modality || (/remoto|remote|home office|teletrabajo/i.test(titleLoc) ? "remoto" : /h[íi]brido|hybrid/i.test(titleLoc) ? "hibrido" : "presencial");
+        const isRemote = modality === "remoto";
+        const isHybrid = modality === "hibrido";
         const isPresential = !isRemote && !isHybrid;
         const allowed =
           (isRemote     && modalityActive.includes("remoto")) ||
@@ -1048,6 +1101,12 @@
     return n;
   }
 
+  function formatModalityLabel(value) {
+    if (value === "remoto") return "Remoto";
+    if (value === "hibrido") return "Híbrido";
+    return "Presencial";
+  }
+
   // ══════════════════════════════════════════════════════════
   //  STATISTICS
   // ══════════════════════════════════════════════════════════
@@ -1107,10 +1166,15 @@
   function recalculateMatchScoresClientSide() {
     if (!activeProfile || currentJobs.length === 0) return;
     const allSkills = activeProfile.all_skills_flat || [];
+    const preferredRoles = (activeProfile.preferred_roles || []).map(role => role.toLowerCase());
+    const profileTitle = (activeProfile.title || "").toLowerCase();
+    const profileYears = parseInt(activeProfile.experience_years || 0, 10) || 0;
+    const requestedModality = searchType.value || "any";
 
     currentJobs.forEach(job => {
       const title = (job.title || "").toLowerCase();
       const desc  = (job.description || "").toLowerCase();
+      const modality = (job.work_modality || "presencial").toLowerCase();
       let score = 5;
       const matched = [];
       const primary = allSkills.slice(0, 6).map(s => s.toLowerCase());
@@ -1128,7 +1192,34 @@
           matched.push(skill);
         }
       });
+
+      if (requestedModality === "remoto") {
+        score += modality === "remoto" ? 12 : -12;
+      } else if (requestedModality === "hibrido") {
+        score += modality === "hibrido" ? 10 : modality === "remoto" ? 3 : -6;
+      } else if (requestedModality === "presencial") {
+        score += modality === "presencial" ? 10 : modality === "hibrido" ? 3 : -4;
+      }
+
+      const jobIsSenior = /senior|sr\.|lead|l[íi]der|principal|architect/i.test(job.title || "");
+      const jobIsJunior = /junior|jr\.|entry|practicante|trainee/i.test(job.title || "");
+      const profileIsSenior = /senior|sr\.|lead|l[íi]der|principal|architect/i.test(profileTitle) || profileYears >= 5;
+      const profileIsJunior = /junior|jr\.|trainee|practicante/i.test(profileTitle) || (profileYears > 0 && profileYears <= 2);
+
+      if (jobIsSenior && profileIsSenior) score += 12;
+      else if (jobIsJunior && profileIsJunior) score += 8;
+      else if (jobIsSenior && profileIsJunior) score -= 8;
+
+      for (const role of preferredRoles.slice(0, 3)) {
+        const parts = role.split(/[\s/|,]+/).filter(Boolean).slice(0, 2);
+        if (parts.length && parts.every(part => part.length >= 4 && (title + " " + desc).includes(part))) {
+          score += 6;
+          break;
+        }
+      }
+
       job.match_score    = Math.min(score, 100);
+      job.match_score    = Math.max(job.match_score, 0);
       job.matched_skills = [...new Set(matched)];
     });
 
@@ -1146,7 +1237,7 @@
 
     modalTitle.textContent   = job.title;
     modalCompany.textContent = job.company;
-    modalLocation.textContent= job.location;
+    modalLocation.textContent= `${job.location} · ${formatModalityLabel(job.work_modality)}`;
     modalSalary.textContent  = job.salary;
     modalDate.textContent    = job.date;
     modalScore.textContent   = `${job.match_score}%`;

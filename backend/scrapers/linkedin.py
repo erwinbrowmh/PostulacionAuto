@@ -3,13 +3,12 @@ from bs4 import BeautifulSoup
 import re
 import urllib.parse
 
-def scrape_linkedin(keyword, location="veracruz", max_results=20):
+def scrape_linkedin(keyword, location="veracruz", modality="any", max_results=20):
     keyword_encoded = urllib.parse.quote(keyword)
     
     # Format location
-    if location.lower() == "remoto":
+    if modality == "remoto":
         loc_str = "Mexico"
-        # For remote, we will search for remote in the title or description filter
     else:
         loc_str = f"{location}, Mexico"
         
@@ -71,7 +70,7 @@ def scrape_linkedin(keyword, location="veracruz", max_results=20):
                 loc_text = location_span.text.strip()
                 
             # Check if we should filter out remote/onsite
-            if location.lower() == "remoto":
+            if modality == "remoto":
                 # LinkedIn guest search doesn't guarantee remote unless we filter title
                 title_lower = title.lower()
                 # Check for remote indicators
@@ -79,6 +78,9 @@ def scrape_linkedin(keyword, location="veracruz", max_results=20):
                     # Check if the location is literally just "Mexico" (common for remote jobs)
                     if loc_text.lower() != "mexico" and loc_text.lower() != "méxico":
                         continue # Skip onsite local jobs if searching remote
+            elif modality == "hibrido":
+                if not any(word in (title + " " + loc_text).lower() for word in ['híbrido', 'hibrido', 'hybrid']):
+                    continue
                         
             # Get date
             time_tag = li.find('time')
@@ -112,5 +114,5 @@ def scrape_linkedin(keyword, location="veracruz", max_results=20):
 
 if __name__ == "__main__":
     import json
-    res = scrape_linkedin("php", "veracruz", 3)
+    res = scrape_linkedin("php", "veracruz", "presencial", 3)
     print(json.dumps(res, indent=2))

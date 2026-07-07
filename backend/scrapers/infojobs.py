@@ -14,11 +14,11 @@ def _clean_text(text):
     return re.sub(r'\s+', ' ', text or '').strip()
 
 
-def scrape_infojobs(keyword, location="veracruz", max_results=20):
+def scrape_infojobs(keyword, location="veracruz", modality="any", max_results=20):
     """Scrapes Infojobs.com.mx for job listings."""
     keyword_enc = urllib.parse.quote(keyword)
 
-    if location.lower() == "remoto":
+    if modality == "remoto":
         url = f"https://www.infojobs.com.mx/ofertas-trabajo/{keyword_enc}/teletrabajo"
     else:
         city = location.split(',')[0].strip()
@@ -118,5 +118,5 @@ def scrape_infojobs(keyword, location="veracruz", max_results=20):
 
 if __name__ == "__main__":
     import json
-    res = scrape_infojobs("php", "veracruz", 3)
+    res = scrape_infojobs("php", "veracruz", "presencial", 3)
     print(json.dumps(res, indent=2, ensure_ascii=False))

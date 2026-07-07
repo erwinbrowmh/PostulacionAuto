@@ -702,6 +702,17 @@ p, span, label, input, textarea, select { font-family: var(--font-body); }
   flex-wrap: wrap;
 }
 
+.profile-form-full {
+  grid-column: 1 / -1;
+}
+
+.profile-textarea {
+  min-height: 92px;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.625rem !important;
+  resize: vertical;
+}
+
 /* Upload zone */
 .upload-zone {
   border: 1.5px dashed var(--border);

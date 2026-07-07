@@ -23,7 +23,7 @@ def get_company_name(company_id):
         
     return "Confidencial"
 
-def scrape_getonbrd(keyword, location="veracruz", max_results=20):
+def scrape_getonbrd(keyword, location="veracruz", modality="any", max_results=20):
     # Getonbrd is primarily a tech portal
     # Search URL: https://www.getonbrd.com/api/v0/search/jobs?query=keyword
     url = f"https://www.getonbrd.com/api/v0/search/jobs?query={keyword}"
@@ -50,21 +50,21 @@ def scrape_getonbrd(keyword, location="veracruz", max_results=20):
             
             # Location matching
             match = False
-            if location.lower() == "remoto":
-                if is_remote or remote_modality in ['fully_remote', 'hybrid_remote']:
+            if modality == "remoto":
+                if is_remote or remote_modality == 'fully_remote':
+                    match = True
+            elif modality == "hibrido":
+                if remote_modality == 'hybrid_remote':
                     match = True
             else:
-                # Veracruz or similar
-                # Check description or location fields
                 desc = attrs.get('description', '').lower()
                 functions = attrs.get('functions', '').lower()
                 desirable = attrs.get('desirable', '').lower()
                 title = attrs.get('title', '').lower()
+                city = (location or "").split(',')[0].strip().lower()
                 
-                # Check if Veracruz is mentioned anywhere
-                if 'veracruz' in desc or 'veracruz' in title or 'veracruz' in functions or 'veracruz' in desirable:
+                if city and (city in desc or city in title or city in functions or city in desirable):
                     match = True
-                # Or check countries/regions if we want, but Veracruz is very specific
                 
             if match:
                 filtered_raw_jobs.append(rj)
@@ -121,13 +121,14 @@ def scrape_getonbrd(keyword, location="veracruz", max_results=20):
                 "id": f"getonbrd_{job_id}",
                 "title": title,
                 "company": company_names[i],
-                "location": "Remoto" if location.lower() == "remoto" else "Veracruz, México",
+                "location": "Remoto" if remote_modality == "fully_remote" else "Híbrido" if remote_modality == "hybrid_remote" else (location or "Global"),
                 "salary": salary,
                 "date": date_str,
                 "link": link,
                 "source": "Get on Board",
                 "description": desc_clean,
-                "applicants": f"{attrs.get('applications_count', 0)} postulantes"
+                "applicants": f"{attrs.get('applications_count', 0)} postulantes",
+                "work_modality": "remoto" if remote_modality == "fully_remote" else "hibrido" if remote_modality == "hybrid_remote" else "presencial"
             })
             
     except Exception as e:
@@ -138,5 +139,5 @@ def scrape_getonbrd(keyword, location="veracruz", max_results=20):
 if __name__ == "__main__":
     import json
     # Let's search PHP remote jobs on Getonbrd
-    res = scrape_getonbrd("php", "remoto", 3)
+    res = scrape_getonbrd("php", "México", "remoto", 3)
     print(json.dumps(res, indent=2))

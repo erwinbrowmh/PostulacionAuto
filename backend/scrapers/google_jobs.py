@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import re
 
-def scrape_google_jobs(keyword, location="veracruz", max_results=10):
+def scrape_google_jobs(keyword, location="veracruz", modality="any", max_results=10):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -13,8 +13,10 @@ def scrape_google_jobs(keyword, location="veracruz", max_results=10):
     # Construct an advanced search query to find job postings on major portals or company websites
     site_filter = "site:linkedin.com/jobs OR site:indeed.com OR site:glassdoor.com OR site:occ.com.mx OR site:computrabajo.com OR site:empleo.gob.mx OR site:monster.com"
     
-    if location.lower() == "remoto":
+    if modality == "remoto":
         query = f'"{keyword}" "remoto" ({site_filter})'
+    elif modality == "hibrido":
+        query = f'"{keyword}" "híbrido" ({site_filter})'
     else:
         query = f'"{keyword}" "{location}" ({site_filter})'
         
@@ -115,7 +117,7 @@ def scrape_google_jobs(keyword, location="veracruz", max_results=10):
                 "id": f"google_{idx}_{urllib.parse.urlparse(href).netloc.replace('.', '_')}",
                 "title": title_clean,
                 "company": company,
-                "location": location.capitalize() if location.lower() == "remoto" else f"{location.capitalize()}, Veracruz",
+                "location": location if modality != "remoto" else "Remoto",
                 "salary": salary,
                 "date": date,
                 "link": href,
@@ -131,5 +133,5 @@ def scrape_google_jobs(keyword, location="veracruz", max_results=10):
 
 if __name__ == "__main__":
     import json
-    res = scrape_google_jobs("flutter", "veracruz", 3)
+    res = scrape_google_jobs("flutter", "veracruz", "presencial", 3)
     print(json.dumps(res, indent=2))

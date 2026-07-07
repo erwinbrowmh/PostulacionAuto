@@ -10,14 +10,14 @@ def clean_slug(text):
     text = re.sub(r'[\s]+', '-', text)
     return text
 
-def scrape_computrabajo(keyword, location="veracruz", max_results=20):
+def scrape_computrabajo(keyword, location="veracruz", modality="any", max_results=20):
     keyword_slug = clean_slug(keyword)
     
-    if location.lower() == "remoto":
+    if modality == "remoto":
         url = f"https://mx.computrabajo.com/trabajo-de-{keyword_slug}-remoto"
     else:
-        # Defaults to veracruz city
-        url = f"https://mx.computrabajo.com/trabajo-de-{keyword_slug}-en-veracruz"
+        city_slug = clean_slug(location or "mexico")
+        url = f"https://mx.computrabajo.com/trabajo-de-{keyword_slug}-en-{city_slug}"
         
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -139,5 +139,5 @@ def scrape_computrabajo(keyword, location="veracruz", max_results=20):
 
 if __name__ == "__main__":
     import json
-    res = scrape_computrabajo("php", "veracruz", 3)
+    res = scrape_computrabajo("php", "veracruz", "presencial", 3)
     print(json.dumps(res, indent=2))
