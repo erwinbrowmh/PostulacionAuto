@@ -5,6 +5,7 @@ import re
 import time
 import hashlib
 import json
+import urllib.request
 from backend.parser import parse_cv, FALLBACK_PROFILE, normalize_text
 from backend.scrapers.computrabajo import scrape_computrabajo
 from backend.scrapers.occ import scrape_occ
@@ -30,6 +31,39 @@ except ImportError:
 _SEARCH_CACHE = {}
 _CACHE_TTL = 1800  # 30 minutes
 
+# #region debug-point A:prod-search-debug
+def _debug_emit(hypothesis_id, message, data=None):
+    try:
+        _p = '.dbg/production-scrapers.env'
+        _u, _s = 'http://127.0.0.1:7777/event', 'production-scrapers'
+        try:
+            with open(_p, encoding='utf-8') as f:
+                c = f.read()
+            _u = next((l.split('=', 1)[1] for l in c.splitlines() if l.startswith('DEBUG_SERVER_URL=')), _u)
+            _s = next((l.split('=', 1)[1] for l in c.splitlines() if l.startswith('DEBUG_SESSION_ID=')), _s)
+        except Exception:
+            pass
+        payload = {
+            "sessionId": _s,
+            "runId": "pre",
+            "hypothesisId": hypothesis_id,
+            "location": "backend/search_manager.py",
+            "msg": f"[DEBUG] {message}",
+            "data": data or {},
+            "ts": int(time.time() * 1000),
+        }
+        urllib.request.urlopen(
+            urllib.request.Request(
+                _u,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            ),
+            timeout=2,
+        ).read()
+    except Exception:
+        pass
+# #endregion
+
 def _cache_key(keywords, location, modality, max_results):
     raw = f"{sorted(keywords)}|{location}|{modality}|{max_results}"
     return hashlib.md5(raw.encode()).hexdigest()
@@ -46,6 +80,10 @@ def _get_cached(key):
 
 def _set_cache(key, data):
     _SEARCH_CACHE[key] = {"ts": time.time(), "data": data}
+
+
+def allow_search_mock_fallback():
+    return os.environ.get("PAH_ENABLE_SEARCH_FALLBACK", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 REMOTE_PATTERN = re.compile(r"\b(remoto|remote|home office|teletrabajo|work from home|100% remoto)\b", re.IGNORECASE)
@@ -319,6 +357,15 @@ def _expand_keywords(keywords, profile):
 # Main search orchestrator
 # ─────────────────────────────────────────────────────────────
 def search_jobs(profile=None, keywords=None, location="México", modality="any", max_results=20):
+    # #region debug-point A:search-entry
+    _debug_emit("A", "search_jobs called", {
+        "location": location,
+        "modality": modality,
+        "max_results": max_results,
+        "keywords_input_type": type(keywords).__name__,
+        "profile_has_keywords": bool((profile or {}).get("search_keywords")) if isinstance(profile, dict) else False,
+    })
+    # #endregion
     if not profile:
         pdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cv", "CV_Erwin_Brow.pdf")
         profile = parse_cv(pdf_path)
@@ -351,28 +398,43 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
     cache_key = _cache_key(expanded_keywords, location, modality, max_results)
     cached = _get_cached(cache_key)
     if cached is not None:
+        # #region debug-point D:cache-hit
+        _debug_emit("D", "search cache hit", {"cache_key": cache_key[:8], "cached_count": len(cached)})
+        # #endregion
         return cached
 
     # ── Parallel scraping ────────────────────────────────────
     combined_jobs = {}
+    scraper_stats = {}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-        futures = []
+        futures = {}
 
         for kw in expanded_keywords:
-            futures.append(executor.submit(scrape_computrabajo, kw, mexico_loc, modality, max_results))
-            futures.append(executor.submit(scrape_occ, kw, mexico_loc, modality, max_results))
-            futures.append(executor.submit(scrape_getonbrd, kw, global_loc, modality, max_results))
-            futures.append(executor.submit(scrape_linkedin, kw, global_loc, modality, max_results))
-            futures.append(executor.submit(scrape_google_jobs, kw, global_loc, modality, max_results))
+            futures[executor.submit(scrape_computrabajo, kw, mexico_loc, modality, max_results)] = {"scraper": "computrabajo", "keyword": kw}
+            futures[executor.submit(scrape_occ, kw, mexico_loc, modality, max_results)] = {"scraper": "occ", "keyword": kw}
+            futures[executor.submit(scrape_getonbrd, kw, global_loc, modality, max_results)] = {"scraper": "getonbrd", "keyword": kw}
+            futures[executor.submit(scrape_linkedin, kw, global_loc, modality, max_results)] = {"scraper": "linkedin", "keyword": kw}
+            futures[executor.submit(scrape_google_jobs, kw, global_loc, modality, max_results)] = {"scraper": "google_jobs", "keyword": kw}
             if HAS_INFOJOBS:
-                futures.append(executor.submit(scrape_infojobs, kw, mexico_loc, modality, max_results))
+                futures[executor.submit(scrape_infojobs, kw, mexico_loc, modality, max_results)] = {"scraper": "infojobs", "keyword": kw}
             if HAS_TALENTCOM:
-                futures.append(executor.submit(scrape_talentcom, kw, global_loc, modality, max_results))
+                futures[executor.submit(scrape_talentcom, kw, global_loc, modality, max_results)] = {"scraper": "talentcom", "keyword": kw}
 
         for future in concurrent.futures.as_completed(futures):
+            future_meta = futures.get(future, {})
+            scraper_name = future_meta.get("scraper", "unknown")
+            scraper_keyword = future_meta.get("keyword", "")
             try:
                 results = future.result(timeout=20)
+                scraper_stats[scraper_name] = scraper_stats.get(scraper_name, 0) + len(results or [])
+                # #region debug-point B:scraper-result
+                _debug_emit("B", "scraper returned results", {
+                    "scraper": scraper_name,
+                    "keyword": scraper_keyword,
+                    "count": len(results or []),
+                })
+                # #endregion
                 for job in results:
                     link = job.get("link", "")
                     if link and link not in combined_jobs:
@@ -380,6 +442,13 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
                         if job_matches_requested_modality(normalized_job, modality):
                             combined_jobs[link] = normalized_job
             except Exception as e:
+                # #region debug-point B:scraper-error
+                _debug_emit("B", "scraper raised exception", {
+                    "scraper": scraper_name,
+                    "keyword": scraper_keyword,
+                    "error": str(e),
+                })
+                # #endregion
                 print(f"[SCRAPER ERROR] {e}")
 
     # ── ATS Scoring ──────────────────────────────────────────
@@ -400,7 +469,16 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
     scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
 
     # ── Fallback mock data ───────────────────────────────────
-    if not scored_jobs:
+    used_backend_fallback = False
+    if not scored_jobs and allow_search_mock_fallback():
+        used_backend_fallback = True
+        # #region debug-point C:backend-fallback
+        _debug_emit("C", "backend fallback activated", {
+            "expanded_keywords": expanded_keywords[:10],
+            "scraper_stats": scraper_stats,
+            "combined_jobs": len(combined_jobs),
+        })
+        # #endregion
         print("[WARNING] Scrapers returned no jobs. Loading offline mock jobs.")
         keywords_str = " ".join(keywords[:2]) if keywords else "desarrollador"
         mock_candidates = [
@@ -504,7 +582,16 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
                     print(f"[ENRICHMENT ERROR] Failed to enrich job '{job.get('title')}': {e}")
 
     result = scored_jobs[:max_results]
-    _set_cache(cache_key, result)
+    # #region debug-point D:return-summary
+    _debug_emit("D", "search_jobs returning", {
+        "returned_count": len(result),
+        "combined_jobs": len(combined_jobs),
+        "used_backend_fallback": used_backend_fallback,
+        "scraper_stats": scraper_stats,
+    })
+    # #endregion
+    if result and not used_backend_fallback:
+        _set_cache(cache_key, result)
     return result
 
 

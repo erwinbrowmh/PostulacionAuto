@@ -8,6 +8,7 @@
 
     // ─── CONFIG ──────────────────────────────────────────────────
     const API = '';
+    const ENABLE_CLIENT_FALLBACK = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     const STORAGE = {
         PROFILE: 'pah_profile_v2',
         SAVED: 'pah_saved_jobs',
@@ -32,6 +33,23 @@
         currentSection: 'profile'
     };
     const LEGACY_KEYWORD_SEED = 'PHP, Flutter, Desarrollador, Sistemas, Laravel';
+    // #region debug-point C:prod-search-debug
+    function debugEmit(hypothesisId, message, data = {}) {
+        fetch('http://127.0.0.1:7777/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sessionId: 'production-scrapers',
+                runId: 'pre',
+                hypothesisId,
+                location: 'static/js/main.js',
+                msg: `[DEBUG] ${message}`,
+                data,
+                ts: Date.now()
+            })
+        }).catch(() => {});
+    }
+    // #endregion
     const MEXICO_LOCATIONS = [
         'México', 'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche', 'Chiapas',
         'Chihuahua', 'Ciudad de México', 'Coahuila', 'Colima', 'Durango', 'Estado de México',
@@ -1509,6 +1527,14 @@
         try {
             const res = await fetch(`${API}/api/search?${params}`);
             const json = await res.json();
+            // #region debug-point C:frontend-api-result
+            debugEmit('C', 'frontend received /api/search response', {
+                ok: res.ok,
+                status: res.status,
+                json_status: json?.status || null,
+                data_count: Array.isArray(json?.data) ? json.data.length : 0
+            });
+            // #endregion
 
             stopLoader();
             if (loader) loader.classList.add('hidden');
@@ -1547,6 +1573,14 @@
                 toast('warning', 'Sin resultados', 'Intenta ampliar las palabras clave.');
             }
         } catch (err) {
+            // #region debug-point C:frontend-fallback
+            debugEmit('C', 'frontend fetch failed and entered fallback', {
+                error: String(err?.message || err || 'unknown'),
+                location,
+                modality,
+                has_keywords: Boolean(keywords)
+            });
+            // #endregion
             console.error('Search error:', err);
             stopLoader();
             if (loader) loader.classList.add('hidden');
@@ -1559,8 +1593,15 @@
                 if (spinner) spinner.classList.add('hidden');
             }
 
-            const fallbackJobs = getFallbackJobs(keywords || 'desarrollador', location, modality);
+            const fallbackJobs = ENABLE_CLIENT_FALLBACK ? getFallbackJobs(keywords || 'desarrollador', location, modality) : [];
             if (fallbackJobs.length) {
+                // #region debug-point C:frontend-fallback-jobs
+                debugEmit('C', 'frontend fallback jobs generated', {
+                    count: fallbackJobs.length,
+                    modality,
+                    location
+                });
+                // #endregion
                 state.jobs = fallbackJobs;
                 if (exportBtn) exportBtn.classList.remove('hidden');
                 if (statsCard) statsCard.classList.remove('hidden');
@@ -1574,15 +1615,19 @@
                     container.innerHTML = '';
                     container.classList.add('hidden');
                 }
-                if (summary) summary.textContent = 'Error de conexión.';
+                if (summary) summary.textContent = 'No fue posible obtener vacantes reales.';
                 if (empty) {
                     const h3 = empty.querySelector('h4');
                     const p = empty.querySelector('p');
-                    if (h3) h3.textContent = 'Error de Conexión';
-                    if (p) p.textContent = '¿El servidor Flask está activo?';
+                    if (h3) h3.textContent = 'Sin conexión a fuentes reales';
+                    if (p) p.textContent = ENABLE_CLIENT_FALLBACK
+                        ? 'No se pudo consultar el backend. Revisa si el servidor Flask está activo.'
+                        : 'El servidor no pudo consultar fuentes reales de empleo. Intenta de nuevo más tarde.';
                     empty.classList.remove('hidden');
                 }
-                toast('error', 'Error de conexión', '¿El servidor Flask está encendido?');
+                toast('error', 'Fuentes no disponibles', ENABLE_CLIENT_FALLBACK
+                    ? 'No se pudo conectar con el backend local.'
+                    : 'No se obtuvieron vacantes reales desde producción.');
             }
         } finally {
             state.searching = false;
