@@ -32,6 +32,13 @@
         currentSection: 'profile'
     };
     const LEGACY_KEYWORD_SEED = 'PHP, Flutter, Desarrollador, Sistemas, Laravel';
+    const MEXICO_LOCATIONS = [
+        'México', 'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche', 'Chiapas',
+        'Chihuahua', 'Ciudad de México', 'Coahuila', 'Colima', 'Durango', 'Estado de México',
+        'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco', 'Michoacán', 'Morelos', 'Nayarit',
+        'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí',
+        'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas'
+    ];
 
     // ─── DOM REFS ───────────────────────────────────────────────
     const $ = (s, c = document) => c.querySelector(s);
@@ -136,16 +143,98 @@
         const output = [];
         const seen = new Set();
         (values || []).forEach(value => {
-            const clean = String(value || '').replace(/\s+/g, ' ').trim();
-            if (!clean) return;
-            if (clean.length < 2 || clean.length > 120) return;
-            if (/^[,.;:()\-]+$/.test(clean)) return;
-            const lowered = clean.toLowerCase();
-            if (seen.has(lowered)) return;
-            seen.add(lowered);
-            output.push(clean);
+            toKeywordCandidates(value).forEach(clean => {
+                if (!clean) return;
+                if (clean.length < 2 || clean.length > 40) return;
+                if (/^[,.;:()\-]+$/.test(clean)) return;
+                if (/[|,:]/.test(clean)) return;
+                if (/\b(19|20)\d{2}\b/.test(clean)) return;
+                if (/\d/.test(clean)) return;
+                if (/^[\d\s.%+-]+$/.test(clean)) return;
+                if (clean.split(' ').filter(Boolean).length > 4) return;
+                const lowered = clean.toLowerCase();
+                if (seen.has(lowered)) return;
+                seen.add(lowered);
+                output.push(clean);
+            });
         });
         return output;
+    }
+
+    function toKeywordCandidates(value) {
+        const raw = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!raw) return [];
+        const candidates = [raw];
+        if (/\d/.test(raw)) {
+            let clean = raw.replace(/\((?=[^)]*\d)[^)]*\)/g, ' ');
+            clean = clean.replace(/\d+(?:[.,]\d+)*%?/g, ' ');
+            clean = clean.replace(/\s+/g, ' ').trim().replace(/[\/()\-]+$/, '').trim();
+            if (clean) candidates.push(clean);
+        }
+        const output = [];
+        candidates.forEach(candidate => {
+            semanticKeywordCandidates(candidate).forEach(item => output.push(item));
+        });
+        return [...new Set(output)];
+    }
+
+    function semanticKeywordCandidates(value) {
+        const clean = String(value || '').replace(/\s+/g, ' ').trim().replace(/^[,.;:\-]+|[,.;:\-]+$/g, '');
+        if (!clean) return [];
+        const lowered = clean.toLowerCase();
+        if (['freelance', 'autonomo', 'autónomo', 'lider de proyecto', 'project lead'].includes(lowered)) return [];
+
+        let variants = [];
+        let keepOriginal = true;
+        const wrapperPatterns = [
+            /^especialista en (.+)$/i,
+            /^ingeniero en (.+)$/i,
+            /^desarrollador(?:a)? (.+)$/i,
+            /^developer (.+)$/i,
+            /^becario de (.+)$/i,
+            /^lider de proyecto\s*[-:]\s*(.+)$/i,
+            /^(.+?)\s+developer$/i
+        ];
+        for (const pattern of wrapperPatterns) {
+            const match = clean.match(pattern);
+            if (match) {
+                keepOriginal = false;
+                variants.push(match[1].trim());
+                break;
+            }
+        }
+        const comboMatch = clean.match(/^(frontend|backend)\s+(.+)$/i);
+        if (comboMatch) {
+            keepOriginal = false;
+            variants.push(comboMatch[1][0].toUpperCase() + comboMatch[1].slice(1).toLowerCase());
+            variants.push(comboMatch[2].trim());
+        }
+        if (keepOriginal) variants.push(clean);
+
+        const featureMap = [
+            [/\bfull stack\b/i, 'Full Stack'],
+            [/\bfrontend\b/i, 'Frontend'],
+            [/\bbackend\b/i, 'Backend'],
+            [/\bjava\b/i, 'Java'],
+            [/\bangular\b/i, 'Angular'],
+            [/\bflutter\b/i, 'Flutter'],
+            [/\bciberseguridad\b/i, 'Ciberseguridad'],
+            [/\binfraestructura ti\b/i, 'Infraestructura TI']
+        ];
+        featureMap.forEach(([pattern, label]) => {
+            if (pattern.test(lowered)) variants.push(label);
+        });
+        const normalizedVariants = [];
+        variants.forEach(value => {
+            const comboMatchInner = value.match(/^(frontend|backend)\s+(.+)$/i);
+            if (comboMatchInner) {
+                normalizedVariants.push(comboMatchInner[1][0].toUpperCase() + comboMatchInner[1].slice(1).toLowerCase());
+                normalizedVariants.push(comboMatchInner[2].trim());
+            } else {
+                normalizedVariants.push(value);
+            }
+        });
+        return [...new Set(normalizedVariants.map(v => v.trim()).filter(Boolean))];
     }
 
     function getKeywords(profile) {
@@ -153,12 +242,9 @@
         const title = profile.title ? [profile.title] : [];
         const roles = profile.preferred_roles || [];
         const skills = profile.all_skills_flat || [];
-        const certs = (profile.certification_entries || []).map(c => c.name).filter(Boolean);
-        const edu = (profile.education_entries || []).map(e => e.degree).filter(Boolean);
-        const langs = profile.languages_spoken || [];
         const expTitles = (profile.experience || []).map(exp => exp.title).filter(Boolean);
         const stored = profile.search_keywords || [];
-        return sanitizeKeywordList([...stored, ...roles, ...skills, ...langs, ...certs, ...edu, ...expTitles, ...title]);
+        return sanitizeKeywordList([...stored, ...roles, ...skills, ...expTitles, ...title]);
     }
 
     function normalizeProfile(p) {
@@ -218,7 +304,33 @@
     function autoResizeTextarea(textarea) {
         if (!textarea) return;
         textarea.style.height = 'auto';
-        textarea.style.height = `${Math.min(textarea.scrollHeight, 320)}px`;
+        textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 92), 140)}px`;
+    }
+
+    function stripAccents(value) {
+        return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function normalizeLocationOption(rawLocation) {
+        const clean = String(rawLocation || '').trim();
+        if (!clean) return 'México';
+        const normalized = stripAccents(clean.toLowerCase());
+        const aliases = {
+            'mexico': 'México',
+            'nacional': 'México',
+            'veracruz, mexico': 'Veracruz',
+            'veracruz': 'Veracruz',
+            'cdmx': 'Ciudad de México',
+            'ciudad de mexico': 'Ciudad de México',
+            'nuevo leon': 'Nuevo León',
+            'queretaro': 'Querétaro',
+            'michoacan': 'Michoacán',
+            'yucatan': 'Yucatán'
+        };
+        const direct = aliases[normalized];
+        if (direct) return direct;
+        const found = MEXICO_LOCATIONS.find(item => normalized.includes(stripAccents(item.toLowerCase())));
+        return found || 'México';
     }
 
     // ─── RENDER PROFILE ──────────────────────────────────────────
@@ -499,7 +611,7 @@
         if (loc && (!loc.value.trim() || loc.value === 'México') && p.location) {
             const mod = safeGet('#modality');
             if (mod && mod.value !== 'remoto') {
-                loc.value = p.location;
+                loc.value = normalizeLocationOption(p.location);
                 loc.dataset.autofilled = '1';
             }
         }
@@ -1181,7 +1293,7 @@
 
         const location = safeGet('#location');
         if (location) {
-            location.addEventListener('input', () => {
+            location.addEventListener('change', () => {
                 location.dataset.autofilled = '0';
             });
         }

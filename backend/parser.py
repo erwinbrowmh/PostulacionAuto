@@ -1,19 +1,21 @@
 import os
 import re
 import pypdf
+from datetime import datetime
 from backend.ocr_utils import extract_pdf_text_with_ocr, looks_like_low_quality_text
 
 # Extends glossary of tech skills for dynamic ATS parsing
 SKILLS_GLOSSARY = {
     "languages": [
         "PHP", "Java", "JavaScript", "JS", "TypeScript", "TS", "Python", "C#", "C++", 
-        "Ruby", "Go", "Golang", "Rust", "Swift", "Kotlin", "Dart", "Flutter", 
-        "React Native", "HTML", "CSS", "HTML/CSS", "Sass", "Less", "SQL", "PL/SQL"
+        "Ruby", "Go", "Golang", "Rust", "Swift", "Kotlin", "Dart", "Flutter",
+        "React Native", "HTML", "HTML5", "CSS", "CSS3", "HTML/CSS", "Sass", "Less", "SQL", "PL/SQL"
     ],
     "backend": [
         "Laravel", "Symfony", "Yii", "Spring", "Spring Boot", "Django", "Flask", 
         "FastAPI", "Node.js", "Express", "Ruby on Rails", "Rails", "ASP.NET", ".NET",
-        "REST APIs", "REST", "SOAP", "GraphQL", "WebSockets", "Stripe API", "Clip Integration",
+        "REST APIs", "REST", "SOAP", "GraphQL", "WebSockets", "Stripe API", "Stripe", "Clip Integration", "Clip",
+        "Pasarelas de Pago",
         "MySQL", "PostgreSQL", "MongoDB", "MariaDB", "SQLite", "Angular", "React", "Vue.js",
         "Bootstrap", "Git", "GitHub", "GitLab"
     ],
@@ -21,7 +23,8 @@ SKILLS_GLOSSARY = {
         "Linux", "Ubuntu", "CentOS", "Debian", "RedHat", "Unix", "cPanel", "WHM",
         "Docker", "Kubernetes", "AWS", "Amazon Web Services", "Azure", "GCP", 
         "Google Cloud", "Nginx", "Apache", "IP/LAN", "LAN/WAN", "Wi-Fi 6", "Wi-Fi", 
-        "Structured Cabling", "Cableado Estructurado", "Active Directory", "DNS", "DHCP"
+        "Structured Cabling", "Cableado Estructurado", "Active Directory", "DNS", "DHCP",
+        "Redes IP", "Alta Disponibilidad", "Infraestructura TI"
     ],
     "security": [
         "Ciberseguridad", "Cybersecurity", "Seguridad de la Informacion", "Pentesting", 
@@ -36,7 +39,7 @@ SKILLS_GLOSSARY = {
     "management": [
         "Scrum", "Agile", "Kanban", "Project Management", "Gestion de Proyectos", 
         "Scrum Master", "Product Owner", "SLA Management", "SLA", "Stakeholder Management",
-        "KPIs", "ITIL"
+        "Gestion de Stakeholders", "Liderazgo de Equipos", "KPIs", "ITIL"
     ]
 }
 
@@ -50,6 +53,23 @@ SKILL_STOPWORDS = {
     "herramientas",
     "metodologias",
     "relevantes",
+}
+
+SKILL_SECTION_CATEGORY_MAP = {
+    "lenguajes & frameworks": "languages",
+    "lenguajes": "languages",
+    "frameworks": "languages",
+    "backend & apis": "backend",
+    "backend": "backend",
+    "apis": "backend",
+    "infraestructura & devops": "infrastructure",
+    "infraestructura": "infrastructure",
+    "devops": "infrastructure",
+    "seguridad": "security",
+    "iot/hardware": "iot",
+    "iot": "iot",
+    "hardware": "iot",
+    "gestion de proyectos": "management",
 }
 
 def extract_skills_dynamically(text, sections=None):
@@ -83,6 +103,14 @@ def extract_skills_dynamically(text, sections=None):
                     seen_flat.add(lowered)
                     all_flat.append(skill)
 
+    for category, token in extract_raw_skill_tokens(sections or {}):
+        lowered = normalize_text(token.lower())
+        if lowered not in seen_flat:
+            seen_flat.add(lowered)
+            all_flat.append(token)
+        if category and token not in matched_skills[category]:
+            matched_skills[category].append(token)
+
     return matched_skills, all_flat
 
 def normalize_text(text):
@@ -93,39 +121,104 @@ def normalize_text(text):
 
 
 def extract_raw_skill_tokens(sections):
-    lines = normalize_section_lines(sections.get("skills", []))
+    lines = []
+    for raw_line in sections.get("skills", []) or []:
+        clean_line = PAGE_MARKER_RE.sub("", str(raw_line or ""))
+        clean_line = fix_common_ocr_artifacts(clean_line)
+        clean_line = re.sub(r"\s+", " ", clean_line).strip()
+        if clean_line:
+            lines.append(clean_line)
     if not lines:
         return []
 
-    merged_text = " ".join(lines)
-    merged_text = re.sub(r"\s+", " ", merged_text).strip()
-    merged_text = re.sub(
-        r"(?i)\b(lenguajes(?:\s*&\s*frameworks)?|backend\s*&\s*apis|infraestructura\s*&\s*devops|seguridad|iot\s*/\s*hardware|gestion de proyectos)\s*:\s*",
-        ", ",
-        merged_text,
-    )
+    bullets = []
+    current = ""
+    for line in lines:
+        clean_line = re.sub(r"\s+", " ", line).strip()
+        normalized = normalize_text(clean_line.lower()).lstrip("•-*+ ").strip()
+        looks_like_new_item = bool(re.match(r"^[•\-\*+]", clean_line))
+        if not looks_like_new_item and ":" in clean_line:
+            prefix = normalized.split(":", 1)[0].strip()
+            looks_like_new_item = prefix in SKILL_SECTION_CATEGORY_MAP
+        if looks_like_new_item:
+            if current:
+                bullets.append(current.strip())
+            current = re.sub(r"^[•\-\*+]\s*", "", clean_line)
+        else:
+            current = f"{current} {clean_line}".strip() if current else clean_line
+    if current:
+        bullets.append(current.strip())
 
-    tokens = []
+    results = []
     seen = set()
+    for bullet in bullets:
+        raw_category = ""
+        body = bullet
+        if ":" in bullet:
+            raw_category, body = bullet.split(":", 1)
+        category = SKILL_SECTION_CATEGORY_MAP.get(normalize_text(raw_category.lower()).strip(), None)
+        for token in split_skill_body_tokens(body):
+            for alias in expand_skill_token(token):
+                lowered = normalize_text(alias.lower())
+                if lowered in SKILL_STOPWORDS or lowered in seen:
+                    continue
+                seen.add(lowered)
+                results.append((category, alias))
 
-    for token in re.split(r",\s*(?![^()]*\))|;\s*(?![^()]*\))|[•·]\s*", merged_text):
-        clean = re.sub(r"^\s*[\+\-•*]+\s*", "", token).strip(" \t.")
-        clean = re.sub(r"^(habilidades(?: tecnicas)?|skills?|stack(?: tecnologico)?|tecnologias?)\s*:?\s*", "", clean, flags=re.IGNORECASE)
-        if not clean:
-            continue
-        if clean.count("(") != clean.count(")"):
-            continue
-        if len(clean) < 2 or len(clean) > 80:
-            continue
-        lowered = normalize_text(clean.lower())
-        if lowered in SKILL_STOPWORDS:
-            continue
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        tokens.append(clean)
+    return results
 
-    return tokens
+
+def split_skill_body_tokens(body):
+    clean_body = re.sub(r"\s+", " ", str(body or "")).strip(" \t.")
+    if not clean_body:
+        return []
+    return [
+        token.strip(" \t.")
+        for token in re.split(r",\s*(?![^()]*\))|;\s*(?![^()]*\))", clean_body)
+        if token.strip(" \t.")
+    ]
+
+
+def expand_skill_token(token):
+    clean = re.sub(r"^\s*[\+\-•*]+\s*", "", str(token or "")).strip(" \t.")
+    clean = re.sub(r"^(habilidades(?: tecnicas)?|skills?|stack(?: tecnologico)?|tecnologias?)\s*:?\s*", "", clean, flags=re.IGNORECASE)
+    if not clean or clean.count("(") != clean.count(")"):
+        return []
+    if len(clean) < 2 or len(clean) > 100:
+        return []
+    if re.fullmatch(r"[\d\s.,%+-]+", clean):
+        return []
+    if normalize_text(clean.lower()).startswith("hasta "):
+        return []
+
+    aliases = [clean]
+    match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", clean)
+    if match:
+        base = match.group(1).strip(" \t.")
+        inner = match.group(2).strip(" \t.")
+        if base:
+            aliases.append(base)
+        if inner:
+            aliases.extend(part.strip(" \t.") for part in re.split(r",\s*", inner) if part.strip(" \t."))
+            if "/" in inner and normalize_text(inner.lower()) not in {"lan/wan"}:
+                aliases.extend(part.strip(" \t.") for part in inner.split("/") if part.strip(" \t."))
+
+    if "/" in clean and "(" not in clean and normalize_text(clean.lower()) not in {"lan/wan", "iot/hardware"}:
+        aliases.extend(part.strip(" \t.") for part in clean.split("/") if part.strip(" \t."))
+
+    output = []
+    seen = set()
+    for alias in aliases:
+        normalized = normalize_text(alias.lower())
+        if re.fullmatch(r"[\d\s.,%+-]+", alias):
+            continue
+        if normalized.startswith("hasta "):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        output.append(alias)
+    return output
 
 
 SECTION_PATTERNS = {
@@ -260,8 +353,10 @@ def parse_cv_text(text):
     education_entries = extract_education_entries(sections)
     languages_spoken = extract_languages(text, sections)
     language_entries = extract_language_entries(text, sections)
-    preferred_roles = extract_preferred_roles(lines, title)
+    preferred_roles = extract_preferred_roles(lines, title, summary)
     experience = extract_experience(sections)
+    if not experience_years:
+        experience_years = estimate_experience_years(experience)
 
     profile = {
         "name": extract_name(lines),
@@ -548,8 +643,14 @@ def extract_email(text):
 
 
 def extract_phone(text):
-    phone_match = re.search(r'(\+?\d{1,3}[\s-]?)?\(?\d{2,3}\)?[\s-]?\d{3,4}[\s-]?\d{4}', text)
-    return phone_match.group(0).strip() if phone_match else "No especificado"
+    matches = re.findall(r'(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{2,3}\)?[\s-]?)?\d{3,4}[\s-]?\d{3,4}[\s-]?\d{3,4}', text)
+    candidates = []
+    for match in matches:
+        clean = re.sub(r'\s+', ' ', match).strip(" |,.;")
+        digits = re.sub(r'\D', '', clean)
+        if 10 <= len(digits) <= 13:
+            candidates.append(clean)
+    return candidates[0] if candidates else "No especificado"
 
 
 def extract_location(text):
@@ -610,7 +711,7 @@ def extract_link(text, link_type):
 
 def extract_summary(lines, sections):
     if sections.get("summary"):
-        return " ".join(sections["summary"][:4]).strip()[:600]
+        return finalize_summary(" ".join(sections["summary"]))
 
     candidate_lines = []
     for line in lines[1:10]:
@@ -621,7 +722,35 @@ def extract_summary(lines, sections):
             candidate_lines.append(line)
         if len(candidate_lines) >= 2:
             break
-    return " ".join(candidate_lines).strip()[:600]
+    return finalize_summary(" ".join(candidate_lines))
+
+
+def finalize_summary(text, max_chars=650, max_sentences=3):
+    clean = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not clean:
+        return ""
+
+    sentences = re.split(r'(?<=[.!?])\s+', clean)
+    selected = []
+    total = 0
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        projected = total + len(sentence) + (1 if selected else 0)
+        if projected > max_chars and selected:
+            break
+        selected.append(sentence)
+        total = projected
+        if len(selected) >= max_sentences:
+            break
+
+    result = " ".join(selected).strip() or clean[:max_chars].strip()
+    if result and result[-1] not in ".!?":
+        result = re.sub(r"\s+[^\s]+$", "", result).strip()
+        if result and result[-1] not in ".!?":
+            result = result.rstrip(",;:-") + "."
+    return result[:max_chars]
 
 
 def extract_experience_years(text):
@@ -675,7 +804,7 @@ def extract_languages(text, sections):
     return results
 
 
-def extract_preferred_roles(lines, title):
+def extract_preferred_roles(lines, title, summary=""):
     roles = []
     role_sources = [title] + lines[:12]
     for line in role_sources:
@@ -690,20 +819,89 @@ def extract_preferred_roles(lines, title):
                 roles.append(clean)
         if len(roles) >= 4:
             break
+
+    summary_lower = normalize_text((summary or "").lower())
+    derived_roles = []
+    if "full stack" in summary_lower:
+        derived_roles.append("Full Stack Developer")
+    if "infraestructura ti" in summary_lower or "infraestructura" in summary_lower:
+        derived_roles.append("Especialista en Infraestructura TI")
+    if "ciberseguridad" in summary_lower or "cybersecurity" in summary_lower:
+        derived_roles.append("Especialista en Ciberseguridad")
+    if "gestion de proyectos" in summary_lower or "project management" in summary_lower:
+        derived_roles.append("Project Manager TI")
+
+    for role in derived_roles:
+        if role not in roles:
+            roles.append(role)
+        if len(roles) >= 4:
+            break
     return roles
+
+
+def estimate_experience_years(experience):
+    date_ranges = [parse_date_range(entry.get("dates", "")) for entry in (experience or [])]
+    valid_ranges = [(start, end) for start, end in date_ranges if start and end and end >= start]
+    if not valid_ranges:
+        return 0
+
+    earliest = min(start for start, _ in valid_ranges)
+    latest = max(end for _, end in valid_ranges)
+    total_months = (latest.year - earliest.year) * 12 + (latest.month - earliest.month) + 1
+    years = total_months // 12
+    if total_months % 12 >= 6:
+        years += 1
+    return max(years, 1)
+
+
+def parse_date_range(date_text):
+    clean = normalize_text(str(date_text or "").lower())
+    match = re.search(
+        rf"({MONTH_PATTERN})\s+(\d{{4}})\s*[—–-]\s*(({MONTH_PATTERN})\s+(\d{{4}})|actual(?:idad)?|presente|current)",
+        clean,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None, None
+
+    start_month = month_to_number(match.group(1))
+    start_year = int(match.group(2))
+    end_text = match.group(3)
+
+    if re.match(r"actual(?:idad)?|presente|current", end_text, re.IGNORECASE):
+        now = datetime.now()
+        return datetime(start_year, start_month, 1), datetime(now.year, now.month, 1)
+
+    end_month = month_to_number(match.group(4))
+    end_year = int(match.group(5))
+    return datetime(start_year, start_month, 1), datetime(end_year, end_month, 1)
+
+
+def month_to_number(month_text):
+    normalized = normalize_text(str(month_text or "").lower())
+    month_map = {
+        "ene": 1, "enero": 1, "jan": 1, "january": 1,
+        "feb": 2, "febrero": 2, "february": 2,
+        "mar": 3, "marzo": 3, "march": 3,
+        "abr": 4, "abril": 4, "apr": 4, "april": 4,
+        "may": 5, "mayo": 5,
+        "jun": 6, "junio": 6, "june": 6,
+        "jul": 7, "julio": 7, "july": 7,
+        "ago": 8, "agosto": 8, "aug": 8, "august": 8,
+        "sep": 9, "sept": 9, "septiembre": 9, "september": 9,
+        "oct": 10, "octubre": 10, "october": 10,
+        "nov": 11, "noviembre": 11, "november": 11,
+        "dic": 12, "diciembre": 12, "dec": 12, "december": 12,
+    }
+    return month_map.get(normalized, 1)
 
 
 def build_profile_keywords(profile):
     title = [profile.get("title", "").strip()] if profile.get("title") else []
     experience_titles = [exp.get("title", "").strip() for exp in profile.get("experience", []) if exp.get("title")]
-    certification_names = [entry.get("name", "").strip() for entry in profile.get("certification_entries", []) if entry.get("name")]
-    education_degrees = [entry.get("degree", "").strip() for entry in profile.get("education_entries", []) if entry.get("degree")]
     combined = (
         profile.get("preferred_roles", [])
         + profile.get("all_skills_flat", [])
-        + profile.get("languages_spoken", [])
-        + certification_names
-        + education_degrees
         + experience_titles
         + title
     )
@@ -711,17 +909,175 @@ def build_profile_keywords(profile):
     keywords = []
     seen = set()
     for item in combined:
-        clean = re.sub(r"\s+", " ", str(item or "")).strip()
-        if not clean:
-            continue
-        if len(clean) < 2 or len(clean) > 120:
-            continue
-        lowered = normalize_text(clean.lower())
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        keywords.append(clean)
+        for clean in to_search_keyword_candidates(item):
+            lowered = normalize_text(clean.lower())
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            keywords.append(clean)
     return keywords
+
+
+def to_search_keyword_candidates(item):
+    raw = re.sub(r"\s+", " ", str(item or "")).strip(" \t,.;")
+    if not raw:
+        return []
+    if "|" in raw:
+        return []
+    if raw.count("(") != raw.count(")"):
+        return []
+    if re.search(r"\b(?:19|20)\d{2}\b", raw):
+        return []
+    if re.search(DATE_RANGE_RE, raw):
+        return []
+
+    candidates = [raw]
+    if " - " in raw:
+        candidates.extend(part.strip() for part in raw.split(" - ") if part.strip())
+
+    if raw.count("(") == raw.count(")") and "(" in raw:
+        match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", raw)
+        if match:
+            base = match.group(1).strip()
+            inner = match.group(2).strip()
+            if base:
+                candidates.append(base)
+            if inner and len(inner) <= 24 and not re.search(r"\b(?:19|20)\d{2}\b", inner):
+                candidates.extend(part.strip() for part in re.split(r",\s*|/\s*", inner) if part.strip())
+
+    if "/" in raw and "(" not in raw and normalize_text(raw.lower()) not in {"lan/wan", "cpanel/whm", "flutter/dart"}:
+        candidates.extend(part.strip() for part in raw.split("/") if part.strip())
+
+    output = []
+    seen = set()
+    for candidate in candidates:
+        for numeric_clean in numeric_free_keyword_variants(candidate):
+            for clean in semantic_keyword_variants(numeric_clean):
+                if "|" in clean or "," in clean or ":" in clean:
+                    continue
+                if clean.count("(") != clean.count(")"):
+                    continue
+                if re.search(r"\b(?:19|20)\d{2}\b", clean):
+                    continue
+                if re.search(r"\d", clean):
+                    continue
+                if re.fullmatch(r"[\d\s.%+-]+", clean):
+                    continue
+                if normalize_text(clean.lower()).startswith("hasta "):
+                    continue
+                if len(clean) < 2 or len(clean) > 40:
+                    continue
+                if len(clean.split()) > 4:
+                    continue
+                lowered = normalize_text(clean.lower())
+                if lowered in seen:
+                    continue
+                seen.add(lowered)
+                output.append(clean)
+    return output
+
+
+def numeric_free_keyword_variants(candidate):
+    clean = re.sub(r"\s+", " ", str(candidate or "")).strip(" \t,.;:-")
+    if not clean:
+        return []
+
+    variants = [clean]
+    if re.search(r"\d", clean):
+        no_numeric_paren = re.sub(r"\((?=[^)]*\d)[^)]*\)", "", clean)
+        no_digits = re.sub(r"\d+(?:[.,]\d+)*%?", "", no_numeric_paren)
+        no_digits = re.sub(r"\s+", " ", no_digits)
+        no_digits = re.sub(r"\s*([()/\-])\s*$", "", no_digits)
+        no_digits = no_digits.strip(" \t,.;:-")
+        if no_digits:
+            variants.append(no_digits)
+
+    output = []
+    seen = set()
+    for value in variants:
+        normalized = normalize_text(value.lower())
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        output.append(value)
+    return output
+
+
+def semantic_keyword_variants(candidate):
+    clean = re.sub(r"\s+", " ", str(candidate or "")).strip(" \t,.;:-")
+    if not clean:
+        return []
+
+    lowered = normalize_text(clean.lower())
+    if lowered in {"freelance", "autonomo", "autónomo", "lider de proyecto", "project lead"}:
+        return []
+
+    variants = []
+    keep_original = True
+
+    wrapper_patterns = [
+        r"^especialista en (.+)$",
+        r"^ingeniero en (.+)$",
+        r"^desarrollador(?:a)? (.+)$",
+        r"^developer (.+)$",
+        r"^becario de (.+)$",
+        r"^lider de proyecto\s*[-:]\s*(.+)$",
+        r"^(.+?)\s+developer$",
+    ]
+    for pattern in wrapper_patterns:
+        match = re.match(pattern, clean, re.IGNORECASE)
+        if match:
+            keep_original = False
+            inner = match.group(1).strip(" \t,.;:-")
+            if inner:
+                variants.append(inner)
+            break
+
+    combo_match = re.match(r"^(frontend|backend)\s+(.+)$", clean, re.IGNORECASE)
+    if combo_match:
+        keep_original = False
+        variants.append(combo_match.group(1).title())
+        second = combo_match.group(2).strip(" \t,.;:-")
+        if second:
+            variants.append(second)
+
+    if keep_original:
+        variants.append(clean)
+
+    feature_map = [
+        (r"\bfull stack\b", "Full Stack"),
+        (r"\bfrontend\b", "Frontend"),
+        (r"\bbackend\b", "Backend"),
+        (r"\bjava\b", "Java"),
+        (r"\bangular\b", "Angular"),
+        (r"\bflutter\b", "Flutter"),
+        (r"\bciberseguridad\b", "Ciberseguridad"),
+        (r"\binfraestructura ti\b", "Infraestructura TI"),
+    ]
+    for pattern, label in feature_map:
+        if re.search(pattern, lowered, re.IGNORECASE):
+            variants.append(label)
+
+    output = []
+    seen = set()
+    normalized_variants = []
+    for value in variants:
+        combo_match = re.match(r"^(frontend|backend)\s+(.+)$", value, re.IGNORECASE)
+        if combo_match:
+            normalized_variants.append(combo_match.group(1).title())
+            second = combo_match.group(2).strip(" \t,.;:-")
+            if second:
+                normalized_variants.append(second)
+            continue
+        normalized_variants.append(value)
+
+    for value in normalized_variants:
+        normalized = normalize_text(value.lower())
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        output.append(value)
+    return output
 
 def parse_cv(pdf_path):
     if not os.path.exists(pdf_path):

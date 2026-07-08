@@ -115,6 +115,17 @@ body {
     font-size: 1.05rem;
 }
 
+.search-toolbar .form-label {
+    margin-bottom: 0.35rem;
+}
+
+.search-keywords-control {
+    min-height: 92px;
+    max-height: 140px;
+    overflow-y: auto;
+    resize: vertical;
+}
+
 .glass-modal {
     background: #ffffff;
     border: 1px solid var(--border-color);
