@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -10,20 +11,85 @@ import fitz
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TESSERACT_EXE = PROJECT_ROOT / "Tesseract-OCR" / "tesseract.exe"
 DEFAULT_TESSDATA_DIR = PROJECT_ROOT / "Tesseract-OCR" / "tessdata"
+LINUX_TESSDATA_CANDIDATES = [
+    Path("/usr/share/tesseract-ocr/5/tessdata"),
+    Path("/usr/share/tesseract-ocr/4.00/tessdata"),
+    Path("/usr/share/tesseract-ocr/tessdata"),
+    Path("/usr/share/tessdata"),
+    Path("/usr/local/share/tessdata"),
+]
 
 
 class OCRError(RuntimeError):
     """Raised when OCR tooling is unavailable or fails."""
 
 
-def get_tesseract_config() -> tuple[Path, Path]:
-    tesseract_exe = Path(os.getenv("TESSERACT_EXE", str(DEFAULT_TESSERACT_EXE)))
-    tessdata_dir = Path(os.getenv("TESSDATA_PREFIX", str(DEFAULT_TESSDATA_DIR)))
+def _first_existing_path(candidates: list[Path]) -> Path | None:
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            return candidate
+    return None
 
-    if not tesseract_exe.exists():
-        raise OCRError(f"No se encontró tesseract.exe en '{tesseract_exe}'.")
-    if not tessdata_dir.exists():
-        raise OCRError(f"No se encontró la carpeta tessdata en '{tessdata_dir}'.")
+
+def find_tesseract_executable() -> Path | None:
+    env_exe = (os.getenv("TESSERACT_EXE") or "").strip()
+    if env_exe:
+        env_path = Path(env_exe)
+        if env_path.exists():
+            return env_path
+
+    if DEFAULT_TESSERACT_EXE.exists():
+        return DEFAULT_TESSERACT_EXE
+
+    executable_name = "tesseract.exe" if os.name == "nt" else "tesseract"
+    system_exe = shutil.which(executable_name) or shutil.which("tesseract")
+    if system_exe:
+        return Path(system_exe)
+
+    return None
+
+
+def find_tessdata_dir(tesseract_exe: Path | None = None) -> Path | None:
+    env_tessdata = (os.getenv("TESSDATA_PREFIX") or "").strip()
+    if env_tessdata:
+        env_path = Path(env_tessdata)
+        if env_path.exists():
+            return env_path
+
+    candidates: list[Path] = []
+    if DEFAULT_TESSDATA_DIR.exists():
+        candidates.append(DEFAULT_TESSDATA_DIR)
+
+    if tesseract_exe:
+        candidates.extend([
+            tesseract_exe.parent / "tessdata",
+            tesseract_exe.parent.parent / "share" / "tessdata",
+            tesseract_exe.parent.parent / "share" / "tesseract-ocr" / "5" / "tessdata",
+        ])
+
+    candidates.extend(LINUX_TESSDATA_CANDIDATES)
+    return _first_existing_path(candidates)
+
+
+def get_ocr_runtime() -> tuple[Path | None, Path | None, str | None]:
+    tesseract_exe = find_tesseract_executable()
+    if not tesseract_exe:
+        return None, None, "No se encontró un ejecutable de Tesseract disponible."
+
+    tessdata_dir = find_tessdata_dir(tesseract_exe)
+    return tesseract_exe, tessdata_dir, None
+
+
+def is_ocr_available() -> tuple[bool, str | None]:
+    tesseract_exe, _, reason = get_ocr_runtime()
+    return bool(tesseract_exe), reason
+
+
+def get_tesseract_config() -> tuple[Path, Path | None]:
+    tesseract_exe, tessdata_dir, reason = get_ocr_runtime()
+
+    if not tesseract_exe:
+        raise OCRError(reason or "No se encontró un ejecutable de Tesseract disponible.")
 
     return tesseract_exe, tessdata_dir
 
@@ -42,7 +108,8 @@ def ocr_image_bytes(
         temp_image_path = Path(tmp_image.name)
 
     env = os.environ.copy()
-    env["TESSDATA_PREFIX"] = str(tessdata_dir)
+    if tessdata_dir:
+        env["TESSDATA_PREFIX"] = str(tessdata_dir)
     command = [
         str(tesseract_exe),
         str(temp_image_path),

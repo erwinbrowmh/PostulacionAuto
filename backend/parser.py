@@ -2,7 +2,7 @@ import os
 import re
 import pypdf
 from datetime import datetime
-from backend.ocr_utils import extract_pdf_text_with_ocr, looks_like_low_quality_text
+from backend.ocr_utils import extract_pdf_text_with_ocr, is_ocr_available, looks_like_low_quality_text
 
 # Extends glossary of tech skills for dynamic ATS parsing
 SKILLS_GLOSSARY = {
@@ -1092,11 +1092,27 @@ def parse_cv(pdf_path):
         native_text = native_text.strip()
         ocr_text = ""
         used_ocr = False
-        try:
-            ocr_text = extract_pdf_text_with_ocr(pdf_path, max_pages=None)
-            used_ocr = bool(ocr_text.strip())
-        except Exception as ocr_error:
-            print(f"Error in PDF OCR fallback: {ocr_error}")
+        ocr_attempted = False
+        ocr_error_message = ""
+        ocr_status = "skipped"
+        native_text_low_quality = not native_text or looks_like_low_quality_text(native_text)
+        ocr_available, ocr_unavailable_reason = is_ocr_available()
+
+        if native_text_low_quality:
+            if ocr_available:
+                ocr_attempted = True
+                try:
+                    ocr_text = extract_pdf_text_with_ocr(pdf_path, max_pages=None)
+                    used_ocr = bool(ocr_text.strip())
+                    ocr_status = "used" if used_ocr else "no_text"
+                except Exception as ocr_error:
+                    ocr_status = "failed"
+                    ocr_error_message = str(ocr_error)
+            else:
+                ocr_status = "unavailable"
+                ocr_error_message = ocr_unavailable_reason or ""
+        else:
+            ocr_status = "skipped_native_text_ok"
 
         if not native_text and not ocr_text:
             return FALLBACK_PROFILE
@@ -1115,6 +1131,10 @@ def parse_cv(pdf_path):
                 "native_chars": 0,
                 "ocr_chars": 0,
                 "used_ocr": False,
+                "ocr_available": ocr_available,
+                "ocr_attempted": ocr_attempted,
+                "ocr_status": ocr_status,
+                "ocr_error": ocr_error_message,
                 "section_count": 0,
                 "keyword_count": len(fallback.get("search_keywords", [])),
             }
@@ -1126,6 +1146,10 @@ def parse_cv(pdf_path):
             "native_chars": len(native_text),
             "ocr_chars": len(ocr_text),
             "used_ocr": used_ocr,
+            "ocr_available": ocr_available,
+            "ocr_attempted": ocr_attempted,
+            "ocr_status": ocr_status,
+            "ocr_error": ocr_error_message,
             "section_count": len(profile.get("sections", {})),
             "keyword_count": len(profile.get("search_keywords", [])),
         }

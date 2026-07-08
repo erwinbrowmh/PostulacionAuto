@@ -3,7 +3,10 @@ services:
   - type: web
     name: postulacionauto
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: >
+      (apt-get update && apt-get install -y tesseract-ocr tesseract-ocr-spa tesseract-ocr-eng
+      || echo "Aviso: no se pudo instalar Tesseract OCR en build; se usará degradación limpia si falta OCR")
+      && pip install -r requirements.txt
     startCommand: gunicorn -c gunicorn.conf.py app:app
     envVars:
       - key: PYTHON_VERSION
