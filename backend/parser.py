@@ -103,6 +103,8 @@ SECTION_PATTERNS = {
     "languages_spoken": [
         r"^idiomas?$",
         r"^languages?$",
+        r"^idiomas y disponibilidad$",
+        r"^languages and availability$",
     ],
     "skills": [
         r"^habilidades(?: tecnicas)?$",
@@ -124,11 +126,71 @@ LANGUAGE_KEYWORDS = [
     "Alemán", "German", "Italiano", "Italian"
 ]
 
+MONTH_PATTERN = (
+    r"(?:ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|"
+    r"ago(?:sto)?|sep(?:t(?:iembre)?)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?|"
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|"
+    r"sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+DATE_RANGE_RE = re.compile(
+    rf"\b{MONTH_PATTERN}\s+\d{{4}}\s*[—–-]\s*(?:{MONTH_PATTERN}\s+\d{{4}}|actual(?:idad)?|presente|current)\b",
+    re.IGNORECASE,
+)
+PAGE_MARKER_RE = re.compile(r"\[?\s*p[aá]gina\s+\d+\s*\]?", re.IGNORECASE)
+EXPERIENCE_HEADER_SPLIT_RE = re.compile(
+    r"[.!?]\s+([A-ZÁÉÍÓÚÑ][^.\n]{4,120}\|\s*[^|\n]{2,100}(?:\|\s*[^|\n]{2,100})?)"
+)
+
+
+def extract_experience(sections):
+    lines = normalize_section_lines(sections.get("experience", []))
+    if not lines:
+        return []
+
+    experience_list = []
+    current_job = None
+
+    for raw_line in lines:
+        for line in split_embedded_experience_headers(raw_line):
+            if not line:
+                continue
+
+            if looks_like_experience_header(line):
+                if current_job and is_valid_experience_entry(current_job):
+                    current_job["description"] = compact_description_items(current_job["description"])
+                    experience_list.append(current_job)
+                current_job = parse_experience_header(line)
+                continue
+
+            if looks_like_date_line(line):
+                if not current_job:
+                    current_job = {"title": "", "company": "", "dates": "", "description": []}
+                current_job["dates"] = clean_date_line(line)
+                continue
+
+            if not current_job:
+                continue
+
+            description_line = clean_description_line(line)
+            if not description_line:
+                continue
+            if should_append_to_previous_description(current_job["description"], description_line):
+                current_job["description"][-1] += " " + description_line
+            else:
+                current_job["description"].append(description_line)
+
+    if current_job and is_valid_experience_entry(current_job):
+        current_job["description"] = compact_description_items(current_job["description"])
+        experience_list.append(current_job)
+
+    return experience_list
+
 
 def parse_cv_text(text):
     if not text or not text.strip():
         return FALLBACK_PROFILE
 
+    text = PAGE_MARKER_RE.sub("\n", text)
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     if not lines:
         return FALLBACK_PROFILE
@@ -139,9 +201,13 @@ def parse_cv_text(text):
     title = extract_title(lines, summary)
     experience_years = extract_experience_years(text)
     certifications = extract_certifications(sections)
+    certification_entries = extract_certification_entries(sections)
     education = extract_education(sections)
+    education_entries = extract_education_entries(sections)
     languages_spoken = extract_languages(text, sections)
+    language_entries = extract_language_entries(text, sections)
     preferred_roles = extract_preferred_roles(lines, title)
+    experience = extract_experience(sections)
 
     profile = {
         "name": extract_name(lines),
@@ -154,9 +220,13 @@ def parse_cv_text(text):
         "summary": summary,
         "experience_years": experience_years,
         "education": education,
+        "education_entries": education_entries,
         "certifications": certifications,
+        "certification_entries": certification_entries,
         "languages_spoken": languages_spoken,
+        "language_entries": language_entries,
         "preferred_roles": preferred_roles,
+        "experience": experience,
         "sections": sections,
         "skills": skills,
         "all_skills_flat": all_skills_flat,
@@ -171,6 +241,205 @@ def parse_cv_text(text):
         "keyword_count": len(profile["search_keywords"]),
     }
     return profile
+
+
+def normalize_section_lines(lines):
+    normalized = []
+    for line in lines or []:
+        clean = PAGE_MARKER_RE.sub("", str(line or ""))
+        clean = re.sub(r"\s+", " ", clean).strip(" \t•")
+        if clean:
+            normalized.append(clean)
+    return normalized
+
+
+def looks_like_date_line(line):
+    return bool(DATE_RANGE_RE.search(line))
+
+
+def clean_date_line(line):
+    match = DATE_RANGE_RE.search(line)
+    return match.group(0).strip() if match else line.strip()
+
+
+def looks_like_experience_header(line):
+    clean = line.strip()
+    if looks_like_date_line(clean):
+        return False
+    if len(clean) < 12 or len(clean) > 140:
+        return False
+    if clean.startswith(("+", "•", "-", "*")):
+        return False
+    if "|" not in clean:
+        return False
+    head = clean.split("|", 1)[0].strip().lower()
+    return any(keyword in head for keyword in ROLE_KEYWORDS) or len(head.split()) >= 3
+
+
+def parse_experience_header(line):
+    parts = [part.strip(" -") for part in line.split("|") if part.strip()]
+    title = parts[0] if parts else line.strip()
+    company = " | ".join(parts[1:]) if len(parts) > 1 else ""
+    return {
+        "title": title,
+        "company": company,
+        "dates": "",
+        "description": []
+    }
+
+
+def split_embedded_experience_headers(line):
+    clean = line.strip()
+    if not clean:
+        return []
+
+    results = []
+    while True:
+        match = EXPERIENCE_HEADER_SPLIT_RE.search(clean)
+        if not match:
+            results.append(clean.strip())
+            break
+        prefix = clean[:match.start()].strip()
+        if prefix:
+            results.append(prefix)
+        clean = match.group(1).strip()
+    return [item for item in results if item]
+
+
+def clean_description_line(line):
+    clean = PAGE_MARKER_RE.sub("", line)
+    clean = re.sub(r"^\s*[\+\-•*]+\s*", "", clean)
+    clean = re.sub(r"\s+", " ", clean).strip(" \t")
+    return clean
+
+
+def should_append_to_previous_description(description_items, new_line):
+    if not description_items:
+        return False
+    previous = description_items[-1].strip()
+    if not previous:
+        return False
+    if not re.search(r"[.!?]$", previous):
+        return True
+    if new_line[:1].islower():
+        return True
+    if len(new_line.split()) <= 3:
+        return True
+    return False
+
+
+def compact_description_items(items):
+    cleaned = []
+    for item in items:
+        text = re.sub(r"\s+", " ", item).strip()
+        if text and text not in cleaned:
+            cleaned.append(text)
+    return cleaned
+
+
+def is_valid_experience_entry(entry):
+    title = (entry.get("title") or "").strip()
+    dates = (entry.get("dates") or "").strip()
+    description = entry.get("description") or []
+    return bool(title and (dates or description))
+
+
+def extract_education_entries(sections):
+    lines = normalize_section_lines(sections.get("education", []))
+    entries = []
+    current = None
+
+    for line in lines:
+        if current and DATE_RANGE_RE.search(line):
+            current["date"] = clean_date_line(line)
+            extra = DATE_RANGE_RE.sub("", line).strip(" |-")
+            if extra:
+                current["degree"] = " | ".join([part for part in [current["degree"], extra] if part])
+            continue
+
+        if looks_like_date_line(line):
+            if not current:
+                current = {"degree": "", "school": "", "date": ""}
+            current["date"] = clean_date_line(line)
+            continue
+
+        if current and current.get("date"):
+            entries.append(current)
+            current = None
+
+        if not current:
+            current = {"degree": "", "school": "", "date": ""}
+
+        parts = [part.strip() for part in line.split("|") if part.strip()]
+        current["degree"] = parts[0] if parts else line.strip()
+        current["school"] = " | ".join(parts[1:]) if len(parts) > 1 else current.get("school", "")
+
+    if current and any(current.values()):
+        entries.append(current)
+    return entries
+
+
+def extract_certification_entries(sections):
+    raw_lines = normalize_section_lines(sections.get("certifications", []))
+    lines = []
+    for line in raw_lines:
+        if re.search(r"\b(disponibilidad|idiomas?)\b", line, re.IGNORECASE):
+            continue
+        clean = re.sub(r"^\s*[\+\-•*]+\s*", "", line).strip()
+        if not clean:
+            continue
+        if lines and (re.fullmatch(r"\d{4}\)?", clean) or clean[:1].islower()):
+            lines[-1] = f"{lines[-1]} {clean}".strip()
+        elif lines and re.fullmatch(r"\(?[A-Za-z]{3,9}\s+\d{4}\)?", clean):
+            lines[-1] = f"{lines[-1]} {clean}".strip()
+        else:
+            lines.append(clean)
+
+    entries = []
+    for line in lines:
+        date_match = re.search(r"\(([^()]{3,40})\)\s*$", line)
+        date = date_match.group(1).strip() if date_match else ""
+        base = line[:date_match.start()].strip() if date_match else line.strip()
+        if " - " in base:
+            name, issuer = base.split(" - ", 1)
+        else:
+            name, issuer = base, ""
+        entry = {
+            "name": name.strip(),
+            "issuer": issuer.strip(),
+            "date": date,
+        }
+        if entry["name"]:
+            entries.append(entry)
+    return entries
+
+
+def extract_language_entries(text, sections):
+    entries = []
+    seen = set()
+    for line in normalize_section_lines(sections.get("languages_spoken", [])):
+        clean = re.sub(r"^\s*[\+\-•*]+\s*", "", line).strip()
+        if not clean or re.search(r"\bdisponibilidad\b", clean, re.IGNORECASE):
+            continue
+        if ":" in clean:
+            language, level = clean.split(":", 1)
+            language = language.strip()
+            level = level.strip()
+            if language and normalize_text(language.lower()) not in seen:
+                entries.append({"language": language, "level": level})
+                seen.add(normalize_text(language.lower()))
+
+    if entries:
+        return entries
+
+    for language in LANGUAGE_KEYWORDS:
+        if re.search(rf'\b{re.escape(language)}\b', text, re.IGNORECASE):
+            key = normalize_text(language.lower())
+            if key in seen:
+                continue
+            entries.append({"language": language, "level": ""})
+            seen.add(key)
+    return entries
 
 
 def extract_sections(lines):
@@ -235,13 +504,28 @@ def extract_title(lines, summary):
     for line in lines[:8]:
         lowered = line.lower()
         if any(keyword in lowered for keyword in title_keywords):
-            return line.strip()
+            clean = line.strip()
+            if len(clean) <= 80:
+                return clean
+            short = clean.split(" con perfil ", 1)[0].strip()
+            if len(short) >= 10:
+                return short
 
     if summary:
+        lowered_summary = summary.lower()
+        if "ingeniero en sistemas computacionales" in lowered_summary:
+            if "full stack" in lowered_summary:
+                return "Ingeniero en Sistemas Computacionales / Full Stack Developer"
+            return "Ingeniero en Sistemas Computacionales"
         for sentence in re.split(r'[.!?]\s+', summary):
             lowered = sentence.lower()
             if any(keyword in lowered for keyword in title_keywords):
-                return sentence.strip()[:90]
+                clean = sentence.strip()
+                if len(clean) <= 80:
+                    return clean
+                short = clean.split(" con perfil ", 1)[0].strip()
+                if len(short) >= 10:
+                    return short[:80]
 
     return title
 
@@ -279,26 +563,42 @@ def extract_experience_years(text):
 
 
 def extract_certifications(sections):
-    lines = sections.get("certifications", [])
+    entries = extract_certification_entries(sections)
     values = []
-    for line in lines[:8]:
-        clean = line.strip("•- ").strip()
-        if clean and clean not in values:
-            values.append(clean)
+    for entry in entries:
+        parts = [entry.get("name", "").strip()]
+        if entry.get("issuer"):
+            parts.append(entry["issuer"].strip())
+        if entry.get("date"):
+            parts[-1] = f"{parts[-1]} ({entry['date'].strip()})" if len(parts) > 1 else f"{parts[-1]} ({entry['date'].strip()})"
+        label = " - ".join([part for part in parts[:2] if part]).strip()
+        if not label and entry.get("date"):
+            label = entry["date"].strip()
+        if label and label not in values:
+            values.append(label)
     return values
 
 
 def extract_education(sections):
-    lines = sections.get("education", [])
+    entries = extract_education_entries(sections)
     values = []
-    for line in lines[:8]:
-        clean = line.strip("•- ").strip()
-        if clean and clean not in values:
-            values.append(clean)
+    for entry in entries:
+        parts = [entry.get("degree", "").strip()]
+        if entry.get("school"):
+            parts.append(entry["school"].strip())
+        label = " | ".join([part for part in parts if part]).strip()
+        if entry.get("date"):
+            label = f"{label} ({entry['date'].strip()})" if label else entry["date"].strip()
+        if label and label not in values:
+            values.append(label)
     return values
 
 
 def extract_languages(text, sections):
+    entries = extract_language_entries(text, sections)
+    if entries:
+        return [entry["language"] for entry in entries if entry.get("language")]
+
     results = []
     corpus = " ".join(sections.get("languages_spoken", [])) + "\n" + text
     for language in LANGUAGE_KEYWORDS:
@@ -425,6 +725,7 @@ FALLBACK_PROFILE = {
     "certifications": [],
     "languages_spoken": ["Español", "English"],
     "preferred_roles": ["Full Stack Developer", "Ingeniero en Sistemas", "Especialista TI"],
+    "experience": [],
     "sections": {},
     "search_keywords": [
         "Full Stack Developer", "Ingeniero en Sistemas", "PHP", "Java", "JavaScript",

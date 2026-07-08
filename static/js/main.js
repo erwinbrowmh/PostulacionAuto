@@ -588,6 +588,7 @@
     function initUpload() {
         const zone = safeGet('#cv-zone');
         const input = safeGet('#cv-input');
+        const generatePdfBtn = safeGet('#generate-pdf-btn');
 
         if (!zone || !input) return;
 
@@ -613,6 +614,39 @@
             if (file && file.name.endsWith('.pdf')) uploadCV(file);
             else toast('error', 'Formato inválido', 'Solo PDF.');
         });
+
+        if (generatePdfBtn) {
+            generatePdfBtn.addEventListener('click', async () => {
+                try {
+                    generatePdfBtn.disabled = true;
+                    generatePdfBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+                    const res = await fetch(`${API}/api/generate-ats-pdf-from-profile`, { method: 'POST' });
+                    
+                    if (!res.ok) {
+                        const errorJson = await res.json();
+                        toast('error', 'Error', errorJson.message || 'No se pudo generar el PDF.');
+                        return;
+                    }
+
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cv_${(state.profile?.name || 'candidato').replace(/\s+/g, '_')}_ats.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    toast('success', 'PDF listo', 'CV ATS descargado correctamente.');
+                } catch (e) {
+                    console.error('Error generating PDF:', e);
+                    toast('error', 'Error', 'No se pudo conectar con el servidor.');
+                } finally {
+                    generatePdfBtn.disabled = false;
+                    generatePdfBtn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i> Generar CV ATS (PDF)';
+                }
+            });
+        }
     }
 
     async function uploadCV(file) {
@@ -2298,6 +2332,682 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         }
     }
 
+    // ─── ATS CV EDITOR ────────────────────────────────────────────
+    const ATS_STORAGE_KEY = 'ats_cv_draft';
+    let atsData = {
+        name: '',
+        location: '',
+        phone: '',
+        email: '',
+        linkedin: '',
+        github: '',
+        summary: '',
+        experience: [],
+        education: [],
+        skills: '',
+        certifications: [],
+        languages: []
+    };
+
+    function initATSEditor() {
+        // Load from storage if available
+        const saved = getStore(ATS_STORAGE_KEY, null);
+        if (saved) {
+            atsData = saved;
+            renderATSEditor();
+        } else if (state.profile) {
+            // Pre-fill from profile if available
+            preFillFromProfile();
+        }
+
+        // Upload zone
+        const importZone = safeGet('#ats-import-zone');
+        const importInput = safeGet('#ats-import-input');
+        if (importZone && importInput) {
+            importZone.addEventListener('click', () => importInput.click());
+            importInput.addEventListener('change', () => importCVFromFile(importInput.files[0]));
+            importZone.addEventListener('dragover', e => {
+                e.preventDefault();
+                importZone.classList.add('dragover');
+            });
+            importZone.addEventListener('dragleave', () => importZone.classList.remove('dragover'));
+            importZone.addEventListener('drop', e => {
+                e.preventDefault();
+                importZone.classList.remove('dragover');
+                if (e.dataTransfer.files[0]) importCVFromFile(e.dataTransfer.files[0]);
+            });
+        }
+
+        // Add buttons
+        const addExpBtn = safeGet('#ats-add-experience');
+        if (addExpBtn) addExpBtn.addEventListener('click', addExperience);
+        const addEduBtn = safeGet('#ats-add-education');
+        if (addEduBtn) addEduBtn.addEventListener('click', addEducation);
+        const addCertBtn = safeGet('#ats-add-certification');
+        if (addCertBtn) addCertBtn.addEventListener('click', addCertification);
+        const addLangBtn = safeGet('#ats-add-language');
+        if (addLangBtn) addLangBtn.addEventListener('click', addLanguage);
+
+        // Action buttons
+        const generateBtn = safeGet('#ats-generate-pdf');
+        if (generateBtn) generateBtn.addEventListener('click', generateATSPDF);
+        const saveBtn = safeGet('#ats-save-draft');
+        if (saveBtn) saveBtn.addEventListener('click', saveATSDraft);
+        const loadBtn = safeGet('#ats-load-draft');
+        if (loadBtn) loadBtn.addEventListener('click', loadATSDraft);
+
+        // Input listeners to recalculate score
+        ['ats-name', 'ats-location', 'ats-phone', 'ats-email', 'ats-summary', 'ats-skills'].forEach(id => {
+            const el = safeGet('#' + id);
+            if (el) el.addEventListener('input', () => {
+                collectATSData();
+                calculateATSScore();
+            });
+        });
+
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function preFillFromProfile() {
+        if (!state.profile) return;
+        atsData.name = state.profile.name || '';
+        atsData.location = state.profile.location || '';
+        atsData.phone = state.profile.phone || '';
+        atsData.email = state.profile.email || '';
+        atsData.linkedin = state.profile.linkedin || '';
+        atsData.github = state.profile.github || '';
+        atsData.summary = state.profile.summary || '';
+        atsData.skills = (state.profile.all_skills_flat || []).join(', ');
+        
+        // Education
+        if (state.profile.education_entries && state.profile.education_entries.length > 0) {
+            atsData.education = state.profile.education_entries.map(edu => ({
+                degree: edu.degree || '',
+                school: edu.school || '',
+                date: edu.date || ''
+            }));
+        } else {
+            atsData.education = (state.profile.education || []).map(edu => ({
+                degree: edu,
+                school: '',
+                date: ''
+            }));
+        }
+        
+        // Experience (structured or fallback)
+        if (state.profile.experience && state.profile.experience.length > 0) {
+            atsData.experience = state.profile.experience.map(exp => ({
+                title: exp.title || '',
+                company: exp.company || '',
+                dates: exp.dates || '',
+                description: (exp.description || []).join('\n')
+            }));
+        } else if (state.profile.sections?.experience) {
+            atsData.experience = state.profile.sections.experience.slice(0, 5).map(exp => ({
+                title: '',
+                company: '',
+                dates: '',
+                description: exp
+            }));
+        }
+        
+        // Certifications
+        if (state.profile.certification_entries && state.profile.certification_entries.length > 0) {
+            atsData.certifications = state.profile.certification_entries.map(cert => ({
+                name: cert.name || '',
+                issuer: cert.issuer || '',
+                date: cert.date || ''
+            }));
+        } else {
+            atsData.certifications = (state.profile.certifications || []).map(cert => ({
+                name: cert,
+                issuer: '',
+                date: ''
+            }));
+        }
+        
+        // Languages
+        if (state.profile.language_entries && state.profile.language_entries.length > 0) {
+            atsData.languages = state.profile.language_entries.map(lang => ({
+                language: lang.language || '',
+                level: lang.level || ''
+            }));
+        } else {
+            atsData.languages = (state.profile.languages_spoken || []).map(lang => ({
+                language: lang,
+                level: ''
+            }));
+        }
+        
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    async function importCVFromFile(file) {
+        if (!file) return;
+        if (!file.type.includes('pdf')) {
+            toast('error', 'Archivo inválido', 'Solo PDFs son compatibles para importar.');
+            return;
+        }
+        
+        // Upload to server to parse
+        const fd = new FormData();
+        fd.append('cv', file);
+        
+        try {
+            toast('info', 'Importando', 'Analizando CV para extraer datos...');
+            const res = await fetch(`${API}/api/upload-cv`, { method: 'POST', body: fd });
+            const json = await res.json();
+            
+            if (json.status === 'success') {
+                // Update current profile, then pre-fill
+                if (!state.profile) state.profile = {};
+                Object.assign(state.profile, json.data);
+                renderProfile(state.profile);
+                preFillFromProfile();
+                toast('success', 'Importado', 'Datos extraídos correctamente.');
+            } else {
+                toast('error', 'Error', json.message || 'No se pudo analizar el CV.');
+            }
+        } catch (err) {
+            console.error(err);
+            toast('error', 'Error', 'No se pudo conectar con el servidor.');
+        }
+    }
+
+    function addExperience() {
+        atsData.experience.push({
+            title: '',
+            company: '',
+            dates: '',
+            description: ''
+        });
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function removeExperience(index) {
+        atsData.experience.splice(index, 1);
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function addEducation() {
+        atsData.education.push({
+            degree: '',
+            school: '',
+            date: ''
+        });
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function removeEducation(index) {
+        atsData.education.splice(index, 1);
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function addCertification() {
+        atsData.certifications.push({
+            name: '',
+            issuer: '',
+            date: ''
+        });
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function removeCertification(index) {
+        atsData.certifications.splice(index, 1);
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function addLanguage() {
+        atsData.languages.push({
+            language: '',
+            level: ''
+        });
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function removeLanguage(index) {
+        atsData.languages.splice(index, 1);
+        renderATSEditor();
+        calculateATSScore();
+    }
+
+    function collectATSData() {
+        atsData.name = safeGet('#ats-name')?.value || '';
+        atsData.location = safeGet('#ats-location')?.value || '';
+        atsData.phone = safeGet('#ats-phone')?.value || '';
+        atsData.email = safeGet('#ats-email')?.value || '';
+        atsData.linkedin = safeGet('#ats-linkedin')?.value || '';
+        atsData.github = safeGet('#ats-github')?.value || '';
+        atsData.summary = safeGet('#ats-summary')?.value || '';
+        atsData.skills = safeGet('#ats-skills')?.value || '';
+        
+        // Collect dynamic fields
+        atsData.experience.forEach((exp, i) => {
+            exp.title = safeGet(`#ats-exp-title-${i}`)?.value || '';
+            exp.company = safeGet(`#ats-exp-company-${i}`)?.value || '';
+            exp.dates = safeGet(`#ats-exp-dates-${i}`)?.value || '';
+            exp.description = safeGet(`#ats-exp-desc-${i}`)?.value || '';
+        });
+        
+        atsData.education.forEach((edu, i) => {
+            edu.degree = safeGet(`#ats-edu-degree-${i}`)?.value || '';
+            edu.school = safeGet(`#ats-edu-school-${i}`)?.value || '';
+            edu.date = safeGet(`#ats-edu-date-${i}`)?.value || '';
+        });
+        
+        atsData.certifications.forEach((cert, i) => {
+            cert.name = safeGet(`#ats-cert-name-${i}`)?.value || '';
+            cert.issuer = safeGet(`#ats-cert-issuer-${i}`)?.value || '';
+            cert.date = safeGet(`#ats-cert-date-${i}`)?.value || '';
+        });
+        
+        atsData.languages.forEach((lang, i) => {
+            lang.language = safeGet(`#ats-lang-name-${i}`)?.value || '';
+            lang.level = safeGet(`#ats-lang-level-${i}`)?.value || '';
+        });
+    }
+
+    function renderATSEditor() {
+        // Fill basic fields
+        safeGet('#ats-name') && (safeGet('#ats-name').value = atsData.name);
+        safeGet('#ats-location') && (safeGet('#ats-location').value = atsData.location);
+        safeGet('#ats-phone') && (safeGet('#ats-phone').value = atsData.phone);
+        safeGet('#ats-email') && (safeGet('#ats-email').value = atsData.email);
+        safeGet('#ats-linkedin') && (safeGet('#ats-linkedin').value = atsData.linkedin);
+        safeGet('#ats-github') && (safeGet('#ats-github').value = atsData.github);
+        safeGet('#ats-summary') && (safeGet('#ats-summary').value = atsData.summary);
+        safeGet('#ats-skills') && (safeGet('#ats-skills').value = atsData.skills);
+        
+        // Render experience
+        const expContainer = safeGet('#ats-experience-container');
+        if (expContainer) {
+            expContainer.innerHTML = atsData.experience.map((exp, i) => `
+                <div class="card mb-2 bg-light">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold">Experiencia ${i+1}</h6>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-exp="${i}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Título del Cargo</label>
+                                <input type="text" id="ats-exp-title-${i}" class="form-control form-control-sm" value="${exp.title}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Empresa</label>
+                                <input type="text" id="ats-exp-company-${i}" class="form-control form-control-sm" value="${exp.company}">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small">Fechas (ej: Ene 2020 - Dic 2023)</label>
+                                <input type="text" id="ats-exp-dates-${i}" class="form-control form-control-sm" value="${exp.dates}">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small">Descripción (usa viñetas con •)</label>
+                                <textarea id="ats-exp-desc-${i}" class="form-control form-control-sm" rows="3">${exp.description}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            expContainer.querySelectorAll('[data-remove-exp]').forEach(btn => {
+                btn.addEventListener('click', () => removeExperience(parseInt(btn.dataset.removeExp)));
+            });
+            
+            expContainer.querySelectorAll('input, textarea').forEach(input => {
+                input.addEventListener('input', () => {
+                    collectATSData();
+                    calculateATSScore();
+                });
+            });
+        }
+        
+        // Render education
+        const eduContainer = safeGet('#ats-education-container');
+        if (eduContainer) {
+            eduContainer.innerHTML = atsData.education.map((edu, i) => `
+                <div class="card mb-2 bg-light">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold">Educación ${i+1}</h6>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-edu="${i}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Título</label>
+                                <input type="text" id="ats-edu-degree-${i}" class="form-control form-control-sm" value="${edu.degree}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Institución</label>
+                                <input type="text" id="ats-edu-school-${i}" class="form-control form-control-sm" value="${edu.school}">
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label small">Fecha</label>
+                                <input type="text" id="ats-edu-date-${i}" class="form-control form-control-sm" value="${edu.date}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            eduContainer.querySelectorAll('[data-remove-edu]').forEach(btn => {
+                btn.addEventListener('click', () => removeEducation(parseInt(btn.dataset.removeEdu)));
+            });
+            
+            eduContainer.querySelectorAll('input, textarea').forEach(input => {
+                input.addEventListener('input', () => {
+                    collectATSData();
+                    calculateATSScore();
+                });
+            });
+        }
+        
+        // Render certifications
+        const certContainer = safeGet('#ats-certifications-container');
+        if (certContainer) {
+            certContainer.innerHTML = atsData.certifications.map((cert, i) => `
+                <div class="card mb-2 bg-light">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold">Certificación ${i+1}</h6>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-cert="${i}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Nombre</label>
+                                <input type="text" id="ats-cert-name-${i}" class="form-control form-control-sm" value="${cert.name}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Emisor</label>
+                                <input type="text" id="ats-cert-issuer-${i}" class="form-control form-control-sm" value="${cert.issuer}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Fecha</label>
+                                <input type="text" id="ats-cert-date-${i}" class="form-control form-control-sm" value="${cert.date}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            certContainer.querySelectorAll('[data-remove-cert]').forEach(btn => {
+                btn.addEventListener('click', () => removeCertification(parseInt(btn.dataset.removeCert)));
+            });
+            
+            certContainer.querySelectorAll('input, textarea').forEach(input => {
+                input.addEventListener('input', () => {
+                    collectATSData();
+                    calculateATSScore();
+                });
+            });
+        }
+        
+        // Render languages
+        const langContainer = safeGet('#ats-languages-container');
+        if (langContainer) {
+            langContainer.innerHTML = atsData.languages.map((lang, i) => `
+                <div class="card mb-2 bg-light">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold">Idioma ${i+1}</h6>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-lang="${i}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Idioma</label>
+                                <input type="text" id="ats-lang-name-${i}" class="form-control form-control-sm" value="${lang.language}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Nivel</label>
+                                <input type="text" id="ats-lang-level-${i}" class="form-control form-control-sm" value="${lang.level}" placeholder="Ej: Nativo, Avanzado, Intermedio">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            langContainer.querySelectorAll('[data-remove-lang]').forEach(btn => {
+                btn.addEventListener('click', () => removeLanguage(parseInt(btn.dataset.removeLang)));
+            });
+            
+            langContainer.querySelectorAll('input, textarea').forEach(input => {
+                input.addEventListener('input', () => {
+                    collectATSData();
+                    calculateATSScore();
+                });
+            });
+        }
+        
+        updateATSTips();
+    }
+
+    function calculateATSScore() {
+        collectATSData();
+        let score = 0;
+        let totalItems = 0;
+        
+        // Contact info
+        const contactFields = ['name', 'email', 'phone', 'location'];
+        contactFields.forEach(field => { if (atsData[field]?.trim()) score += 10; totalItems +=10; });
+        
+        // Summary
+        if (atsData.summary?.trim().length > 50) { score +=15; }
+        totalItems +=15;
+        
+        // Experience
+        if (atsData.experience.length > 0) {
+            score += 25;
+            atsData.experience.forEach(exp => {
+                if (exp.title && exp.company) score +=5;
+                if (exp.description?.length > 100) score +=5;
+            });
+        }
+        totalItems +=40;
+        
+        // Education
+        if (atsData.education.length > 0) {
+            score += 10;
+        }
+        totalItems +=10;
+        
+        // Skills
+        const skillCount = atsData.skills.split(',').filter(s => s.trim()).length;
+        if (skillCount >= 5) score +=10;
+        else if (skillCount >=3) score +=5;
+        totalItems +=10;
+        
+        // Certifications/Languages bonus
+        if (atsData.certifications.length >0 || atsData.languages.length>0) score +=10;
+        
+        // Cap at 100
+        score = Math.min(100, score);
+        
+        // Update UI
+        const scoreEl = safeGet('#ats-score');
+        if (scoreEl) scoreEl.textContent = score;
+        const barEl = safeGet('#ats-score-bar');
+        if (barEl) {
+            barEl.style.width = `${score}%`;
+            if (score >= 80) {
+                barEl.className = 'progress-bar bg-success';
+            } else if (score >= 50) {
+                barEl.className = 'progress-bar bg-warning';
+            } else {
+                barEl.className = 'progress-bar bg-danger';
+            }
+        }
+        const scoreText = safeGet('#ats-score-text');
+        if (scoreText) {
+            if (score >= 80) {
+                scoreText.textContent = '¡Excelente! Tu CV está listo para ATS.';
+            } else if (score >=50) {
+                scoreText.textContent = 'Sigue completando campos para mejorar tu puntaje.';
+            } else {
+                scoreText.textContent = 'Completa tu información para pasar filtros ATS.';
+            }
+        }
+        
+        updateATSTips();
+    }
+
+    function updateATSTips() {
+        const tips = [];
+        const descriptions = (atsData.experience || []).map(exp => exp.description || '').filter(Boolean);
+        const combinedDescriptions = descriptions.join('\n');
+        const hasQuantifiedResults = /(\d+%|\$\s?\d|[0-9,]+\s+(?:usuarios|clientes|proyectos|transacciones|horas|personas|asistentes))/i.test(combinedDescriptions);
+        const diseneMatches = combinedDescriptions.match(/\bDiseñ[ée]\b/gi) || [];
+        const decorativeBulletMatches = combinedDescriptions.match(/[◆►●◉▪▫★☆]/g) || [];
+        
+        if (!atsData.name) tips.push({ type: 'warning', title: 'Falta nombre', msg: 'Tu nombre completo es esencial para que el reclutador te contacte.' });
+        if (!atsData.email) tips.push({ type: 'warning', title: 'Falta email', msg: 'Agrega un correo electrónico profesional.' });
+        if (atsData.summary?.trim().length < 100) tips.push({ type: 'info', title: 'Mejora tu resumen', msg: 'Tu resumen debe ser de 3-4 líneas con tus habilidades clave y valor agregado.' });
+        if (atsData.experience.length ===0) tips.push({ type: 'warning', title: 'Falta experiencia', msg: 'Agrega tu experiencia laboral con descripciones detalladas.' });
+        atsData.experience.forEach((exp, i) => {
+            if (!exp.title || !exp.company) tips.push({ type: 'warning', title: `Experiencia ${i+1} incompleta`, msg: 'Completa título del cargo y nombre de la empresa.' });
+            if (!exp.description || exp.description.length < 80) tips.push({ type: 'info', title: `Mejora experiencia ${i+1}`, msg: 'Usa verbos de acción (Diseñé, Implementé, Lideré) y cuantifica logros.' });
+        });
+        if (!hasQuantifiedResults && descriptions.length > 0) {
+            tips.push({ type: 'info', title: 'Logros cuantificados', msg: 'Agrega resultados medibles como porcentajes, ahorro de tiempo, usuarios atendidos o ingresos impactados.' });
+        }
+        if (diseneMatches.length >= 3) {
+            tips.push({ type: 'info', title: 'Varía verbos de acción', msg: 'Evita repetir "Diseñé" demasiadas veces. Alterna con Lideré, Coordiné, Implementé, Optimicé o Dirigí.' });
+        }
+        if (decorativeBulletMatches.length > 0) {
+            tips.push({ type: 'info', title: 'Bullets simples', msg: 'Usa bullets sencillos y consistentes como • o - para mejorar compatibilidad ATS.' });
+        }
+        
+        const tipsEl = safeGet('#ats-tips');
+        if (tipsEl) {
+            if (tips.length === 0) {
+                tipsEl.innerHTML = `
+                    <div class="alert alert-success d-flex gap-2">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <div><div class="fw-bold">¡Genial!</div><div class="small">Tu CV sigue las recomendaciones ATS básicas.</div></div>
+                    </div>
+                `;
+            } else {
+                tipsEl.innerHTML = tips.map(tip => `
+                    <div class="alert alert-${tip.type} d-flex gap-2">
+                        <i class="bi bi-${tip.type === 'success' ? 'check-circle' : tip.type === 'warning' ? 'exclamation-triangle' : 'info-circle'}-fill"></i>
+                        <div><div class="fw-bold">${tip.title}</div><div class="small">${tip.msg}</div></div>
+                    </div>
+                `).join('');
+            }
+        }
+    }
+
+    function saveATSDraft() {
+        collectATSData();
+        setStore(ATS_STORAGE_KEY, atsData);
+        toast('success', 'Guardado', 'Borrador de CV guardado correctamente.');
+    }
+
+    function loadATSDraft() {
+        const saved = getStore(ATS_STORAGE_KEY, null);
+        if (saved) {
+            atsData = saved;
+            renderATSEditor();
+            calculateATSScore();
+            toast('success', 'Cargado', 'Borrador recuperado correctamente.');
+        } else {
+            toast('warning', 'Sin borrador', 'No hay ningún borrador guardado.');
+        }
+    }
+
+    async function generateATSPDF() {
+        collectATSData();
+        
+        // First, save to current profile for the backend
+        if (!state.profile) state.profile = {};
+        
+        // Prepare structured data for backend
+        const profileForPDF = {
+            ...state.profile,
+            name: atsData.name,
+            email: atsData.email,
+            phone: atsData.phone,
+            location: atsData.location,
+            linkedin: atsData.linkedin,
+            github: atsData.github,
+            summary: atsData.summary,
+            experience: atsData.experience.map(exp => ({
+                title: exp.title,
+                company: exp.company,
+                dates: exp.dates,
+                description: exp.description.split('\n').filter(Boolean)
+            })),
+            education: atsData.education.map(edu => `${edu.degree}${edu.school ? `, ${edu.school}` : ''}${edu.date ? ` (${edu.date})` : ''}`),
+            certifications: atsData.certifications.map(cert => `${cert.name}${cert.issuer ? ` - ${cert.issuer}` : ''}${cert.date ? ` (${cert.date})` : ''}`),
+            skills: atsData.skills.split(',').map(s => s.trim()).filter(Boolean),
+            all_skills_flat: atsData.skills.split(',').map(s => s.trim()).filter(Boolean),
+            languages_spoken: atsData.languages.map(lang => `${lang.language}${lang.level ? ` (${lang.level})` : ''}`)
+        };
+        
+        try {
+            // Call backend to generate PDF
+            const generateBtn = safeGet('#ats-generate-pdf');
+            if (generateBtn) {
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+            }
+            
+            // Update state profile for the API call
+            const oldProfile = JSON.parse(JSON.stringify(state.profile || {}));
+            state.profile = profileForPDF;
+            
+            const res = await fetch(`${API}/api/generate-ats-pdf-from-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profileForPDF)
+            });
+            
+            // Restore original profile
+            state.profile = oldProfile;
+            
+            if (!res.ok) {
+                throw new Error('Error generating PDF');
+            }
+            
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CV_${(atsData.name || 'candidato').replace(/\s+/g, '_')}_ATS.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            
+            toast('success', 'Listo', 'PDF ATS generado correctamente.');
+        } catch (err) {
+            console.error(err);
+            toast('error', 'Error', 'No se pudo generar el PDF.');
+        } finally {
+            const generateBtn = safeGet('#ats-generate-pdf');
+            if (generateBtn) {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="bi bi-file-earmark-pdf"></i> Generar PDF ATS';
+            }
+        }
+    }
+
     // ─── INIT ────────────────────────────────────────────────────
     function init() {
         state.saved = getStore(STORAGE.SAVED, []);
@@ -2315,6 +3025,7 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         initModal();
         initModalTabs();
         initModalClose();
+        initATSEditor(); // <-- NEW!
 
         setTimeout(updateSavedJobsUI, 500);
 

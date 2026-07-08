@@ -1,7 +1,7 @@
 """
 ATS CV Generator
 ================
-Genera CVs en formato Word (.docx) optimizados para sistemas ATS (Applicant Tracking Systems).
+Genera CVs en formato Word (.docx), PDF y texto plano optimizados para sistemas ATS (Applicant Tracking Systems).
 
 Principios ATS:
 - Sin tablas complejas ni columnas múltiples
@@ -15,7 +15,7 @@ Principios ATS:
 
 import re
 import io
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # python-docx es opcional; si no está instalado, sólo devolvemos texto plano
 try:
@@ -26,8 +26,15 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
+# Try to import PDF generation libraries - use xhtml2pdf which is easier on Windows
+try:
+    from xhtml2pdf import pisa
+    XHTML2PDF_AVAILABLE = True
+except ImportError:
+    XHTML2PDF_AVAILABLE = False
 
-# ─── Sección Patterns ───────────────────────────────────────────────────────
+
+# ─── Sección Patterns ────────────────────────────────────────────────────────
 
 _SECTION_KEYWORDS = {
     "experiencia": ["experiencia", "experience", "trabajo", "empleo", "laboral", "profesional"],
@@ -44,7 +51,7 @@ _SECTION_KEYWORDS = {
 def _detect_section(line: str) -> Optional[str]:
     """Detecta si una línea es un encabezado de sección."""
     clean = line.strip().lower()
-    clean_no_punct = re.sub(r"[^\w\s]", "", clean)
+    clean_no_punct = re.sub(r'[^\w\s]', '', clean)
     for section, keywords in _SECTION_KEYWORDS.items():
         for kw in keywords:
             if kw in clean_no_punct:
@@ -72,11 +79,11 @@ def _is_section_heading(line: str) -> bool:
 def _is_contact_line(line: str) -> bool:
     """Detecta líneas con información de contacto."""
     patterns = [
-        r"[\w.+-]+@[\w-]+\.\w+",            # email
-        r"(?:\+?52|(?:\+?\d{1,3}))?[\s\-.]?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}",  # teléfono
-        r"linkedin\.com",
-        r"github\.com",
-        r"http[s]?://",
+        r'[\w.+-]+@[\w-]+\.\w+',            # email
+        r'(?:\+?52|(?:\+?\d{1,3}))?[\s\-.]?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4}',  # teléfono
+        r'linkedin\.com',
+        r'github\.com',
+        r'http[s]?://',
     ]
     for p in patterns:
         if re.search(p, line, re.IGNORECASE):
@@ -85,15 +92,15 @@ def _is_contact_line(line: str) -> bool:
 
 
 def _is_bullet(line: str) -> bool:
-    return bool(re.match(r"^\s*[•\-*·▪‣◦►]\s+", line))
+    return bool(re.match(r'^\s*[•\-*·▪‣◦►]\s+', line))
 
 
 def _clean_bullet(line: str) -> str:
-    return re.sub(r"^\s*[•\-*·▪‣◦►]\s+", "", line).strip()
+    return re.sub(r'^\s*[•\-*·▪‣◦►]\s+', '', line).strip()
 
 
 def _is_date_range(line: str) -> bool:
-    return bool(re.search(r"\b(19|20)\d{2}\b", line))
+    return bool(re.search(r'\b(19|20)\d{2}\b', line))
 
 
 # ─── Parser de texto OCR ─────────────────────────────────────────────────────
@@ -193,7 +200,7 @@ def parse_cv_text(raw_text: str) -> dict:
     return result
 
 
-# ─── Generador DOCX ──────────────────────────────────────────────────────────
+# ─── Generador DOCX ───────────────────────────────────────────────────────────
 
 def generate_ats_docx(raw_text: str) -> bytes:
     """
@@ -208,20 +215,20 @@ def generate_ats_docx(raw_text: str) -> bytes:
     parsed = parse_cv_text(raw_text)
     doc = Document()
 
-    # ── Márgenes estándar ATS (1 pulgada) ─────────────────────────────────
+    # ─── Márgenes estándar ATS (1 pulgada) ─────────────────────────────────
     for section in doc.sections:
         section.top_margin    = Inches(1.0)
         section.bottom_margin = Inches(1.0)
         section.left_margin   = Inches(1.0)
         section.right_margin  = Inches(1.0)
 
-    # ── Estilo base ────────────────────────────────────────────────────────
+    # ─── Estilo base ────────────────────────────────────────────────────────
     style = doc.styles["Normal"]
     font  = style.font
     font.name = "Calibri"
     font.size = Pt(11)
 
-    # ── Nombre ─────────────────────────────────────────────────────────────
+    # ─── Nombre ─────────────────────────────────────────────────────────────
     name = parsed.get("name", "").strip()
     if name:
         p = doc.add_paragraph()
@@ -231,7 +238,7 @@ def generate_ats_docx(raw_text: str) -> bytes:
         run.font.size = Pt(18)
         run.font.color.rgb = RGBColor(0x1A, 0x1A, 0x2E)
 
-    # ── Contacto ───────────────────────────────────────────────────────────
+    # ─── Contacto ───────────────────────────────────────────────────────────
     contact = parsed.get("contact_lines", [])
     if contact:
         p = doc.add_paragraph(" | ".join(contact))
@@ -242,7 +249,7 @@ def generate_ats_docx(raw_text: str) -> bytes:
     if name or contact:
         doc.add_paragraph()  # espaciado
 
-    # ── Secciones ──────────────────────────────────────────────────────────
+    # ─── Secciones ──────────────────────────────────────────────────────────
     for sec in parsed["sections"]:
         # Título de sección
         heading = doc.add_paragraph()
@@ -304,3 +311,161 @@ def generate_ats_plain_text(raw_text: str) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ─── Generador PDF ATS desde perfil estructurado ───────────────────────────────
+
+def generate_ats_pdf_from_profile(profile: Dict[str, Any]) -> bytes:
+    """
+    Genera un PDF optimizado para ATS a partir de un perfil estructurado.
+    """
+    if not XHTML2PDF_AVAILABLE:
+        raise RuntimeError(
+            "xhtml2pdf no está instalado. Ejecuta: pip install xhtml2pdf"
+        )
+
+    # Build experience HTML
+    experience_html = ''
+    experience_data = profile.get("experience", [])
+    if experience_data:
+        experience_html = '<div class="section"><div class="section-title">Experiencia Profesional</div>'
+        for job in experience_data:
+            experience_html += f'''
+                <div class="job">
+                    <div class="job-title">{job.get("title", "")}</div>
+                    <div class="job-company">{job.get("company", "")}</div>
+                    {f'<div class="job-dates">{job.get("dates", "")}</div>' if job.get("dates") else ''}
+                    {f'<ul>{"".join([f"<li>{desc}</li>" for desc in job.get("description", [])])}</ul>' if job.get("description") else ''}
+                </div>
+            '''
+        experience_html += '</div>'
+    elif profile.get("sections", {}).get("experience"):
+        # Fallback to unstructured experience section
+        experience_html = '<div class="section"><div class="section-title">Experiencia Profesional</div><ul>'
+        experience_html += ''.join([f'<li>{exp}</li>' for exp in profile.get("sections", {}).get("experience", [])])
+        experience_html += '</ul></div>'
+
+    # Build skills HTML
+    skills_html = ''
+    skills = profile.get("skills", {})
+    all_skills_flat = profile.get("all_skills_flat", [])
+    if isinstance(skills, dict) and any(skills.values()):
+        skills_html = '<div class="section"><div class="section-title">Habilidades</div><div class="skills-grid">'
+        for cat, skill_list in skills.items():
+            if skill_list:
+                skills_html += f'<div><strong>{cat}:</strong> {", ".join(skill_list)}</div>'
+        skills_html += '</div></div>'
+    elif all_skills_flat:
+        skills_html = f'<div class="section"><div class="section-title">Habilidades</div><p>{", ".join(all_skills_flat)}</p></div>'
+
+    # Build languages HTML
+    languages_html = ''
+    languages = profile.get("languages_spoken", [])
+    if languages:
+        languages_html = f'<div class="section"><div class="section-title">Idiomas</div><ul>'
+        languages_html += ''.join([f'<li>{lang}</li>' for lang in languages])
+        languages_html += '</ul></div>'
+
+    # Build HTML content
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>CV - {profile.get('name', 'Candidato')}</title>
+        <style>
+            @page {{
+                size: A4 portrait;
+                margin: 2.54cm;
+            }}
+            body {{
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 11pt;
+                color: #1a1a2e;
+                line-height: 1.5;
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 20px;
+            }}
+            .name {{
+                font-size: 18pt;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }}
+            .contact {{
+                font-size: 10pt;
+            }}
+            .section {{
+                margin-bottom: 15px;
+            }}
+            .section-title {{
+                font-size: 12pt;
+                font-weight: bold;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+                border-bottom: 1px solid #1a1a2e;
+                padding-bottom: 4px;
+            }}
+            .job {{
+                margin-bottom: 12px;
+            }}
+            .job-title {{
+                font-weight: bold;
+            }}
+            .job-company {{
+                font-style: italic;
+            }}
+            .job-dates {{
+                font-size: 10pt;
+                color: #4a4a4a;
+            }}
+            ul {{
+                margin: 5px 0 10px 20px;
+                padding: 0;
+            }}
+            li {{
+                margin-bottom: 5px;
+            }}
+            .skills-grid {{
+                display: -pdf-box;
+                -pdf-box-orient: horizontal;
+            }}
+            .skills-grid > div {{
+                width: 50%;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="name">{profile.get('name', 'Candidato')}</div>
+            <div class="contact">
+                {profile.get('email', '')} | {profile.get('phone', '')} | {profile.get('location', '')}
+                {f' | LinkedIn: {profile.get("linkedin", "")}' if profile.get("linkedin", "") else ''}
+                {f' | GitHub: {profile.get("github", "")}' if profile.get("github", "") else ''}
+            </div>
+        </div>
+
+        {f'<div class="section"><div class="section-title">Perfil Profesional</div><p>{profile.get("summary", "")}</p></div>' if profile.get("summary", "") else ''}
+
+        {experience_html}
+
+        {f'<div class="section"><div class="section-title">Educación</div><ul>{"".join([f"<li>{edu}</li>" for edu in profile.get("education", [])])}</ul></div>' if profile.get("education", []) else ''}
+
+        {skills_html}
+
+        {f'<div class="section"><div class="section-title">Certificaciones</div><ul>{"".join([f"<li>{cert}</li>" for cert in profile.get("certifications", [])])}</ul></div>' if profile.get("certifications", []) else ''}
+
+        {languages_html}
+    </body>
+    </html>
+    """
+
+    buf = io.BytesIO()
+    pisa.CreatePDF(
+        io.BytesIO(html_content.encode('utf-8')),
+        dest=buf,
+        encoding='utf-8'
+    )
+    buf.seek(0)
+    return buf.read()

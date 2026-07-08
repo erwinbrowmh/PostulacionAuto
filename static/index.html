@@ -149,6 +149,10 @@
                                 </a>
                             </div>
 
+                            <button id="generate-pdf-btn" class="btn btn-success w-100 mb-3">
+                                <i class="bi bi-file-earmark-pdf"></i> Generar CV ATS (PDF)
+                            </button>
+
                             <!-- Datos estructurados -->
                             <div class="structured-data">
                                 <div class="data-block"><h6>Roles Objetivo</h6><div id="roles-list" class="chip-list"></div></div>
@@ -400,64 +404,169 @@
         <!-- ═══ SECCIÓN: GENERAR CV ATS ═══ -->
         <section id="section-latex" class="section-content hidden">
             <div class="row g-4">
-                <div class="col-lg-6">
+                <!-- Editor de CV -->
+                <div class="col-lg-7">
                     <div class="card glass-card">
                         <div class="card-body">
-                            <h5 class="card-title"><i class="bi bi-file-earmark-check"></i> Generar CV Optimizado para ATS</h5>
-                            <p class="text-muted small">Sube tu CV en PDF o imagen. El OCR extrae el texto y generamos un <strong>documento Word (.docx) limpio</strong>, sin columnas ni gráficos, que cualquier sistema ATS puede leer correctamente.</p>
+                            <h5 class="card-title"><i class="bi bi-pencil-square"></i> Editor de CV ATS</h5>
+                            <p class="text-muted small mb-4">Completa tu información y genera un CV 100% compatible con sistemas ATS. Sigue las recomendaciones de la derecha para maximizar tu chance de pasar los filtros.</p>
                             
-                            <div class="upload-zone large" id="latex-zone">
-                                <i class="bi bi-cloud-upload fs-1"></i>
-                                <p class="mb-0">Arrastra tu CV aquí o haz clic para seleccionarlo</p>
-                                <span class="text-muted small">Formatos: PDF, PNG, JPG, WEBP</span>
-                                <input type="file" id="latex-input" accept=".pdf,image/png,image/jpeg,image/webp" style="display:none;">
+                            <!-- Importar CV existente -->
+                            <div class="mb-4 p-3 bg-light rounded">
+                                <div class="d-flex gap-2 align-items-center mb-2">
+                                    <i class="bi bi-upload text-primary"></i>
+                                    <span class="fw-medium">Importar tu CV existente</span>
+                                </div>
+                                <div class="upload-zone" id="ats-import-zone">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                    <span>Sube tu CV en PDF para extraer datos</span>
+                                    <input type="file" id="ats-import-input" accept=".pdf" style="display:none;">
+                                </div>
                             </div>
-                            
-                            <div class="d-flex align-items-center gap-3 mt-3">
-                                <span id="latex-filename" class="text-muted small">Sin archivo seleccionado</span>
-                                <button id="latex-generate" class="btn btn-primary">
-                                    <i class="bi bi-wand-2"></i> Generar CV ATS
+
+                            <!-- Formulario de contacto -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-person-vcard"></i> Datos de Contacto</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label small fw-bold">Nombre Completo *</label>
+                                        <input type="text" id="ats-name" class="form-control" placeholder="Juan Pérez García">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Ubicación *</label>
+                                        <input type="text" id="ats-location" class="form-control" placeholder="Ciudad, País - Remoto">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Teléfono *</label>
+                                        <input type="tel" id="ats-phone" class="form-control" placeholder="+52 55 1234 5678">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Email *</label>
+                                        <input type="email" id="ats-email" class="form-control" placeholder="juan.perez@email.com">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">LinkedIn</label>
+                                        <input type="url" id="ats-linkedin" class="form-control" placeholder="https://linkedin.com/in/juanperez">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">GitHub / Portafolio</label>
+                                        <input type="url" id="ats-github" class="form-control" placeholder="https://github.com/juanperez">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Perfil profesional -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-person-badge"></i> Perfil Profesional</h6>
+                                <textarea id="ats-summary" class="form-control" rows="4" placeholder="Describe tu experiencia, tecnologías principales y valor aportado en 3-4 líneas. Ejemplo: Ingeniero Full Stack con 5 años de experiencia en desarrollo web con PHP y React, especializado en arquitecturas escalables y CI/CD."></textarea>
+                            </div>
+
+                            <!-- Experiencia profesional -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-briefcase"></i> Experiencia Profesional</h6>
+                                <div id="ats-experience-container" class="mb-3"></div>
+                                <button id="ats-add-experience" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-plus-circle"></i> Agregar Experiencia
                                 </button>
                             </div>
 
-                            <div id="latex-progress" class="latex-progress hidden mt-3">
-                                <div class="progress" style="height:6px;">
-                                    <div id="latex-progress-fill" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
-                                </div>
-                                <span id="latex-progress-text" class="text-muted small d-block mt-1">Iniciando OCR...</span>
+                            <!-- Educación -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-mortarboard"></i> Educación</h6>
+                                <div id="ats-education-container" class="mb-3"></div>
+                                <button id="ats-add-education" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-plus-circle"></i> Agregar Educación
+                                </button>
                             </div>
 
-                            <div id="latex-output" class="latex-output hidden mt-3">
-                                <label class="form-label small">Vista previa del CV estructurado (texto plano ATS):</label>
-                                <textarea id="latex-text" class="form-control font-monospace" rows="12" readonly></textarea>
-                                <div class="d-flex gap-2 mt-2 flex-wrap">
-                                    <button id="latex-copy" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard"></i> Copiar texto</button>
-                                    <button id="latex-download" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Descargar .docx</button>
-                                    <button id="latex-download-txt" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-text"></i> Descargar .txt</button>
-                                </div>
+                            <!-- Habilidades -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-lightbulb"></i> Habilidades</h6>
+                                <p class="text-muted small mb-2">Separa las habilidades por comas. Incluye tecnologías, herramientas y metodologías relevantes.</p>
+                                <textarea id="ats-skills" class="form-control" rows="3" placeholder="PHP, JavaScript, React, Node.js, MySQL, Git, Scrum, CI/CD, REST APIs"></textarea>
+                            </div>
+
+                            <!-- Certificaciones -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-award"></i> Certificaciones (Opcional)</h6>
+                                <div id="ats-certifications-container" class="mb-3"></div>
+                                <button id="ats-add-certification" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-plus-circle"></i> Agregar Certificación
+                                </button>
+                            </div>
+
+                            <!-- Idiomas -->
+                            <div class="mb-4">
+                                <h6 class="fw-bold border-bottom pb-2 mb-3"><i class="bi bi-translate"></i> Idiomas (Opcional)</h6>
+                                <div id="ats-languages-container" class="mb-3"></div>
+                                <button id="ats-add-language" class="btn btn-outline-primary btn-sm w-100">
+                                    <i class="bi bi-plus-circle"></i> Agregar Idioma
+                                </button>
+                            </div>
+
+                            <!-- Botones de acción -->
+                            <div class="d-flex gap-3 flex-wrap">
+                                <button id="ats-generate-pdf" class="btn btn-success flex-grow-1">
+                                    <i class="bi bi-file-earmark-pdf"></i> Generar PDF ATS
+                                </button>
+                                <button id="ats-save-draft" class="btn btn-outline-secondary">
+                                    <i class="bi bi-floppy"></i> Guardar Borrador
+                                </button>
+                                <button id="ats-load-draft" class="btn btn-outline-secondary">
+                                    <i class="bi bi-folder-open"></i> Cargar Borrador
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="col-lg-6">
+
+                <!-- Panel de consejos ATS -->
+                <div class="col-lg-5">
+                    <!-- Score ATS -->
+                    <div class="card glass-card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-bar-chart-steps"></i> Puntuación ATS</h5>
+                            <div class="d-flex justify-content-center mb-3">
+                                <div class="text-center">
+                                    <div id="ats-score" class="display-4 fw-bold text-primary">0</div>
+                                    <div class="text-muted small">de 100</div>
+                                </div>
+                            </div>
+                            <div class="progress mb-3" style="height:8px;">
+                                <div id="ats-score-bar" class="progress-bar bg-primary" style="width:0%"></div>
+                            </div>
+                            <div id="ats-score-text" class="text-muted small text-center">Completa tu información para ver tu puntuación</div>
+                        </div>
+                    </div>
+
+                    <!-- Consejos -->
+                    <div class="card glass-card mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-lightbulb-fill"></i> Consejos de Optimización</h5>
+                            <div id="ats-tips" class="mt-3">
+                                <div class="alert alert-warning d-flex gap-2">
+                                    <i class="bi bi-info-circle"></i>
+                                    <div>
+                                        <div class="fw-bold">Completa tu perfil profesional</div>
+                                        <div class="small">Incluye un resumen de 3-4 líneas con tus tecnologías principales.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reglas ATS -->
                     <div class="card glass-card">
                         <div class="card-body">
-                            <h5 class="card-title"><i class="bi bi-info-circle"></i> ¿Por qué este formato?</h5>
-                            <p class="text-muted small mb-3">Los sistemas ATS (Applicant Tracking Systems) son software que las empresas usan para filtrar CVs automáticamente. Un CV mal formateado puede ser rechazado antes de que lo lea un humano.</p>
-                            <h6 class="text-success"><i class="bi bi-check-circle-fill"></i> Lo que hace nuestro generador</h6>
-                            <ul class="text-muted small">
-                                <li>Extrae el texto de tu CV con OCR en el navegador (sin enviar tu archivo a servidores externos).</li>
-                                <li>Genera un documento Word con <strong>fuente Calibri estándar</strong>, sin tablas complejas ni columnas.</li>
-                                <li>Estructura las secciones con encabezados claros que los ATS reconocen.</li>
-                                <li>Elimina íconos, gráficos y elementos visuales que confunden a los ATS.</li>
-                                <li>Márgenes de 1 pulgada, formato de una columna.</li>
-                            </ul>
-                            <div class="alert alert-success mt-3">
-                                <i class="bi bi-shield-check"></i> <strong>Privacidad:</strong> El OCR corre en tu navegador. Tu CV no se envía a ningún servicio externo.
-                            </div>
-                            <div class="alert alert-info">
-                                <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Después de descargar el .docx, revisa y personaliza el contenido. El documento es tu punto de partida optimizado para ATS.
+                            <h5 class="card-title"><i class="bi bi-rules"></i> Reglas Básicas para ATS</h5>
+                            <div class="small text-muted">
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> Sin columnas, tablas o gráficos</div>
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> Fuentes estándar: Calibri, Arial, Times New Roman</div>
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> No incluir foto (a menos que sea obligatorio)</div>
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> Encabezados claros: "Experiencia Profesional", "Educación"</div>
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> Usa palabras clave exactas de la oferta</div>
+                                <div class="mb-2"><i class="bi bi-check-circle text-success"></i> Describe logros con verbos de acción</div>
+                                <div><i class="bi bi-check-circle text-success"></i> Exporta en PDF desde texto (no desde imagen)</div>
                             </div>
                         </div>
                     </div>

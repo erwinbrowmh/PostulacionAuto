@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from backend.parser import parse_cv
 from backend.latex_generator import generate_latex_from_image, LatexGenerationError
-from backend.ats_cv_generator import generate_ats_docx, generate_ats_plain_text
+from backend.ats_cv_generator import generate_ats_docx, generate_ats_plain_text, generate_ats_pdf_from_profile
 from backend.search_manager import search_jobs
 from backend.job_analyzer import analyze_job_detail
 from werkzeug.utils import secure_filename
@@ -330,6 +330,21 @@ def generate_ats_cv_endpoint():
             docx_bytes,
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             headers={'Content-Disposition': 'attachment; filename=cv_ats_optimizado.docx'}
+        )
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/generate-ats-pdf-from-profile', methods=['POST'])
+def generate_ats_pdf_from_profile_endpoint():
+    """Genera PDF ATS a partir del perfil actualmente activo."""
+    try:
+        global CURRENT_PROFILE
+        pdf_bytes = generate_ats_pdf_from_profile(CURRENT_PROFILE)
+        return Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={'Content-Disposition': f'attachment; filename=cv_{CURRENT_PROFILE.get("name", "candidato").replace(" ", "_")}_ats.pdf'}
         )
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
