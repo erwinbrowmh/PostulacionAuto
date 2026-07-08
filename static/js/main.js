@@ -2363,9 +2363,14 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
         // Upload zone
         const importZone = safeGet('#ats-import-zone');
         const importInput = safeGet('#ats-import-input');
-        if (importZone && importInput) {
+        if (importZone && importInput && !importInput.dataset.bound) {
+            importInput.dataset.bound = '1';
             importZone.addEventListener('click', () => importInput.click());
-            importInput.addEventListener('change', () => importCVFromFile(importInput.files[0]));
+            importInput.addEventListener('change', () => {
+                const file = importInput.files[0];
+                importCVFromFile(file);
+                importInput.value = '';
+            });
             importZone.addEventListener('dragover', e => {
                 e.preventDefault();
                 importZone.classList.add('dragover');

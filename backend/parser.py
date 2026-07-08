@@ -191,6 +191,7 @@ def parse_cv_text(text):
         return FALLBACK_PROFILE
 
     text = PAGE_MARKER_RE.sub("\n", text)
+    text = fix_common_ocr_artifacts(text)
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     if not lines:
         return FALLBACK_PROFILE
@@ -247,10 +248,24 @@ def normalize_section_lines(lines):
     normalized = []
     for line in lines or []:
         clean = PAGE_MARKER_RE.sub("", str(line or ""))
+        clean = fix_common_ocr_artifacts(clean)
         clean = re.sub(r"\s+", " ", clean).strip(" \t•")
         if clean:
             normalized.append(clean)
     return normalized
+
+
+def fix_common_ocr_artifacts(text):
+    replacements = {
+        r"\bTl\b": "TI",
+        r"\bloT\b": "IoT",
+        r"\bUl\b": "UI",
+    }
+    clean = text
+    for pattern, replacement in replacements.items():
+        clean = re.sub(pattern, replacement, clean)
+    clean = re.sub(r"(?i)(nueva sintaxis)\s+Gif\b", r"\1 @if", clean)
+    return clean
 
 
 def looks_like_date_line(line):
