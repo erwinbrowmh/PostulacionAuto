@@ -390,6 +390,31 @@ body {
     gap: 1rem;
 }
 
+.search-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding: 0.9rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+}
+
+.search-pagination .pagination-status {
+    color: var(--text-muted-custom);
+    font-size: 0.9rem;
+}
+
+.search-pagination .pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 /* ─── Job Card ───────────────────────────────────────────────── */
 .job-card {
     background: var(--bg-card);

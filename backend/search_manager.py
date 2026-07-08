@@ -86,6 +86,27 @@ def allow_search_mock_fallback():
     return os.environ.get("PAH_ENABLE_SEARCH_FALLBACK", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def get_search_keyword_budget():
+    try:
+        return max(1, min(int(os.environ.get("PAH_SEARCH_KEYWORD_BUDGET", "6")), 12))
+    except Exception:
+        return 6
+
+
+def get_search_worker_budget():
+    try:
+        return max(2, min(int(os.environ.get("PAH_SEARCH_WORKERS", "8")), 16))
+    except Exception:
+        return 8
+
+
+def get_auto_enrich_limit():
+    try:
+        return max(0, min(int(os.environ.get("PAH_AUTO_ENRICH_TOP_N", "0")), 5))
+    except Exception:
+        return 0
+
+
 REMOTE_PATTERN = re.compile(r"\b(remoto|remote|home office|teletrabajo|work from home|100% remoto)\b", re.IGNORECASE)
 HYBRID_PATTERN = re.compile(r"\b(hibrido|híbrido|hybrid|esquema mixto)\b", re.IGNORECASE)
 ONSITE_PATTERN = re.compile(r"\b(presencial|onsite|on-site|en oficina|office-based)\b", re.IGNORECASE)
@@ -375,7 +396,7 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
         suggested_keywords = profile.get("search_keywords", [])
         skills = profile.get("all_skills_flat", [])
         if suggested_keywords:
-            keywords = suggested_keywords[:18]
+            keywords = suggested_keywords[:get_search_keyword_budget()]
         elif len(skills) >= 4:
             keywords = skills[:4]
         elif skills:
@@ -387,6 +408,7 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
 
     # Expand keywords for deeper coverage
     expanded_keywords = _expand_keywords(keywords, profile)
+    expanded_keywords = expanded_keywords[:get_search_keyword_budget()]
 
     # ── Location normalization ───────────────────────────────
     modality = normalize_modality(modality)
@@ -407,7 +429,7 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
     combined_jobs = {}
     scraper_stats = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=get_search_worker_budget()) as executor:
         futures = {}
 
         for kw in expanded_keywords:
@@ -561,7 +583,8 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
         scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
 
     # ── Automatic Enrichment of Top 3 vacancies ──────────────
-    top_jobs_to_enrich = scored_jobs[:3]
+    auto_enrich_limit = get_auto_enrich_limit()
+    top_jobs_to_enrich = scored_jobs[:auto_enrich_limit]
     if top_jobs_to_enrich:
         print(f"[ENRICHMENT] Automatically enriching top {len(top_jobs_to_enrich)} vacancies...")
         from backend.job_analyzer import analyze_job_detail

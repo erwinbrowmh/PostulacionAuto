@@ -141,6 +141,8 @@ def search():
             "search_time_s": elapsed,
             "avg_match_score": avg_score,
             "modality": modality,
+            "requested_max_results": max_results,
+            "has_more_possible": len(jobs) >= max_results,
             "data": jobs
         })
     except Exception as e:

@@ -19,6 +19,7 @@
     const state = {
         profile: null,
         jobs: [],
+        filteredJobs: [],
         saved: [],
         discarded: [],
         currentJob: null,
@@ -30,7 +31,17 @@
         analysisToken: 0,
         profileLoadToken: 0,
         searching: false,
-        currentSection: 'profile'
+        currentSection: 'profile',
+        searchMeta: {
+            query: null,
+            pageSize: 20,
+            currentPage: 1,
+            loadedLimit: 0,
+            hasMore: false,
+            prefetching: false,
+            pendingPage: null,
+            requestToken: 0
+        }
     };
     const LEGACY_KEYWORD_SEED = 'PHP, Flutter, Desarrollador, Sistemas, Laravel';
     // #region debug-point C:prod-search-debug
@@ -57,6 +68,8 @@
         'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí',
         'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas'
     ];
+    const SEARCH_PREFETCH_PAGES = 1;
+    const SEARCH_MAX_TOTAL_RESULTS = 100;
 
     // ─── DOM REFS ───────────────────────────────────────────────
     const $ = (s, c = document) => c.querySelector(s);
@@ -1474,6 +1487,131 @@
         return filtered;
     }
 
+    function buildSearchQuery() {
+        return {
+            keywords: safeGet('#keywords')?.value?.trim() || '',
+            location: safeGet('#location')?.value?.trim() || 'México',
+            modality: safeGet('#modality')?.value || 'remoto',
+            pageSize: Math.max(5, parseInt(safeGet('#max-results')?.value) || 20)
+        };
+    }
+
+    function buildSearchParams(query, maxResults) {
+        const params = new URLSearchParams();
+        if (query.keywords) params.set('keywords', query.keywords);
+        params.set('location', query.location);
+        params.set('modality', query.modality);
+        params.set('max_results', maxResults);
+        return params;
+    }
+
+    function mergeJobs(existingJobs, incomingJobs) {
+        const output = [];
+        const seen = new Set();
+        [...(incomingJobs || []), ...(existingJobs || [])].forEach((job, index) => {
+            const key = job?.link || job?.id || `${job?.source || 'job'}-${job?.title || ''}-${job?.company || ''}-${job?.location || ''}-${index}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            output.push(job);
+        });
+        return output;
+    }
+
+    async function requestSearchBatch(query, maxResults) {
+        const params = buildSearchParams(query, maxResults);
+        const res = await fetch(`${API}/api/search?${params}`);
+        const rawText = await res.text();
+        let json = null;
+        try {
+            json = rawText ? JSON.parse(rawText) : null;
+        } catch (parseError) {
+            throw new Error(`HTTP ${res.status} - Respuesta no JSON`);
+        }
+
+        debugEmit('C', 'frontend received /api/search response', {
+            ok: res.ok,
+            status: res.status,
+            json_status: json?.status || null,
+            data_count: Array.isArray(json?.data) ? json.data.length : 0,
+            requested_max_results: maxResults
+        });
+
+        if (!res.ok) {
+            throw new Error(json?.message || `HTTP ${res.status}`);
+        }
+
+        return json;
+    }
+
+    async function prefetchNextResults(targetPage = state.searchMeta.currentPage + 1) {
+        const meta = state.searchMeta;
+        if (!meta.query || meta.prefetching || !meta.hasMore) return;
+
+        const desiredLimit = Math.min(targetPage * meta.pageSize, SEARCH_MAX_TOTAL_RESULTS);
+        if (state.jobs.length >= desiredLimit) {
+            if (meta.pendingPage && state.jobs.length >= meta.pendingPage * meta.pageSize) {
+                const pendingPage = meta.pendingPage;
+                meta.pendingPage = null;
+                meta.currentPage = pendingPage;
+                applyFilters({ preservePage: true });
+            }
+            return;
+        }
+
+        meta.prefetching = true;
+        renderPagination(state.filteredJobs.length);
+        try {
+            const json = await requestSearchBatch(meta.query, desiredLimit);
+            const incoming = Array.isArray(json?.data) ? json.data : [];
+            const previousCount = state.jobs.length;
+            state.jobs = mergeJobs(state.jobs, incoming);
+            meta.loadedLimit = Math.max(meta.loadedLimit, desiredLimit, state.jobs.length);
+            meta.hasMore = Boolean(json?.has_more_possible) && state.jobs.length < SEARCH_MAX_TOTAL_RESULTS;
+
+            if (state.jobs.length !== previousCount) {
+                applyFilters({ preservePage: true });
+            } else {
+                renderPagination(state.filteredJobs.length);
+            }
+
+            if (meta.pendingPage && state.jobs.length >= meta.pendingPage * meta.pageSize) {
+                const pendingPage = meta.pendingPage;
+                meta.pendingPage = null;
+                meta.currentPage = pendingPage;
+                applyFilters({ preservePage: true });
+            }
+        } catch (err) {
+            meta.hasMore = false;
+            if (meta.pendingPage) {
+                toast('warning', 'No se pudieron cargar más resultados', err?.message || 'Intenta de nuevo.');
+            }
+            renderPagination(state.filteredJobs.length);
+        } finally {
+            meta.prefetching = false;
+            renderPagination(state.filteredJobs.length);
+        }
+    }
+
+    function goToSearchPage(page) {
+        const meta = state.searchMeta;
+        const targetPage = Math.max(1, page);
+        const loadedPages = Math.max(1, Math.ceil((state.filteredJobs.length || 0) / meta.pageSize));
+
+        if (targetPage <= loadedPages) {
+            meta.currentPage = targetPage;
+            meta.pendingPage = null;
+            applyFilters({ preservePage: true });
+            prefetchNextResults(targetPage + SEARCH_PREFETCH_PAGES);
+            return;
+        }
+
+        if (meta.hasMore) {
+            meta.pendingPage = targetPage;
+            toast('info', 'Cargando más resultados', `Preparando la página ${targetPage} en segundo plano.`);
+            prefetchNextResults(targetPage);
+        }
+    }
+
     async function performSearch() {
         if (state.searching) return;
         state.searching = true;
@@ -1482,10 +1620,21 @@
         const searchLink = document.querySelector('.nav-link[data-section="search"]');
         if (searchLink) searchLink.click();
 
-        const keywords = safeGet('#keywords')?.value?.trim() || '';
-        const location = safeGet('#location')?.value?.trim() || 'México';
-        const modality = safeGet('#modality')?.value || 'remoto';
-        const max = parseInt(safeGet('#max-results')?.value) || 20;
+        const query = buildSearchQuery();
+        const initialLimit = Math.min(query.pageSize, SEARCH_MAX_TOTAL_RESULTS);
+        const requestToken = Date.now();
+        state.searchMeta = {
+            query,
+            pageSize: query.pageSize,
+            currentPage: 1,
+            loadedLimit: 0,
+            hasMore: false,
+            prefetching: false,
+            pendingPage: null,
+            requestToken
+        };
+        state.jobs = [];
+        state.filteredJobs = [];
 
         const btn = safeGet('#search-btn');
         if (btn) {
@@ -1501,6 +1650,8 @@
 
         const container = safeGet('#jobs-container');
         if (container) container.classList.add('hidden');
+        const pagination = safeGet('#search-pagination');
+        if (pagination) pagination.classList.add('hidden');
 
         const statsCard = safeGet('#stats-card');
         if (statsCard) statsCard.classList.add('hidden');
@@ -1518,23 +1669,8 @@
         if (container) container.classList.remove('hidden');
         startLoader();
 
-        const params = new URLSearchParams();
-        if (keywords) params.set('keywords', keywords);
-        params.set('location', location);
-        params.set('modality', modality);
-        params.set('max_results', max);
-
         try {
-            const res = await fetch(`${API}/api/search?${params}`);
-            const json = await res.json();
-            // #region debug-point C:frontend-api-result
-            debugEmit('C', 'frontend received /api/search response', {
-                ok: res.ok,
-                status: res.status,
-                json_status: json?.status || null,
-                data_count: Array.isArray(json?.data) ? json.data.length : 0
-            });
-            // #endregion
+            const json = await requestSearchBatch(query, initialLimit);
 
             stopLoader();
             if (loader) loader.classList.add('hidden');
@@ -1548,20 +1684,25 @@
             }
 
             if (json.status === 'success' && json.data && json.data.length) {
-                state.jobs = json.data;
+                state.jobs = mergeJobs([], json.data);
+                state.searchMeta.loadedLimit = Math.max(initialLimit, state.jobs.length);
+                state.searchMeta.hasMore = Boolean(json.has_more_possible) && state.jobs.length < SEARCH_MAX_TOTAL_RESULTS;
                 if (exportBtn) exportBtn.classList.remove('hidden');
                 if (statsCard) statsCard.classList.remove('hidden');
                 resetFilters();
-                applyFilters();
-                toast('success', 'Búsqueda completada', `${state.jobs.length} vacantes analizadas.`);
+                applyFilters({ preservePage: true });
+                toast('success', 'Búsqueda completada', `${state.jobs.length} vacantes cargadas en la página 1.`);
                 updateMetrics();
                 updateSavedJobsUI();
+                prefetchNextResults(1 + SEARCH_PREFETCH_PAGES);
             } else {
                 state.jobs = [];
+                state.filteredJobs = [];
                 if (container) {
                     container.innerHTML = '';
                     container.classList.add('hidden');
                 }
+                if (pagination) pagination.classList.add('hidden');
                 if (summary) summary.innerHTML = 'No se encontraron vacantes.';
                 if (empty) {
                     const h3 = empty.querySelector('h4');
@@ -1576,9 +1717,9 @@
             // #region debug-point C:frontend-fallback
             debugEmit('C', 'frontend fetch failed and entered fallback', {
                 error: String(err?.message || err || 'unknown'),
-                location,
-                modality,
-                has_keywords: Boolean(keywords)
+                location: query.location,
+                modality: query.modality,
+                has_keywords: Boolean(query.keywords)
             });
             // #endregion
             console.error('Search error:', err);
@@ -1593,20 +1734,22 @@
                 if (spinner) spinner.classList.add('hidden');
             }
 
-            const fallbackJobs = ENABLE_CLIENT_FALLBACK ? getFallbackJobs(keywords || 'desarrollador', location, modality) : [];
+            const fallbackJobs = ENABLE_CLIENT_FALLBACK ? getFallbackJobs(query.keywords || 'desarrollador', query.location, query.modality) : [];
             if (fallbackJobs.length) {
                 // #region debug-point C:frontend-fallback-jobs
                 debugEmit('C', 'frontend fallback jobs generated', {
                     count: fallbackJobs.length,
-                    modality,
-                    location
+                    modality: query.modality,
+                    location: query.location
                 });
                 // #endregion
                 state.jobs = fallbackJobs;
+                state.searchMeta.hasMore = false;
+                state.searchMeta.loadedLimit = fallbackJobs.length;
                 if (exportBtn) exportBtn.classList.remove('hidden');
                 if (statsCard) statsCard.classList.remove('hidden');
                 resetFilters();
-                applyFilters();
+                applyFilters({ preservePage: true });
                 toast('info', 'Datos de respaldo', 'Usando vacantes de muestra (sin conexión).');
                 updateMetrics();
                 updateSavedJobsUI();
@@ -1615,6 +1758,7 @@
                     container.innerHTML = '';
                     container.classList.add('hidden');
                 }
+                if (pagination) pagination.classList.add('hidden');
                 if (summary) summary.textContent = 'No fue posible obtener vacantes reales.';
                 if (empty) {
                     const h3 = empty.querySelector('h4');
@@ -1627,7 +1771,7 @@
                 }
                 toast('error', 'Fuentes no disponibles', ENABLE_CLIENT_FALLBACK
                     ? 'No se pudo conectar con el backend local.'
-                    : 'No se obtuvieron vacantes reales desde producción.');
+                    : `No se obtuvieron vacantes reales desde producción. ${err?.message || ''}`.trim());
             }
         } finally {
             state.searching = false;
@@ -1698,8 +1842,13 @@
         state.chips = { modality: ['remoto', 'hibrido', 'presencial'], level: ['junior', 'semi', 'senior', 'lead'] };
     }
 
-    function applyFilters() {
-        if (!state.jobs || !state.jobs.length) return;
+    function applyFilters(options = {}) {
+        const preservePage = Boolean(options.preservePage);
+        if (!state.jobs || !state.jobs.length) {
+            state.filteredJobs = [];
+            renderPagination(0);
+            return;
+        }
 
         const minScore = parseInt(safeGet('#min-score')?.value) || 0;
         const minSalary = parseFloat(safeGet('#min-salary')?.value) || 0;
@@ -1760,12 +1909,28 @@
 
         filtered = sortJobs(filtered, sortBy);
 
-        const summary = safeGet('#results-summary');
-        if (summary) {
-            summary.innerHTML = `Mostrando <strong>${filtered.length}</strong> de <strong>${state.jobs.length}</strong> vacantes.`;
+        state.filteredJobs = filtered;
+        if (!preservePage) {
+            state.searchMeta.currentPage = 1;
+        }
+        const totalPages = Math.max(1, Math.ceil(filtered.length / state.searchMeta.pageSize));
+        if (state.searchMeta.currentPage > totalPages) {
+            state.searchMeta.currentPage = totalPages;
         }
 
-        renderJobs(filtered);
+        const startIndex = filtered.length ? ((state.searchMeta.currentPage - 1) * state.searchMeta.pageSize) : 0;
+        const pageJobs = filtered.slice(startIndex, startIndex + state.searchMeta.pageSize);
+        const visibleFrom = filtered.length ? startIndex + 1 : 0;
+        const visibleTo = filtered.length ? Math.min(startIndex + pageJobs.length, filtered.length) : 0;
+
+        const summary = safeGet('#results-summary');
+        if (summary) {
+            const loadingText = state.searchMeta.prefetching ? ' <span class="text-primary">Precargando más resultados...</span>' : '';
+            summary.innerHTML = `Mostrando <strong>${visibleFrom}-${visibleTo}</strong> de <strong>${filtered.length}</strong> vacantes cargadas. Página <strong>${state.searchMeta.currentPage}</strong> de <strong>${totalPages}</strong>.${loadingText}`;
+        }
+
+        renderJobs(pageJobs);
+        renderPagination(filtered.length);
         updateStats(filtered);
     }
 
@@ -1785,6 +1950,48 @@
             }
             return b.match_score - a.match_score;
         });
+    }
+
+    function renderPagination(totalItems) {
+        const pagination = safeGet('#search-pagination');
+        if (!pagination) return;
+
+        if (!totalItems) {
+            pagination.classList.add('hidden');
+            pagination.innerHTML = '';
+            return;
+        }
+
+        const meta = state.searchMeta;
+        const totalPages = Math.max(1, Math.ceil(totalItems / meta.pageSize));
+        const currentPage = Math.min(meta.currentPage, totalPages);
+        const loadedPages = Math.max(1, Math.ceil((state.jobs.length || 0) / meta.pageSize));
+        const canGoPrev = currentPage > 1;
+        const canGoNext = currentPage < totalPages || meta.hasMore || meta.prefetching;
+        const statusText = meta.prefetching
+            ? 'Cargando el siguiente bloque en segundo plano...'
+            : meta.hasMore
+                ? `Hay más resultados potenciales. Cargadas ${state.jobs.length} vacantes hasta ahora.`
+                : `Resultados cargados: ${state.jobs.length}.`;
+
+        pagination.classList.remove('hidden');
+        pagination.innerHTML = `
+            <div class="pagination-status">${statusText}</div>
+            <div class="pagination-actions">
+                <button class="btn btn-outline-secondary btn-sm prev-page" ${canGoPrev ? '' : 'disabled'}>
+                    <i class="bi bi-chevron-left"></i> Anterior
+                </button>
+                <span class="small text-muted">Página ${currentPage} de ${Math.max(totalPages, loadedPages)}</span>
+                <button class="btn btn-outline-primary btn-sm next-page" ${canGoNext ? '' : 'disabled'}>
+                    Siguiente <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        `;
+
+        const prevBtn = pagination.querySelector('.prev-page');
+        const nextBtn = pagination.querySelector('.next-page');
+        if (prevBtn) prevBtn.addEventListener('click', () => goToSearchPage(currentPage - 1));
+        if (nextBtn) nextBtn.addEventListener('click', () => goToSearchPage(currentPage + 1));
     }
 
     // ─── RENDER JOBS ─────────────────────────────────────────────
