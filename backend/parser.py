@@ -629,32 +629,30 @@ def extract_preferred_roles(lines, title):
         lowered = line.lower()
         if any(keyword in lowered for keyword in ROLE_KEYWORDS):
             clean = re.sub(r'\s+', ' ', line).strip()
-            if clean and clean not in roles:
-                roles.append(clean[:80])
+            if not clean or len(clean) > 70:
+                continue
+            if re.search(r"[.,;:]", clean):
+                continue
+            if clean not in roles:
+                roles.append(clean)
         if len(roles) >= 4:
             break
     return roles
 
 
 def build_profile_keywords(profile):
-    title_words = [
-        word.strip()
-        for word in re.split(r"[\s/|,•·\-]+", profile.get("title", ""))
-        if len(word.strip()) >= 4
-    ]
-    summary_words = [
-        word.strip(".,;:()[]{}")
-        for word in (profile.get("summary", "") or "").split()
-        if len(word.strip(".,;:()[]{}")) >= 5
-    ]
+    title = [profile.get("title", "").strip()] if profile.get("title") else []
+    experience_titles = [exp.get("title", "").strip() for exp in profile.get("experience", []) if exp.get("title")]
+    certification_names = [entry.get("name", "").strip() for entry in profile.get("certification_entries", []) if entry.get("name")]
+    education_degrees = [entry.get("degree", "").strip() for entry in profile.get("education_entries", []) if entry.get("degree")]
     combined = (
         profile.get("preferred_roles", [])
         + profile.get("all_skills_flat", [])
         + profile.get("languages_spoken", [])
-        + profile.get("certifications", [])
-        + profile.get("education", [])
-        + title_words
-        + summary_words
+        + certification_names
+        + education_degrees
+        + experience_titles
+        + title
     )
 
     keywords = []
@@ -662,6 +660,8 @@ def build_profile_keywords(profile):
     for item in combined:
         clean = re.sub(r"\s+", " ", str(item or "")).strip()
         if not clean:
+            continue
+        if len(clean) < 2 or len(clean) > 120:
             continue
         lowered = normalize_text(clean.lower())
         if lowered in seen:

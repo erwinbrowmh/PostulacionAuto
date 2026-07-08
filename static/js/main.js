@@ -125,16 +125,33 @@
         return Object.values(obj || {}).flat();
     }
 
+    function sanitizeKeywordList(values) {
+        const output = [];
+        const seen = new Set();
+        (values || []).forEach(value => {
+            const clean = String(value || '').replace(/\s+/g, ' ').trim();
+            if (!clean) return;
+            if (clean.length < 2 || clean.length > 120) return;
+            if (/^[,.;:()\-]+$/.test(clean)) return;
+            const lowered = clean.toLowerCase();
+            if (seen.has(lowered)) return;
+            seen.add(lowered);
+            output.push(clean);
+        });
+        return output;
+    }
+
     function getKeywords(profile) {
         if (!profile) return [];
-        const title = (profile.title || '').split(/[\s/|,•·-]+/).filter(w => w.length >= 4);
+        const title = profile.title ? [profile.title] : [];
         const roles = profile.preferred_roles || [];
         const skills = profile.all_skills_flat || [];
-        const certs = profile.certifications || [];
-        const edu = profile.education || [];
+        const certs = (profile.certification_entries || []).map(c => c.name).filter(Boolean);
+        const edu = (profile.education_entries || []).map(e => e.degree).filter(Boolean);
         const langs = profile.languages_spoken || [];
+        const expTitles = (profile.experience || []).map(exp => exp.title).filter(Boolean);
         const stored = profile.search_keywords || [];
-        return [...new Set([...stored, ...roles, ...skills, ...langs, ...certs, ...edu, ...title])];
+        return sanitizeKeywordList([...stored, ...roles, ...skills, ...langs, ...certs, ...edu, ...expTitles, ...title]);
     }
 
     function normalizeProfile(p) {
@@ -144,12 +161,18 @@
             preferred_roles: p.preferred_roles || [],
             languages_spoken: p.languages_spoken || [],
             education: p.education || [],
+            education_entries: p.education_entries || [],
             certifications: p.certifications || [],
+            certification_entries: p.certification_entries || [],
+            language_entries: p.language_entries || [],
+            experience: p.experience || [],
             skills: p.skills || {},
             sections: p.sections || {},
             analysis_meta: p.analysis_meta || {}
         };
-        profile.all_skills_flat = flattenSkills(profile.skills);
+        profile.all_skills_flat = (p.all_skills_flat && p.all_skills_flat.length)
+            ? sanitizeKeywordList(p.all_skills_flat)
+            : sanitizeKeywordList(flattenSkills(profile.skills));
         profile.search_keywords = getKeywords(profile);
         return profile;
     }
@@ -244,19 +267,19 @@
         if (rolesList) renderChips(rolesList, p.preferred_roles || []);
 
         const langsList = el('languages-list');
-        if (langsList) renderChips(langsList, p.languages_spoken || []);
+        if (langsList) renderLanguageEntries(langsList, p.language_entries || p.languages_spoken || []);
 
         const expList = el('experience-list');
-        if (expList) renderLines(expList, p.sections?.experience || []);
+        if (expList) renderExperienceEntries(expList, p.experience || p.sections?.experience || []);
 
         const eduList = el('education-list');
-        if (eduList) renderLines(eduList, p.education || []);
+        if (eduList) renderEducationEntries(eduList, p.education_entries || p.education || []);
 
         const certsList = el('certifications-list');
-        if (certsList) renderLines(certsList, p.certifications || []);
+        if (certsList) renderCertificationEntries(certsList, p.certification_entries || p.certifications || []);
 
         const keywordsList = el('keywords-list');
-        if (keywordsList) renderChips(keywordsList, (p.search_keywords || []).slice(0, 30));
+        if (keywordsList) renderChips(keywordsList, p.search_keywords || []);
 
         const skillsContainer = el('skills-container');
         if (skillsContainer) renderSkills(skillsContainer, p.skills || {});
@@ -308,6 +331,78 @@
             el.innerHTML = `<i class="bi bi-check-circle-fill"></i><span>${item}</span>`;
             container.appendChild(el);
         });
+    }
+
+    function renderExperienceEntries(container, items) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!items || !items.length) {
+            container.innerHTML = '<span class="text-muted small">Sin datos</span>';
+            return;
+        }
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'line-item';
+            if (typeof item === 'string') {
+                row.innerHTML = `<i class="bi bi-briefcase-fill"></i><span>${item}</span>`;
+            } else {
+                const title = [item.title, item.company].filter(Boolean).join(' | ');
+                const dates = item.dates ? `<div class="small text-muted mt-1">${item.dates}</div>` : '';
+                row.innerHTML = `<i class="bi bi-briefcase-fill"></i><span><strong>${title || 'Experiencia'}</strong>${dates}</span>`;
+            }
+            container.appendChild(row);
+        });
+    }
+
+    function renderEducationEntries(container, items) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!items || !items.length) {
+            container.innerHTML = '<span class="text-muted small">Sin datos</span>';
+            return;
+        }
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'line-item';
+            if (typeof item === 'string') {
+                row.innerHTML = `<i class="bi bi-mortarboard-fill"></i><span>${item}</span>`;
+            } else {
+                const main = [item.degree, item.school].filter(Boolean).join(' | ');
+                const date = item.date ? `<div class="small text-muted mt-1">${item.date}</div>` : '';
+                row.innerHTML = `<i class="bi bi-mortarboard-fill"></i><span><strong>${main || 'Educación'}</strong>${date}</span>`;
+            }
+            container.appendChild(row);
+        });
+    }
+
+    function renderCertificationEntries(container, items) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!items || !items.length) {
+            container.innerHTML = '<span class="text-muted small">Sin datos</span>';
+            return;
+        }
+        items.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'line-item';
+            if (typeof item === 'string') {
+                row.innerHTML = `<i class="bi bi-award-fill"></i><span>${item}</span>`;
+            } else {
+                const main = [item.name, item.issuer].filter(Boolean).join(' | ');
+                const date = item.date ? `<div class="small text-muted mt-1">${item.date}</div>` : '';
+                row.innerHTML = `<i class="bi bi-award-fill"></i><span><strong>${main || 'Certificación'}</strong>${date}</span>`;
+            }
+            container.appendChild(row);
+        });
+    }
+
+    function renderLanguageEntries(container, items) {
+        if (!container) return;
+        if (Array.isArray(items) && items.length && typeof items[0] === 'object') {
+            renderChips(container, items.map(item => item.level ? `${item.language} (${item.level})` : item.language).filter(Boolean));
+            return;
+        }
+        renderChips(container, items || []);
     }
 
     function renderSkills(container, skillsObj) {
@@ -363,10 +458,10 @@
             'edit-years': p.experience_years || '',
             'edit-roles': (p.preferred_roles || []).join(', '),
             'edit-summary': p.summary || '',
-            'edit-experience': (p.sections?.experience || []).join('\n'),
-            'edit-languages': (p.languages_spoken || []).join(', '),
-            'edit-education': (p.education || []).join('\n'),
-            'edit-certifications': (p.certifications || []).join('\n')
+            'edit-experience': formatExperienceForEdit(p),
+            'edit-languages': formatLanguagesForEdit(p),
+            'edit-education': formatEducationForEdit(p),
+            'edit-certifications': formatCertificationsForEdit(p)
         };
 
         for (const [id, value] of Object.entries(fields)) {
@@ -378,7 +473,9 @@
     function autoFillSearch(p) {
         if (!p) return;
         const kw = safeGet('#keywords');
-        if (kw && (!kw.value.trim() || kw.dataset.autofilled === '1')) {
+        const defaultSeed = (kw?.dataset.defaultSeed || '').trim();
+        const currentValue = kw?.value?.trim() || '';
+        if (kw && (!currentValue || currentValue === defaultSeed || kw.dataset.autofilled === '1')) {
             const suggestions = getKeywords(p);
             if (suggestions.length) {
                 kw.value = suggestions.join(', ');
@@ -393,6 +490,43 @@
                 loc.dataset.autofilled = '1';
             }
         }
+    }
+
+    function formatExperienceForEdit(profile) {
+        if (profile.experience && profile.experience.length) {
+            return profile.experience.map(exp => [exp.title, exp.company, exp.dates].filter(Boolean).join(' | ')).join('\n');
+        }
+        return (profile.sections?.experience || []).join('\n');
+    }
+
+    function formatLanguagesForEdit(profile) {
+        if (profile.language_entries && profile.language_entries.length) {
+            return profile.language_entries.map(lang => lang.level ? `${lang.language} (${lang.level})` : lang.language).join(', ');
+        }
+        return (profile.languages_spoken || []).join(', ');
+    }
+
+    function formatEducationForEdit(profile) {
+        if (profile.education_entries && profile.education_entries.length) {
+            return profile.education_entries.map(edu => [edu.degree, edu.school, edu.date].filter(Boolean).join(' | ')).join('\n');
+        }
+        return (profile.education || []).join('\n');
+    }
+
+    function formatCertificationsForEdit(profile) {
+        if (profile.certification_entries && profile.certification_entries.length) {
+            return profile.certification_entries.map(cert => [cert.name, cert.issuer, cert.date].filter(Boolean).join(' | ')).join('\n');
+        }
+        return (profile.certifications || []).join('\n');
+    }
+
+    function extractLanguageName(token) {
+        return String(token || '').replace(/\s*\(([^()]*)\)\s*$/, '').trim();
+    }
+
+    function extractLanguageLevel(token) {
+        const match = String(token || '').match(/\(([^()]*)\)\s*$/);
+        return match ? match[1].trim() : '';
     }
 
     // ─── PROFILE PERSISTENCE ────────────────────────────────────
@@ -540,6 +674,11 @@
         function saveEdit() {
             if (!state.profile) return;
 
+            const experienceLines = splitLines(safeGet('#edit-experience')?.value || '');
+            const educationLines = splitLines(safeGet('#edit-education')?.value || '');
+            const certificationLines = splitLines(safeGet('#edit-certifications')?.value || '');
+            const languageTokens = (safeGet('#edit-languages')?.value || '').split(',').map(v => v.trim()).filter(Boolean);
+
             const updated = {
                 ...state.profile,
                 name: safeGet('#edit-name')?.value?.trim() || state.profile.name || '',
@@ -552,9 +691,9 @@
                 experience_years: parseInt(safeGet('#edit-years')?.value) || 0,
                 preferred_roles: (safeGet('#edit-roles')?.value || '').split(',').map(v => v.trim()).filter(Boolean),
                 summary: safeGet('#edit-summary')?.value?.trim() || state.profile.summary || '',
-                languages_spoken: (safeGet('#edit-languages')?.value || '').split(',').map(v => v.trim()).filter(Boolean),
-                education: splitLines(safeGet('#edit-education')?.value || ''),
-                certifications: splitLines(safeGet('#edit-certifications')?.value || '')
+                languages_spoken: languageTokens.map(extractLanguageName),
+                education: educationLines,
+                certifications: certificationLines
             };
 
             if (!updated.name) {
@@ -566,7 +705,36 @@
 
             if (!updated.skills) updated.skills = {};
             if (!updated.sections) updated.sections = {};
-            updated.sections.experience = splitLines(safeGet('#edit-experience')?.value || '');
+            updated.sections.experience = experienceLines;
+            updated.experience = experienceLines.map(line => {
+                const parts = line.split('|').map(v => v.trim()).filter(Boolean);
+                return {
+                    title: parts[0] || line,
+                    company: parts[1] || '',
+                    dates: parts[2] || '',
+                    description: []
+                };
+            });
+            updated.education_entries = educationLines.map(line => {
+                const parts = line.split('|').map(v => v.trim()).filter(Boolean);
+                return {
+                    degree: parts[0] || line,
+                    school: parts[1] || '',
+                    date: parts[2] || ''
+                };
+            });
+            updated.certification_entries = certificationLines.map(line => {
+                const parts = line.split('|').map(v => v.trim()).filter(Boolean);
+                return {
+                    name: parts[0] || line,
+                    issuer: parts[1] || '',
+                    date: parts[2] || ''
+                };
+            });
+            updated.language_entries = languageTokens.map(token => ({
+                language: extractLanguageName(token),
+                level: extractLanguageLevel(token)
+            }));
             updated.all_skills_flat = flattenSkills(updated.skills);
             updated.search_keywords = getKeywords(updated);
 
