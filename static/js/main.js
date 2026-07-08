@@ -44,15 +44,12 @@
         };
 
         function showSection(section) {
-            // Ocultar todas
             Object.values(sections).forEach(el => {
                 if (el) el.classList.add('hidden');
             });
-            // Mostrar la seleccionada
             if (sections[section]) {
                 sections[section].classList.remove('hidden');
             }
-            // Actualizar nav
             navLinks.forEach(link => {
                 link.classList.toggle('active', link.dataset.section === section);
             });
@@ -66,7 +63,6 @@
             });
         });
 
-        // Mostrar sección inicial
         showSection('profile');
     }
 
@@ -265,7 +261,6 @@
 
         fillEditForm(p);
 
-        // Stats
         const skillsStat = el('stat-skills-profile');
         if (skillsStat) skillsStat.textContent = (p.all_skills_flat || []).length;
 
@@ -736,7 +731,6 @@
         if (label) label.textContent = text;
     }
 
-    // Convertir PDF a imágenes usando PDF.js
     async function pdfToImages(file) {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -782,7 +776,6 @@
         try {
             let imagesToProcess = [];
 
-            // Si es PDF, convertirlo a imágenes
             if (state.latexFile.type === 'application/pdf' || state.latexFile.name.toLowerCase().endsWith('.pdf')) {
                 updateProgress(10, 'Convirtiendo PDF a imágenes...');
                 try {
@@ -1155,6 +1148,7 @@
                 applyFilters();
                 toast('success', 'Búsqueda completada', `${state.jobs.length} vacantes analizadas.`);
                 updateMetrics();
+                updateSavedJobsUI();
             } else {
                 state.jobs = [];
                 if (container) {
@@ -1193,6 +1187,7 @@
                 applyFilters();
                 toast('info', 'Datos de respaldo', 'Usando vacantes de muestra (sin conexión).');
                 updateMetrics();
+                updateSavedJobsUI();
             } else {
                 if (container) {
                     container.innerHTML = '';
@@ -1591,7 +1586,6 @@
                     setStore(STORAGE.SAVED, state.saved);
                     updateSavedJobsUI();
                     updateMetrics();
-                    // Actualizar botón en la tarjeta principal si existe
                     const mainCard = document.getElementById(`card-${job.id}`);
                     if (mainCard) {
                         const sb = mainCard.querySelector('.icon-btn:first-child');
@@ -1746,8 +1740,524 @@
     }
 
     // ─── JOB MODAL ──────────────────────────────────────────────
-    // [El resto del código para el modal, ATS, plan, carta, etc. se mantiene similar]
-    // Por brevedad, aquí se incluiría el código completo del modal...
+    let modalInstance = null;
+
+    function initModal() {
+        const modalEl = document.getElementById('job-modal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            modalInstance = new bootstrap.Modal(modalEl, {
+                backdrop: 'static',
+                keyboard: true
+            });
+        }
+    }
+
+    function showJob(job) {
+        state.currentJob = job;
+        state.analysisToken++;
+
+        const titleEl = safeGet('#modal-title');
+        if (titleEl) titleEl.textContent = job.title;
+
+        const companyEl = safeGet('#modal-company');
+        if (companyEl) companyEl.textContent = job.company;
+
+        const locationEl = safeGet('#modal-location');
+        if (locationEl) locationEl.textContent = `${job.location} · ${formatModality(job.work_modality)}`;
+
+        const salaryEl = safeGet('#modal-salary');
+        if (salaryEl) salaryEl.textContent = job.salary;
+
+        const dateEl = safeGet('#modal-date');
+        if (dateEl) dateEl.textContent = job.date;
+
+        const scoreEl = safeGet('#modal-score');
+        if (scoreEl) scoreEl.textContent = `${job.match_score || 0}%`;
+
+        const sourceEl = safeGet('#modal-source');
+        if (sourceEl) {
+            const sourceSlug = job.source?.toLowerCase().replace(/[\s()]/g, '-').replace(/\./g, '') || '';
+            sourceEl.textContent = job.source;
+            sourceEl.className = `badge bg-secondary badge-platform ${sourceSlug}`;
+        }
+
+        const matchedEl = safeGet('#modal-matched');
+        if (matchedEl) {
+            matchedEl.innerHTML = '';
+            if (job.matched_skills && job.matched_skills.length) {
+                job.matched_skills.forEach(s => {
+                    const el = document.createElement('span');
+                    el.className = 'skill-tag';
+                    el.textContent = s;
+                    matchedEl.appendChild(el);
+                });
+            } else {
+                matchedEl.innerHTML = '<span class="text-muted small">Ninguna habilidad directa.</span>';
+            }
+        }
+
+        const applyEl = safeGet('#modal-apply');
+        if (applyEl) applyEl.href = job.link;
+
+        updateModalSave(job.id);
+        populateATS(job);
+        loadDeep(job);
+
+        const tone = safeGet('#letter-tone');
+        if (tone) generateLetter(job, tone.value);
+
+        if (modalInstance) {
+            modalInstance.show();
+        } else {
+            const modalEl = document.getElementById('job-modal');
+            if (modalEl) modalEl.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeModal() {
+        if (modalInstance) {
+            modalInstance.hide();
+        } else {
+            const modalEl = document.getElementById('job-modal');
+            if (modalEl) modalEl.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function updateModalSave(id) {
+        const saveBtn = safeGet('#modal-save');
+        if (!saveBtn) return;
+
+        const saved = state.saved.includes(id);
+        saveBtn.innerHTML = saved
+            ? '<i class="bi bi-bookmark-fill"></i> Guardado'
+            : '<i class="bi bi-bookmark"></i> Guardar';
+        saveBtn.classList.toggle('btn-primary', saved);
+        saveBtn.classList.toggle('btn-outline-secondary', !saved);
+    }
+
+    // ─── MODAL TABS ──────────────────────────────────────────────
+    function initModalTabs() {
+        document.querySelectorAll('#job-modal .nav-link').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                // Bootstrap maneja los tabs automáticamente
+                if (this.dataset.bsTarget === '#tab-letter' && state.currentJob) {
+                    const tone = safeGet('#letter-tone');
+                    if (tone) generateLetter(state.currentJob, tone.value);
+                }
+            });
+        });
+
+        const regenBtn = safeGet('#letter-regen');
+        if (regenBtn) {
+            regenBtn.addEventListener('click', () => {
+                if (state.currentJob) {
+                    const tone = safeGet('#letter-tone');
+                    if (tone) generateLetter(state.currentJob, tone.value);
+                }
+            });
+        }
+
+        const toneSelect = safeGet('#letter-tone');
+        if (toneSelect) {
+            toneSelect.addEventListener('change', () => {
+                if (state.currentJob) generateLetter(state.currentJob, toneSelect.value);
+            });
+        }
+
+        const copyBtn = safeGet('#letter-copy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const textEl = safeGet('#letter-text');
+                if (!textEl || !textEl.value) return;
+                navigator.clipboard.writeText(textEl.value).then(() => {
+                    toast('success', 'Copiado', 'Carta copiada al portapapeles.');
+                    copyBtn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado!';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> Copiar';
+                    }, 2000);
+                });
+            });
+        }
+
+        const emailBtn = safeGet('#letter-email');
+        if (emailBtn) {
+            emailBtn.addEventListener('click', (e) => {
+                const textEl = safeGet('#letter-text');
+                if (!textEl || !textEl.value) {
+                    e.preventDefault();
+                    return;
+                }
+                const subject = encodeURIComponent(`Postulación — ${state.currentJob?.title || ''}`);
+                const body = encodeURIComponent(textEl.value);
+                emailBtn.href = `mailto:reclutamiento@empresa.com?subject=${subject}&body=${body}`;
+            });
+        }
+
+        const saveBtn = safeGet('#modal-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                if (!state.currentJob) return;
+                const card = document.getElementById(`card-${state.currentJob.id}`);
+                const btn = card?.querySelector('.icon-btn:first-child');
+                if (btn) toggleSave(state.currentJob.id, btn);
+                else {
+                    if (state.saved.includes(state.currentJob.id)) {
+                        state.saved = state.saved.filter(x => x !== state.currentJob.id);
+                    } else {
+                        state.saved.push(state.currentJob.id);
+                    }
+                    setStore(STORAGE.SAVED, state.saved);
+                    updateMetrics();
+                    updateSavedJobsUI();
+                }
+                updateModalSave(state.currentJob.id);
+            });
+        }
+    }
+
+    // ─── MODAL CLOSE ─────────────────────────────────────────────
+    function initModalClose() {
+        const closeBtn = safeGet('#modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeModal);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modalEl = document.getElementById('job-modal');
+                if (modalEl && modalEl.classList.contains('show')) {
+                    closeModal();
+                }
+            }
+        });
+    }
+
+    // ─── ATS ANALYSIS ────────────────────────────────────────────
+    function populateATS(job) {
+        const score = job.match_score || 0;
+        const matched = job.matched_skills || [];
+        const allSkills = state.profile?.all_skills_flat || [];
+        const deepMissing = job.deep_analysis?.missing_skills_deep || [];
+        const missing = deepMissing.length
+            ? deepMissing
+            : allSkills.filter(s => !matched.map(m => m.toLowerCase()).includes(s.toLowerCase())).slice(0, 10);
+
+        const categories = [
+            { label: 'Skills Técnicas', pct: Math.min(100, (job.deep_analysis?.signals?.matched_count || matched.length) * 14), color: 'var(--bs-primary)' },
+            { label: 'Relevancia', pct: score, color: 'var(--bs-info)' },
+            { label: 'Cobertura', pct: allSkills.length ? Math.round(((job.deep_analysis?.matched_skills_deep || matched).length / allSkills.length) * 100) : 0, color: 'var(--bs-success)' }
+        ];
+
+        const breakdownEl = safeGet('#ats-breakdown');
+        if (breakdownEl) {
+            breakdownEl.innerHTML = '';
+            categories.forEach(cat => {
+                const el = document.createElement('div');
+                el.className = 'break-item mb-2';
+                el.innerHTML = `
+                    <div class="d-flex justify-content-between small">
+                        <span>${cat.label}</span>
+                        <span class="fw-bold">${cat.pct}%</span>
+                    </div>
+                    <div class="progress" style="height:4px;">
+                        <div class="progress-bar" style="width:0%;background:${cat.color};" data-pct="${cat.pct}"></div>
+                    </div>`;
+                breakdownEl.appendChild(el);
+                setTimeout(() => {
+                    const bar = el.querySelector('.progress-bar');
+                    if (bar) bar.style.width = `${cat.pct}%`;
+                }, 150);
+            });
+        }
+
+        const missingEl = safeGet('#ats-missing');
+        if (missingEl) {
+            missingEl.innerHTML = '';
+            if (missing.length) {
+                missing.forEach(s => {
+                    const el = document.createElement('span');
+                    el.className = 'missing-tag';
+                    el.textContent = s;
+                    missingEl.appendChild(el);
+                });
+            } else {
+                missingEl.innerHTML = '<span class="text-success">✓ Tu perfil cubre todas las habilidades.</span>';
+            }
+        }
+
+        const recEl = safeGet('#ats-recommendation');
+        if (recEl) {
+            if (job.deep_analysis?.recommendation) {
+                recEl.innerHTML = `<p class="small mb-0">${job.deep_analysis.recommendation}</p>`;
+            } else if (score >= 75) {
+                recEl.innerHTML = `<p class="small mb-0 text-success">Alta compatibilidad (${score}%). Tu perfil es sólido. Postúlate de inmediato.</p>`;
+            } else if (score >= 50) {
+                recEl.innerHTML = `<p class="small mb-0 text-warning">Compatibilidad media (${score}%). Considera adquirir: ${missing.slice(0, 3).join(', ')}.</p>`;
+            } else {
+                recEl.innerHTML = `<p class="small mb-0 text-danger">Compatibilidad baja (${score}%). Úsalo como referencia de desarrollo.</p>`;
+            }
+        }
+
+        const reqEl = safeGet('#modal-requirements');
+        if (reqEl) renderList(reqEl, job.deep_analysis?.requirements || []);
+
+        const benEl = safeGet('#modal-benefits');
+        if (benEl) renderList(benEl, job.deep_analysis?.benefits || []);
+    }
+
+    function renderList(container, items) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!items || !items.length) {
+            container.innerHTML = '<span class="text-muted small">Sin datos detectados.</span>';
+            return;
+        }
+        items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'list-item';
+            el.innerHTML = `<i class="bi bi-chevron-right text-primary"></i><span class="small">${item}</span>`;
+            container.appendChild(el);
+        });
+    }
+
+    // ─── DEEP ANALYSIS ───────────────────────────────────────────
+    async function loadDeep(job) {
+        if (job.deep_analysis) {
+            applyDeep(job);
+            return;
+        }
+
+        const token = ++state.analysisToken;
+        try {
+            const res = await fetch(`${API}/api/job-analysis`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ job })
+            });
+            const json = await res.json();
+
+            if (token !== state.analysisToken || state.currentJob?.id !== job.id) return;
+
+            if (!res.ok || json.status !== 'success') {
+                throw new Error(json.message || 'No se pudo analizar.');
+            }
+
+            job.deep_analysis = json.data;
+            applyDeep(job);
+        } catch (error) {
+            if (token !== state.analysisToken || state.currentJob?.id !== job.id) return;
+            const recEl = safeGet('#ats-recommendation');
+            if (recEl) recEl.innerHTML = `<p class="small mb-0 text-danger">No se pudo enriquecer la vacante. ${error.message}</p>`;
+            populateATS(job);
+            populatePlan(job);
+        }
+    }
+
+    function applyDeep(job) {
+        const deep = job.deep_analysis;
+
+        const summaryEl = safeGet('#modal-summary');
+        if (summaryEl) summaryEl.textContent = deep.deep_description || deep.summary || 'Descripción no disponible.';
+
+        if (deep.location_deep) {
+            const locEl = safeGet('#modal-location');
+            if (locEl) locEl.textContent = `${deep.location_deep} · ${formatModality(deep.work_modality_deep || job.work_modality)}`;
+        }
+
+        if (deep.salary_deep) {
+            const salEl = safeGet('#modal-salary');
+            if (salEl) salEl.textContent = deep.salary_deep;
+        }
+
+        const reqEl = safeGet('#modal-requirements');
+        if (reqEl) renderList(reqEl, deep.requirements || []);
+
+        const benEl = safeGet('#modal-benefits');
+        if (benEl) renderList(benEl, deep.benefits || []);
+
+        populateATS(job);
+        populatePlan(job);
+    }
+
+    // ─── PLAN DE ACCIÓN ─────────────────────────────────────────
+    function populatePlan(job) {
+        const deep = job.deep_analysis;
+        const plan = deep?.action_plan;
+
+        const gapsEl = safeGet('#plan-gaps');
+        const stepsEl = safeGet('#plan-steps');
+
+        if (gapsEl) gapsEl.innerHTML = '';
+        if (stepsEl) stepsEl.innerHTML = '';
+
+        const gaps = plan?.gaps || [];
+        if (!gaps.length) {
+            const allSkills = state.profile?.all_skills_flat || [];
+            const matched = job.matched_skills || [];
+            const missing = allSkills.filter(s => !matched.map(m => m.toLowerCase()).includes(s.toLowerCase())).slice(0, 5);
+            if (missing.length) {
+                gaps.push(`Habilidades técnicas ausentes: ${missing.join(', ')}`);
+            } else {
+                gaps.push('¡Sin brechas significativas! Tu perfil coincide plenamente.');
+            }
+        }
+
+        if (gapsEl) {
+            gaps.forEach(gap => {
+                const el = document.createElement('div');
+                el.className = 'gap-item';
+                el.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning"></i><span class="small">${gap}</span>`;
+                gapsEl.appendChild(el);
+            });
+        }
+
+        let steps = plan?.steps || [];
+        if (!steps.length) {
+            const allSkills = state.profile?.all_skills_flat || [];
+            const matched = job.matched_skills || [];
+            const missing = allSkills.filter(s => !matched.map(m => m.toLowerCase()).includes(s.toLowerCase())).slice(0, 3);
+
+            steps = [
+                {
+                    title: 'Adquisición de Habilidades',
+                    icon: 'bi-book',
+                    items: missing.length
+                        ? [`Estudia los conceptos básicos de: ${missing.join(', ')} y realiza un proyecto personal.`]
+                        : ['Continúa ampliando tus conocimientos técnicos.']
+                },
+                {
+                    title: 'Optimización de CV',
+                    icon: 'bi-file-earmark-text',
+                    items: ['Adapta tu experiencia para resaltar proyectos con tecnologías similares.',
+                        'Asegúrate de que tu resumen mencione tus habilidades adaptables.']
+                },
+                {
+                    title: 'Preparación de Entrevista',
+                    icon: 'bi-person-video',
+                    items: ['Prepara historias usando la metodología STAR.',
+                        'Ensaya respuestas sobre proyectos técnicos complejos.']
+                }
+            ];
+        }
+
+        if (stepsEl) {
+            steps.forEach((step, idx) => {
+                const card = document.createElement('div');
+                card.className = 'step-card mb-2';
+
+                let itemsHtml = '';
+                step.items.forEach(item => {
+                    itemsHtml += `
+                        <div class="d-flex gap-2 align-items-start small text-muted">
+                            <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                            <span>${item}</span>
+                        </div>`;
+                });
+
+                card.innerHTML = `
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-primary rounded-circle">${idx + 1}</span>
+                        <span class="fw-semibold"><i class="bi ${step.icon} me-1"></i>${step.title}</span>
+                    </div>
+                    <div class="ms-3">${itemsHtml}</div>
+                `;
+                stepsEl.appendChild(card);
+            });
+        }
+    }
+
+    // ─── CARTA DE PRESENTACIÓN ──────────────────────────────────
+    function generateLetter(job, tone) {
+        const name = state.profile?.name || 'Nombre del candidato';
+        const title = state.profile?.title || 'Desarrollador';
+        const skills = (job.matched_skills || state.profile?.all_skills_flat || []).slice(0, 4).join(', ');
+
+        const templates = {
+            formal: `Estimado equipo de Reclutamiento de ${job.company},
+
+Me dirijo a ustedes con gran interés en la posición de "${job.title}" publicada en ${job.source}. Soy ${name}, ${title} con experiencia en ${skills}.
+
+A lo largo de mi trayectoria, he desarrollado competencias sólidas que considero altamente aplicables a los objetivos de ${job.company}. Estoy comprometido con la calidad técnica, el trabajo colaborativo y la mejora continua.
+
+Quedo a su disposición para una entrevista y agradezco de antemano su atención.
+
+Atentamente,
+${name}`,
+
+            enthusiastic: `¡Hola, equipo de ${job.company}! 🚀
+
+¡Me encantó ver la vacante de "${job.title}"! Soy ${name}, un apasionado de la tecnología con experiencia en ${skills}.
+
+Creo genuinamente que puedo aportar valor real a su equipo. Me motiva construir soluciones que importen y aprender constantemente. ¡Estaría encantado de mostrarles lo que puedo hacer!
+
+¿Podemos coordinar una llamada? 🎯
+
+${name}`,
+
+            technical: `Estimado equipo técnico de ${job.company}:
+
+En respuesta a la vacante "${job.title}" (${job.source}), presento mi candidatura. Mi stack incluye: ${skills}. He trabajado en arquitecturas escalables, APIs RESTful e integración de sistemas.
+
+Aporto capacidad de análisis técnico, resolución de problemas y documentación. Estoy disponible para una evaluación técnica o entrevista en el horario que sea conveniente.
+
+${name} | ${state.profile?.email || ''}`,
+
+            short: `Hola ${job.company},
+
+Me interesa la posición "${job.title}". Soy ${name}, tengo experiencia en ${skills}.
+
+¿Podemos coordinar una entrevista?
+
+${name}
+${state.profile?.email || ''} | ${state.profile?.phone || ''}`
+        };
+
+        const textEl = safeGet('#letter-text');
+        if (textEl) textEl.value = templates[tone] || templates.formal;
+
+        const subject = encodeURIComponent(`Postulación — ${job.title} | ${name}`);
+        const body = encodeURIComponent(textEl?.value || '');
+
+        const emailBtn = safeGet('#letter-email');
+        if (emailBtn) {
+            emailBtn.href = `mailto:reclutamiento@${job.company?.toLowerCase().replace(/\s+/g, '') || 'empresa'}.com?subject=${subject}&body=${body}`;
+        }
+    }
+
+    // ─── EXPORT JOBS ─────────────────────────────────────────────
+    async function exportJobs() {
+        if (!state.jobs || !state.jobs.length) {
+            toast('warning', 'Sin datos', 'No hay empleos para exportar.');
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API}/api/export`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobs: state.jobs })
+            });
+
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `empleos_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast('success', 'CSV exportado', `${state.jobs.length} empleos exportados.`);
+            } else {
+                toast('error', 'Error', 'No se pudo exportar. Intenta de nuevo.');
+            }
+        } catch {
+            toast('error', 'Sin conexión', 'No se pudo conectar con el servidor.');
+        }
+    }
 
     // ─── INIT ────────────────────────────────────────────────────
     function init() {
@@ -1763,17 +2273,10 @@
         initFilters();
         initProfileEditor();
         initSkillsEditor();
+        initModal();
+        initModalTabs();
+        initModalClose();
 
-        // Inicializar modal después de cargar el DOM
-        setTimeout(() => {
-            // Configurar modales de Bootstrap
-            const modalElement = document.getElementById('job-modal');
-            if (modalElement && typeof bootstrap !== 'undefined') {
-                // El modal se manejará con Bootstrap
-            }
-        }, 100);
-
-        // Actualizar saved jobs UI
         setTimeout(updateSavedJobsUI, 500);
 
         console.log('🚀 PostulacionAuto Hub v2.0 cargado correctamente');
