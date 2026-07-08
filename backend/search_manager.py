@@ -31,39 +31,6 @@ except ImportError:
 _SEARCH_CACHE = {}
 _CACHE_TTL = 1800  # 30 minutes
 
-# #region debug-point A:prod-search-debug
-def _debug_emit(hypothesis_id, message, data=None):
-    try:
-        _p = '.dbg/production-scrapers.env'
-        _u, _s = 'http://127.0.0.1:7777/event', 'production-scrapers'
-        try:
-            with open(_p, encoding='utf-8') as f:
-                c = f.read()
-            _u = next((l.split('=', 1)[1] for l in c.splitlines() if l.startswith('DEBUG_SERVER_URL=')), _u)
-            _s = next((l.split('=', 1)[1] for l in c.splitlines() if l.startswith('DEBUG_SESSION_ID=')), _s)
-        except Exception:
-            pass
-        payload = {
-            "sessionId": _s,
-            "runId": "pre",
-            "hypothesisId": hypothesis_id,
-            "location": "backend/search_manager.py",
-            "msg": f"[DEBUG] {message}",
-            "data": data or {},
-            "ts": int(time.time() * 1000),
-        }
-        urllib.request.urlopen(
-            urllib.request.Request(
-                _u,
-                data=json.dumps(payload).encode(),
-                headers={"Content-Type": "application/json"},
-            ),
-            timeout=2,
-        ).read()
-    except Exception:
-        pass
-# #endregion
-
 def _cache_key(keywords, location, modality, max_results):
     raw = f"{sorted(keywords)}|{location}|{modality}|{max_results}"
     return hashlib.md5(raw.encode()).hexdigest()
@@ -95,14 +62,14 @@ def get_search_keyword_budget():
 
 def get_search_worker_budget():
     try:
-        return max(2, min(int(os.environ.get("PAH_SEARCH_WORKERS", "8")), 16))
+        return max(2, min(int(os.environ.get("PAH_SEARCH_WORKERS", "4")), 8))  # Reduced for stability
     except Exception:
-        return 8
+        return 4
 
 
 def get_auto_enrich_limit():
     try:
-        return max(0, min(int(os.environ.get("PAH_AUTO_ENRICH_TOP_N", "0")), 5))
+        return max(0, min(int(os.environ.get("PAH_AUTO_ENRICH_TOP_N", "0")), 3))
     except Exception:
         return 0
 
@@ -274,7 +241,7 @@ def calculate_match_score(job, profile, requested_modality="any"):
         score -= 8
         breakdown["seniority"] -= 8
 
-    # ── Skill density bonus (more total matches = richer match) ──
+    # ── Skill density bonus ──────────────────────────────────
     match_count = len(matched_skills)
     if match_count >= 5:
         score += 10
@@ -297,19 +264,6 @@ def calculate_match_score(job, profile, requested_modality="any"):
         score += 4
         breakdown["profile_strength"] += 4
 
-    # ── Preferred roles / summary signal ─────────────────────
-    role_signals = [role.lower() for role in profile.get("preferred_roles", [])]
-    summary_text = (profile.get("summary") or "").lower()
-    for role in role_signals[:3]:
-        role_words = [part for part in re.split(r"[\s/|,]+", role) if len(part) >= 4]
-        if role_words and all(word in (title + " " + description) for word in role_words[:2]):
-            score += 6
-            breakdown["profile_strength"] += 6
-            break
-    if summary_text and any(word in description for word in re.findall(r"\b[a-z]{5,}\b", normalize_text(summary_text))[:6]):
-        score += 3
-        breakdown["profile_strength"] += 3
-
     score = min(score, 100)
     score = max(score, 0)
     return score, list(matched_skills), breakdown
@@ -319,17 +273,11 @@ def calculate_match_score(job, profile, requested_modality="any"):
 # Multi-dimensional keyword expansion
 # ─────────────────────────────────────────────────────────────
 def _expand_keywords(keywords, profile):
-    """
-    Generate multi-dimensional search queries from the profile.
-    For each primary keyword, generate role-based and stack-based variants.
-    Returns a de-duplicated flat list of search strings.
-    """
-    expanded = list(keywords)  # start with the explicit keywords
+    expanded = list(keywords) if keywords else []
     
     profile_title = profile.get("title", "")
     preferred_roles = profile.get("preferred_roles", [])
     
-    # Add job title words as standalone queries (e.g. "Desarrollador", "Full Stack")
     title_keywords = []
     for word in re.split(r'[\s/|,]+', profile_title):
         word = word.strip()
@@ -338,14 +286,12 @@ def _expand_keywords(keywords, profile):
     expanded.extend(title_keywords[:2])
     expanded.extend(preferred_roles[:2])
     
-    # Combine top skills into stack-based queries (e.g. "PHP Laravel")
     primary = profile.get("all_skills_flat", [])[:4]
     if len(primary) >= 2:
         stack_q = " ".join(primary[:2])
         if stack_q not in expanded:
             expanded.append(stack_q)
     
-    # Add Spanish/English variants for common terms
     es_en_map = {
         "desarrollador": "developer",
         "developer": "desarrollador",
@@ -363,7 +309,6 @@ def _expand_keywords(keywords, profile):
             variants.append(es_en_map[kw_lower])
     expanded.extend(variants[:2])
     
-    # Deduplicate while preserving order and limit to 8 queries max
     seen = set()
     result = []
     for k in expanded:
@@ -371,22 +316,13 @@ def _expand_keywords(keywords, profile):
         if k_lower not in seen:
             seen.add(k_lower)
             result.append(k)
-    return result[:10]
+    return result[:8]  # Limit to 8 keywords
 
 
 # ─────────────────────────────────────────────────────────────
 # Main search orchestrator
 # ─────────────────────────────────────────────────────────────
 def search_jobs(profile=None, keywords=None, location="México", modality="any", max_results=20):
-    # #region debug-point A:search-entry
-    _debug_emit("A", "search_jobs called", {
-        "location": location,
-        "modality": modality,
-        "max_results": max_results,
-        "keywords_input_type": type(keywords).__name__,
-        "profile_has_keywords": bool((profile or {}).get("search_keywords")) if isinstance(profile, dict) else False,
-    })
-    # #endregion
     if not profile:
         pdf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cv", "CV_Erwin_Brow.pdf")
         profile = parse_cv(pdf_path)
@@ -410,6 +346,9 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
     expanded_keywords = _expand_keywords(keywords, profile)
     expanded_keywords = expanded_keywords[:get_search_keyword_budget()]
 
+    if not expanded_keywords:
+        return []
+
     # ── Location normalization ───────────────────────────────
     modality = normalize_modality(modality)
     loc_lower = (location or "México").lower()
@@ -420,16 +359,16 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
     cache_key = _cache_key(expanded_keywords, location, modality, max_results)
     cached = _get_cached(cache_key)
     if cached is not None:
-        # #region debug-point D:cache-hit
-        _debug_emit("D", "search cache hit", {"cache_key": cache_key[:8], "cached_count": len(cached)})
-        # #endregion
         return cached
 
     # ── Parallel scraping ────────────────────────────────────
     combined_jobs = {}
     scraper_stats = {}
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=get_search_worker_budget()) as executor:
+    
+    # Use fewer workers for stability
+    max_workers = min(get_search_worker_budget(), len(expanded_keywords) * 2 + 2)
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
 
         for kw in expanded_keywords:
@@ -443,42 +382,30 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
             if HAS_TALENTCOM:
                 futures[executor.submit(scrape_talentcom, kw, global_loc, modality, max_results)] = {"scraper": "talentcom", "keyword": kw}
 
-        for future in concurrent.futures.as_completed(futures):
+        for future in concurrent.futures.as_completed(futures, timeout=30):
             future_meta = futures.get(future, {})
             scraper_name = future_meta.get("scraper", "unknown")
             scraper_keyword = future_meta.get("keyword", "")
             try:
-                results = future.result(timeout=20)
-                scraper_stats[scraper_name] = scraper_stats.get(scraper_name, 0) + len(results or [])
-                # #region debug-point B:scraper-result
-                _debug_emit("B", "scraper returned results", {
-                    "scraper": scraper_name,
-                    "keyword": scraper_keyword,
-                    "count": len(results or []),
-                })
-                # #endregion
-                for job in results:
-                    link = job.get("link", "")
-                    if link and link not in combined_jobs:
-                        normalized_job = normalize_job(job, requested_location=location)
-                        if job_matches_requested_modality(normalized_job, modality):
-                            combined_jobs[link] = normalized_job
+                results = future.result(timeout=10)
+                if results:
+                    scraper_stats[scraper_name] = scraper_stats.get(scraper_name, 0) + len(results)
+                    for job in results:
+                        link = job.get("link", "")
+                        if link and link not in combined_jobs:
+                            normalized_job = normalize_job(job, requested_location=location)
+                            if job_matches_requested_modality(normalized_job, modality):
+                                combined_jobs[link] = normalized_job
             except Exception as e:
-                # #region debug-point B:scraper-error
-                _debug_emit("B", "scraper raised exception", {
-                    "scraper": scraper_name,
-                    "keyword": scraper_keyword,
-                    "error": str(e),
-                })
-                # #endregion
-                print(f"[SCRAPER ERROR] {e}")
+                print(f"[SCRAPER ERROR] {scraper_name}: {str(e)[:100]}")
+                continue
 
     # ── ATS Scoring ──────────────────────────────────────────
     scored_jobs = []
     for job in combined_jobs.values():
         score, matched, breakdown = calculate_match_score(job, profile, requested_modality=modality)
         job["match_score"] = score
-        job["matched_skills"] = list(set(matched))
+        job["matched_skills"] = list(set(matched))[:10]
         job["score_breakdown"] = {
             "score_parts": breakdown,
             "skills_matched": len(set(matched)),
@@ -489,137 +416,12 @@ def search_jobs(profile=None, keywords=None, location="México", modality="any",
         scored_jobs.append(job)
 
     scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
-
-    # ── Fallback mock data ───────────────────────────────────
-    used_backend_fallback = False
-    if not scored_jobs and allow_search_mock_fallback():
-        used_backend_fallback = True
-        # #region debug-point C:backend-fallback
-        _debug_emit("C", "backend fallback activated", {
-            "expanded_keywords": expanded_keywords[:10],
-            "scraper_stats": scraper_stats,
-            "combined_jobs": len(combined_jobs),
-        })
-        # #endregion
-        print("[WARNING] Scrapers returned no jobs. Loading offline mock jobs.")
-        keywords_str = " ".join(keywords[:2]) if keywords else "desarrollador"
-        mock_candidates = [
-            {
-                "id": "mock_li_1",
-                "title": f"Senior {keywords_str.title()} Developer (Full Stack)",
-                "company": "BairesDev",
-                "location": "Remoto (México)",
-                "salary": "$45,000 - $65,000 MXN",
-                "date": "Hace 2 días",
-                "link": "https://mx.linkedin.com/jobs/view/mock-python-dev-bairesdev",
-                "source": "LinkedIn",
-                "description": f"Buscamos un Ingeniero de Software para unirse a nuestro equipo. Requisitos: experiencia en {keywords_str}, APIs RESTful, SQL y Git. Trabajo 100% remoto con excelentes beneficios.",
-                "applicants": "45 postulantes"
-            },
-            {
-                "id": "mock_ct_1",
-                "title": f"Desarrollador {keywords_str.title()} Jr — Veracruz",
-                "company": "Tech Solutions Veracruz",
-                "location": "Veracruz, Veracruz",
-                "salary": "$18,000 - $22,000 MXN",
-                "date": "Ayer",
-                "link": "https://www.computrabajo.com.mx/oferta-mock-dev-veracruz",
-                "source": "Computrabajo",
-                "description": f"Se solicita desarrollador junior. Conocimientos de {keywords_str}, HTML, CSS, JavaScript y Git. Ubicación presencial en Boca del Río.",
-                "applicants": "12 postulantes"
-            },
-            {
-                "id": "mock_occ_1",
-                "title": f"Software Engineer Lead ({keywords_str.title()})",
-                "company": "Softtek México",
-                "location": "Remoto (Monterrey)",
-                "salary": "$55,000 MXN",
-                "date": "Hace 5 días",
-                "link": "https://www.occ.com.mx/empleo/oferta-mock-softtek",
-                "source": "OCC Mundial",
-                "description": f"Liderar el diseño e implementación de sistemas empresariales. Requisitos: {keywords_str}, Docker, AWS, microservicios, Scrum.",
-                "applicants": "8 postulantes"
-            },
-            {
-                "id": "mock_gb_1",
-                "title": f"Full Stack Developer ({keywords_str.title()})",
-                "company": "Niuro LatAm",
-                "location": "Remoto (Chile/México)",
-                "salary": "$2,500 - $3,500 USD",
-                "date": "Hace 1 semana",
-                "link": "https://www.getonbrd.com/jobs/mock-fullstack-niuro",
-                "source": "Get on Board",
-                "description": f"Join our dynamic team building next-generation fintech solutions. Stack: {keywords_str}, React, PostgreSQL, Docker, AWS.",
-                "applicants": "19 postulantes"
-            },
-            {
-                "id": "mock_ij_1",
-                "title": f"Desarrollador {keywords_str.title()} — Empresa Líder TI",
-                "company": "Grupo Empresarial Digital MX",
-                "location": "Ciudad de México (Híbrido)",
-                "salary": "$30,000 - $40,000 MXN",
-                "date": "Hoy",
-                "link": "https://www.infojobs.com.mx/oferta-mock-digital",
-                "source": "Infojobs",
-                "description": f"Empresa de tecnología solicita desarrollador con experiencia en {keywords_str}. Modalidad híbrida, prestaciones superiores, bono anual.",
-                "applicants": "5 postulantes"
-            }
-        ]
-        for mj in mock_candidates:
-            mj = normalize_job(mj, requested_location=location)
-            if not job_matches_requested_modality(mj, modality):
-                continue
-            score, matched, breakdown = calculate_match_score(mj, profile, requested_modality=modality)
-            mj["match_score"] = score
-            mj["matched_skills"] = list(set(matched))
-            mj["score_breakdown"] = {
-                "score_parts": breakdown,
-                "skills_matched": len(set(matched)),
-                "total_skills": len(profile.get("all_skills_flat", [])),
-                "work_modality": mj.get("work_modality", "presencial"),
-                "seniority": mj.get("seniority", "general"),
-            }
-            scored_jobs.append(mj)
-        scored_jobs.sort(key=lambda x: x["match_score"], reverse=True)
-
-    # ── Automatic Enrichment of Top 3 vacancies ──────────────
-    auto_enrich_limit = get_auto_enrich_limit()
-    top_jobs_to_enrich = scored_jobs[:auto_enrich_limit]
-    if top_jobs_to_enrich:
-        print(f"[ENRICHMENT] Automatically enriching top {len(top_jobs_to_enrich)} vacancies...")
-        from backend.job_analyzer import analyze_job_detail
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as enrich_executor:
-            future_to_job = {enrich_executor.submit(analyze_job_detail, job, profile): job for job in top_jobs_to_enrich}
-            for future in concurrent.futures.as_completed(future_to_job):
-                job = future_to_job[future]
-                try:
-                    deep_analysis = future.result()
-                    job["deep_analysis"] = deep_analysis
-                    if deep_analysis.get("work_modality_deep"):
-                        job["work_modality"] = deep_analysis["work_modality_deep"]
-                    if deep_analysis.get("seniority_deep"):
-                        job["seniority"] = deep_analysis["seniority_deep"]
-                    if deep_analysis.get("salary_deep") and deep_analysis["salary_deep"] != "No especificado":
-                        job["salary"] = deep_analysis["salary_deep"]
-                except Exception as e:
-                    print(f"[ENRICHMENT ERROR] Failed to enrich job '{job.get('title')}': {e}")
-
+    
+    # Limit results
     result = scored_jobs[:max_results]
-    # #region debug-point D:return-summary
-    _debug_emit("D", "search_jobs returning", {
-        "returned_count": len(result),
-        "combined_jobs": len(combined_jobs),
-        "used_backend_fallback": used_backend_fallback,
-        "scraper_stats": scraper_stats,
-    })
-    # #endregion
-    if result and not used_backend_fallback:
+    
+    # Cache if we have results
+    if result:
         _set_cache(cache_key, result)
+    
     return result
-
-
-if __name__ == "__main__":
-    print("Testing search_manager v2 with default profile...")
-    res = search_jobs(keywords=["php"], location="remoto", max_results=5)
-    for j in res:
-        print(f"[{j['match_score']}%] {j['title']} — {j['company']} ({j['source']})")

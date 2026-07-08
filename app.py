@@ -1,4 +1,6 @@
 import os
+import time
+import signal
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from backend.parser import parse_cv
@@ -11,9 +13,11 @@ import json
 import csv
 import io
 import base64
+import threading
+import concurrent.futures
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -24,9 +28,20 @@ DEFAULT_PDF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cv"
 # Global state in memory for the currently active profile
 CURRENT_PROFILE = parse_cv(DEFAULT_PDF_PATH)
 
+# Timeout configuration
+SEARCH_TIMEOUT = 45  # segundos
+
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": time.time(),
+        "profile_loaded": bool(CURRENT_PROFILE)
+    })
 
 @app.route('/api/profile', methods=['GET', 'POST'])
 def handle_profile():
@@ -37,7 +52,6 @@ def handle_profile():
             if not data:
                 return jsonify({"status": "error", "message": "No data provided"}), 400
             
-            # Simple validation to ensure it has basic fields
             if "name" not in data or "skills" not in data:
                 return jsonify({"status": "error", "message": "Formato de perfil inválido"}), 400
                 
@@ -53,7 +67,6 @@ def handle_profile():
                 "message": str(e)
             }), 500
             
-    # GET method
     return jsonify({
         "status": "success",
         "data": CURRENT_PROFILE
@@ -81,13 +94,11 @@ def upload_cv():
         file.save(filepath)
         
         try:
-            # Parse the newly uploaded CV
             profile = parse_cv(filepath)
             CURRENT_PROFILE = profile
             analysis_meta = profile.get("analysis_meta", {})
             used_ocr = analysis_meta.get("used_ocr", False)
             
-            # Clean up the file after parsing (optional, but good for keeping space clean)
             try:
                 os.remove(filepath)
             except Exception:
@@ -128,10 +139,11 @@ def _normalize_search_keywords(raw_keywords, max_keywords=12):
             break
     return output or None
 
-
 @app.route('/api/search', methods=['GET', 'POST'])
 def search():
     global CURRENT_PROFILE
+    
+    # Parse request
     if request.method == 'POST':
         payload = request.get_json(silent=True) or {}
         keywords = _normalize_search_keywords(payload.get('keywords'))
@@ -147,43 +159,88 @@ def search():
         modality = request.args.get('modality', 'any')
         max_results = request.args.get('max_results', 20, type=int)
 
-    max_results = max(5, min(max_results or 20, 100))
-        
+    max_results = max(5, min(max_results or 20, 50))  # Limit to 50 max
+    
+    # Validate keywords
+    if not keywords:
+        return jsonify({
+            "status": "error",
+            "message": "Se requieren palabras clave para la búsqueda."
+        }), 400
+    
     try:
-        import time
-        t0 = time.time()
-        jobs = search_jobs(
-            profile=CURRENT_PROFILE,
-            keywords=keywords,
-            location=location,
-            modality=modality,
-            max_results=max_results
-        )
-        elapsed = round(time.time() - t0, 2)
-        avg_score = round(sum(j.get("match_score", 0) for j in jobs) / len(jobs), 1) if jobs else 0
+        # Execute search with timeout
+        result = []
+        search_error = None
+        
+        def run_search():
+            nonlocal result, search_error
+            try:
+                result = search_jobs(
+                    profile=CURRENT_PROFILE,
+                    keywords=keywords,
+                    location=location,
+                    modality=modality,
+                    max_results=max_results
+                )
+            except Exception as e:
+                search_error = e
+        
+        # Run with timeout
+        search_thread = threading.Thread(target=run_search)
+        search_thread.daemon = True
+        search_thread.start()
+        search_thread.join(timeout=SEARCH_TIMEOUT)
+        
+        if search_thread.is_alive():
+            # Timeout occurred
+            return jsonify({
+                "status": "error",
+                "message": f"La búsqueda tomó demasiado tiempo. Intenta con menos palabras clave o reduce el número de resultados.",
+                "timeout": True
+            }), 504
+            
+        if search_error:
+            raise search_error
+        
+        if not result:
+            return jsonify({
+                "status": "success",
+                "count": 0,
+                "search_time_s": 0,
+                "avg_match_score": 0,
+                "modality": modality,
+                "requested_max_results": max_results,
+                "has_more_possible": False,
+                "data": [],
+                "message": "No se encontraron vacantes. Prueba con otras palabras clave."
+            })
+        
+        elapsed = 0
+        avg_score = round(sum(j.get("match_score", 0) for j in result) / len(result), 1) if result else 0
+        
         return jsonify({
             "status": "success",
-            "count": len(jobs),
+            "count": len(result),
             "search_time_s": elapsed,
             "avg_match_score": avg_score,
             "modality": modality,
             "requested_max_results": max_results,
-            "has_more_possible": len(jobs) >= max_results,
-            "data": jobs
+            "has_more_possible": len(result) >= max_results,
+            "data": result
         })
+        
     except Exception as e:
         return jsonify({
             "status": "error",
             "message": str(e)
         }), 500
 
-
 @app.route('/api/search/suggestions', methods=['GET'])
 def search_suggestions():
-    """Returns keyword suggestions based on the active profile's top skills."""
     global CURRENT_PROFILE
     suggestions = CURRENT_PROFILE.get("search_keywords") or CURRENT_PROFILE.get("all_skills_flat", [])
-    return jsonify({"status": "success", "suggestions": suggestions})
+    return jsonify({"status": "success", "suggestions": suggestions[:12]})
 
 @app.route('/api/export', methods=['POST'])
 def export_jobs():
@@ -228,7 +285,6 @@ def export_jobs():
             "message": str(e)
         }), 500
 
-
 @app.route('/api/job-analysis', methods=['POST'])
 def job_analysis():
     global CURRENT_PROFILE
@@ -252,7 +308,6 @@ def job_analysis():
             "status": "error",
             "message": str(e)
         }), 500
-
 
 @app.route('/api/generate-cv-latex', methods=['POST'])
 def generate_cv_latex():
@@ -293,11 +348,6 @@ def generate_cv_latex():
             "status": "error",
             "message": str(e)
         }), 400
-    except LatexGenerationError as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
     except Exception as e:
         return jsonify({
             "status": "error",
@@ -306,12 +356,6 @@ def generate_cv_latex():
 
 @app.route('/api/generate-latex-from-text', methods=['POST'])
 def generate_from_text():
-    """
-    Endpoint llamado por el frontend (sección Generar CV ATS).
-    Recibe el texto extraído por OCR y devuelve un CV estructurado
-    en formato Word (.docx) codificado en base64, más una versión
-    en texto plano para copiar-pegar en formularios ATS.
-    """
     try:
         data = request.get_json(force=True) or {}
         raw_text = data.get('text', '').strip()
@@ -319,21 +363,19 @@ def generate_from_text():
         if not raw_text:
             return jsonify({'status': 'error', 'message': 'No se recibió texto del CV.'}), 400
 
-        # Texto plano ATS (para mostrar en el textarea del frontend)
         plain = generate_ats_plain_text(raw_text)
 
-        # DOCX ATS (para descarga)
         try:
             docx_bytes = generate_ats_docx(raw_text)
-            docx_b64   = base64.b64encode(docx_bytes).decode('utf-8')
+            docx_b64 = base64.b64encode(docx_bytes).decode('utf-8')
         except RuntimeError:
-            docx_b64 = None  # python-docx no disponible
+            docx_b64 = None
 
         return jsonify({
             'status': 'success',
             'message': 'CV ATS generado correctamente.',
             'data': {
-                'latex': plain,          # reutilizamos el campo "latex" del frontend
+                'latex': plain,
                 'plain_text': plain,
                 'docx_base64': docx_b64,
                 'suggested_filename': 'cv_ats_optimizado.docx'
@@ -343,10 +385,8 @@ def generate_from_text():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
 @app.route('/api/generate-ats-cv', methods=['POST'])
 def generate_ats_cv_endpoint():
-    """Endpoint alternativo: acepta texto y devuelve DOCX directamente como descarga."""
     try:
         data = request.get_json(force=True) or {}
         raw_text = data.get('text', '').strip()
@@ -362,22 +402,29 @@ def generate_ats_cv_endpoint():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
 @app.route('/api/generate-ats-pdf-from-profile', methods=['POST'])
 def generate_ats_pdf_from_profile_endpoint():
-    """Genera PDF ATS a partir del perfil actualmente activo."""
     try:
         global CURRENT_PROFILE
-        pdf_bytes = generate_ats_pdf_from_profile(CURRENT_PROFILE)
+        # Use current profile or override with POST data
+        data = request.json or {}
+        profile_to_use = data if data else CURRENT_PROFILE
+        
+        pdf_bytes = generate_ats_pdf_from_profile(profile_to_use)
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
-            headers={'Content-Disposition': f'attachment; filename=cv_{CURRENT_PROFILE.get("name", "candidato").replace(" ", "_")}_ats.pdf'}
+            headers={'Content-Disposition': f'attachment; filename=cv_{profile_to_use.get("name", "candidato").replace(" ", "_")}_ats.pdf'}
         )
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-
 if __name__ == "__main__":
     print("Starting flask server on http://localhost:5000")
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    print("API endpoints:")
+    print("  /health - Health check")
+    print("  /api/profile - Get/update profile")
+    print("  /api/search - Search jobs")
+    print("  /api/upload-cv - Upload CV")
+    print("  /api/generate-ats-pdf-from-profile - Generate ATS PDF")
+    app.run(host="127.0.0.1", port=5000, debug=False)  # debug=False for better performance

@@ -1,0 +1,16 @@
+# render.yaml
+services:
+  - type: web
+    name: postulacionauto
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn.conf.py app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PAH_ENABLE_SEARCH_FALLBACK
+        value: true
+      - key: PAH_SEARCH_WORKERS
+        value: 3
+      - key: PAH_SEARCH_KEYWORD_BUDGET
+        value: 4

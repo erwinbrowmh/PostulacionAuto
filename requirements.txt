@@ -7,3 +7,4 @@ gunicorn>=21.2.0
 PyMuPDF>=1.28.0
 python-docx>=1.2.0
 xhtml2pdf>=0.2.15
+lxml>=4.9.0
