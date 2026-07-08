@@ -13,8 +13,9 @@ SKILLS_GLOSSARY = {
     "backend": [
         "Laravel", "Symfony", "Yii", "Spring", "Spring Boot", "Django", "Flask", 
         "FastAPI", "Node.js", "Express", "Ruby on Rails", "Rails", "ASP.NET", ".NET",
-        "REST APIs", "REST", "SOAP", "GraphQL", "WebSockets", "Stripe API", "Clip Integration", 
-        "Git", "GitHub", "GitLab"
+        "REST APIs", "REST", "SOAP", "GraphQL", "WebSockets", "Stripe API", "Clip Integration",
+        "MySQL", "PostgreSQL", "MongoDB", "MariaDB", "SQLite", "Angular", "React", "Vue.js",
+        "Bootstrap", "Git", "GitHub", "GitLab"
     ],
     "infrastructure": [
         "Linux", "Ubuntu", "CentOS", "Debian", "RedHat", "Unix", "cPanel", "WHM",
@@ -39,9 +40,22 @@ SKILLS_GLOSSARY = {
     ]
 }
 
-def extract_skills_dynamically(text):
+SKILL_STOPWORDS = {
+    "habilidades",
+    "habilidades tecnicas",
+    "skills",
+    "stack",
+    "stack tecnologico",
+    "tecnologias",
+    "herramientas",
+    "metodologias",
+    "relevantes",
+}
+
+def extract_skills_dynamically(text, sections=None):
     matched_skills = {cat: [] for cat in SKILLS_GLOSSARY}
     all_flat = []
+    seen_flat = set()
     
     text_lower = text.lower()
     
@@ -64,15 +78,54 @@ def extract_skills_dynamically(text):
                 
             if re.search(pattern, normalized_text):
                 matched_skills[category].append(skill)
-                all_flat.append(skill)
-                
-    return matched_skills, list(set(all_flat))
+                lowered = normalize_text(skill.lower())
+                if lowered not in seen_flat:
+                    seen_flat.add(lowered)
+                    all_flat.append(skill)
+
+    return matched_skills, all_flat
 
 def normalize_text(text):
     # Replaces accented characters with standard ones
     a, b = 'áéíóúüñ', 'aeiouun'
     trans = str.maketrans(a, b)
     return text.translate(trans)
+
+
+def extract_raw_skill_tokens(sections):
+    lines = normalize_section_lines(sections.get("skills", []))
+    if not lines:
+        return []
+
+    merged_text = " ".join(lines)
+    merged_text = re.sub(r"\s+", " ", merged_text).strip()
+    merged_text = re.sub(
+        r"(?i)\b(lenguajes(?:\s*&\s*frameworks)?|backend\s*&\s*apis|infraestructura\s*&\s*devops|seguridad|iot\s*/\s*hardware|gestion de proyectos)\s*:\s*",
+        ", ",
+        merged_text,
+    )
+
+    tokens = []
+    seen = set()
+
+    for token in re.split(r",\s*(?![^()]*\))|;\s*(?![^()]*\))|[•·]\s*", merged_text):
+        clean = re.sub(r"^\s*[\+\-•*]+\s*", "", token).strip(" \t.")
+        clean = re.sub(r"^(habilidades(?: tecnicas)?|skills?|stack(?: tecnologico)?|tecnologias?)\s*:?\s*", "", clean, flags=re.IGNORECASE)
+        if not clean:
+            continue
+        if clean.count("(") != clean.count(")"):
+            continue
+        if len(clean) < 2 or len(clean) > 80:
+            continue
+        lowered = normalize_text(clean.lower())
+        if lowered in SKILL_STOPWORDS:
+            continue
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        tokens.append(clean)
+
+    return tokens
 
 
 SECTION_PATTERNS = {
@@ -197,7 +250,7 @@ def parse_cv_text(text):
         return FALLBACK_PROFILE
 
     sections = extract_sections(lines)
-    skills, all_skills_flat = extract_skills_dynamically(text)
+    skills, all_skills_flat = extract_skills_dynamically(text, sections)
     summary = extract_summary(lines, sections)
     title = extract_title(lines, summary)
     experience_years = extract_experience_years(text)
@@ -684,7 +737,7 @@ def parse_cv(pdf_path):
         ocr_text = ""
         used_ocr = False
         try:
-            ocr_text = extract_pdf_text_with_ocr(pdf_path, max_pages=4)
+            ocr_text = extract_pdf_text_with_ocr(pdf_path, max_pages=None)
             used_ocr = bool(ocr_text.strip())
         except Exception as ocr_error:
             print(f"Error in PDF OCR fallback: {ocr_error}")

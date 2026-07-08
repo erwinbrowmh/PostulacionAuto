@@ -27,6 +27,7 @@
         latexDocxB64: null,   // base64 del DOCX generado por el servidor
         latexPlainText: '',   // texto plano ATS
         analysisToken: 0,
+        profileLoadToken: 0,
         searching: false,
         currentSection: 'profile'
     };
@@ -57,6 +58,11 @@
                 link.classList.toggle('active', link.dataset.section === section);
             });
             state.currentSection = section;
+            if (section === 'search') {
+                setTimeout(() => {
+                    autoResizeTextarea(safeGet('#keywords'));
+                }, 0);
+            }
         }
 
         navLinks.forEach(link => {
@@ -306,7 +312,6 @@
         if (expStat) expStat.textContent = p.experience_years || 0;
 
         saveProfile(p);
-        syncProfile(p);
         autoFillSearch(p);
     }
 
@@ -568,9 +573,11 @@
             renderProfile(cached);
         }
 
+        const requestToken = ++state.profileLoadToken;
         try {
             const res = await fetch(`${API}/api/profile`);
             const json = await res.json();
+            if (requestToken !== state.profileLoadToken) return;
             if (json.status === 'success' && json.data) {
                 renderProfile(json.data);
             }
@@ -620,6 +627,7 @@
                 state.profile.all_skills_flat = flattenSkills(state.profile.skills);
                 state.profile.search_keywords = getKeywords(state.profile);
                 nameInput.value = '';
+                state.profileLoadToken++;
                 renderProfile(state.profile);
                 syncProfile(state.profile);
                 recalcScores();
@@ -637,6 +645,7 @@
         state.profile.skills[cat] = state.profile.skills[cat].filter(s => s !== skill);
         state.profile.all_skills_flat = flattenSkills(state.profile.skills);
         state.profile.search_keywords = getKeywords(state.profile);
+        state.profileLoadToken++;
         renderProfile(state.profile);
         syncProfile(state.profile);
         recalcScores();
@@ -752,6 +761,7 @@
             updated.search_keywords = getKeywords(updated);
 
             state.profile = updated;
+            state.profileLoadToken++;
             renderProfile(updated);
             syncProfile(updated);
             snapshot = JSON.parse(JSON.stringify(updated));
@@ -849,6 +859,7 @@
 
             if (json.status === 'success') {
                 state.profile = normalizeProfile(json.data);
+                state.profileLoadToken++;
                 renderProfile(state.profile);
                 forceSearchAutoFill(state.profile);
                 const meta = json.data.analysis_meta || {};
@@ -2692,6 +2703,7 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
             
             if (json.status === 'success') {
                 state.profile = normalizeProfile(json.data);
+                state.profileLoadToken++;
                 renderProfile(state.profile);
                 forceSearchAutoFill(state.profile);
                 preFillFromProfile();

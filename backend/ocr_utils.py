@@ -81,7 +81,7 @@ def ocr_image_bytes(
 
 def render_pdf_pages_to_png_bytes(
     pdf_path: str | Path,
-    max_pages: int = 3,
+    max_pages: int | None = 3,
     zoom: float = 2.2,
 ) -> list[tuple[int, bytes]]:
     pdf_path = Path(pdf_path)
@@ -90,7 +90,8 @@ def render_pdf_pages_to_png_bytes(
 
     try:
         matrix = fitz.Matrix(zoom, zoom)
-        for page_index in range(min(len(document), max_pages)):
+        page_limit = len(document) if max_pages is None else min(len(document), max_pages)
+        for page_index in range(page_limit):
             page = document.load_page(page_index)
             pixmap = page.get_pixmap(matrix=matrix, alpha=False)
             pages.append((page_index + 1, pixmap.tobytes("png")))
@@ -102,7 +103,7 @@ def render_pdf_pages_to_png_bytes(
 
 def extract_pdf_text_with_ocr(
     pdf_path: str | Path,
-    max_pages: int = 3,
+    max_pages: int | None = 3,
     languages: str = "spa+eng",
 ) -> str:
     ocr_chunks: list[str] = []
