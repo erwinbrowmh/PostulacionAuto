@@ -30,6 +30,7 @@
         searching: false,
         currentSection: 'profile'
     };
+    const LEGACY_KEYWORD_SEED = 'PHP, Flutter, Desarrollador, Sistemas, Laravel';
 
     // ─── DOM REFS ───────────────────────────────────────────────
     const $ = (s, c = document) => c.querySelector(s);
@@ -206,6 +207,12 @@
 
     function safeGet(selector) {
         return document.querySelector(selector);
+    }
+
+    function autoResizeTextarea(textarea) {
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 320)}px`;
     }
 
     // ─── RENDER PROFILE ──────────────────────────────────────────
@@ -475,11 +482,12 @@
         const kw = safeGet('#keywords');
         const defaultSeed = (kw?.dataset.defaultSeed || '').trim();
         const currentValue = kw?.value?.trim() || '';
-        if (kw && (!currentValue || currentValue === defaultSeed || kw.dataset.autofilled === '1')) {
+        if (kw && (!currentValue || currentValue === defaultSeed || currentValue === LEGACY_KEYWORD_SEED || kw.dataset.autofilled === '1')) {
             const suggestions = getKeywords(p);
             if (suggestions.length) {
                 kw.value = suggestions.join(', ');
                 kw.dataset.autofilled = '1';
+                autoResizeTextarea(kw);
             }
         }
         const loc = safeGet('#location');
@@ -490,6 +498,12 @@
                 loc.dataset.autofilled = '1';
             }
         }
+    }
+
+    function forceSearchAutoFill(profile) {
+        const kw = safeGet('#keywords');
+        if (kw) kw.dataset.autofilled = '1';
+        autoFillSearch(profile);
     }
 
     function formatExperienceForEdit(profile) {
@@ -552,7 +566,6 @@
         const cached = loadProfileFromStore();
         if (cached) {
             renderProfile(cached);
-            return;
         }
 
         try {
@@ -562,7 +575,7 @@
                 renderProfile(json.data);
             }
         } catch {
-            toast('warning', 'Sin conexión', 'No se pudo cargar el perfil.');
+            if (!cached) toast('warning', 'Sin conexión', 'No se pudo cargar el perfil.');
         }
     }
 
@@ -835,7 +848,9 @@
             const json = await res.json();
 
             if (json.status === 'success') {
-                renderProfile(json.data);
+                state.profile = normalizeProfile(json.data);
+                renderProfile(state.profile);
+                forceSearchAutoFill(state.profile);
                 const meta = json.data.analysis_meta || {};
                 const note = meta.used_ocr ? ' usando OCR' : '';
                 toast('success', 'CV procesado', `${json.data.all_skills_flat?.length || 0} habilidades detectadas${note}.`);
@@ -1140,8 +1155,10 @@
 
         const keywords = safeGet('#keywords');
         if (keywords) {
+            autoResizeTextarea(keywords);
             keywords.addEventListener('input', () => {
                 keywords.dataset.autofilled = '0';
+                autoResizeTextarea(keywords);
             });
             keywords.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -2674,10 +2691,9 @@ ${state.profile?.email || ''} | ${state.profile?.phone || ''}`
             const json = await res.json();
             
             if (json.status === 'success') {
-                // Update current profile, then pre-fill
-                if (!state.profile) state.profile = {};
-                Object.assign(state.profile, json.data);
+                state.profile = normalizeProfile(json.data);
                 renderProfile(state.profile);
+                forceSearchAutoFill(state.profile);
                 preFillFromProfile();
                 toast('success', 'Importado', 'Datos extraídos correctamente.');
             } else {
