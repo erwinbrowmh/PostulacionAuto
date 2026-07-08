@@ -70,6 +70,7 @@
     ];
     const SEARCH_PREFETCH_PAGES = 1;
     const SEARCH_MAX_TOTAL_RESULTS = 100;
+    const SEARCH_REQUEST_KEYWORD_LIMIT = 12;
 
     // ─── DOM REFS ───────────────────────────────────────────────
     const $ = (s, c = document) => c.querySelector(s);
@@ -1488,21 +1489,14 @@
     }
 
     function buildSearchQuery() {
+        const rawKeywordText = safeGet('#keywords')?.value?.trim() || '';
+        const compactKeywords = sanitizeKeywordList(rawKeywordText.split(',')).slice(0, SEARCH_REQUEST_KEYWORD_LIMIT);
         return {
-            keywords: safeGet('#keywords')?.value?.trim() || '',
+            keywords: compactKeywords,
             location: safeGet('#location')?.value?.trim() || 'México',
             modality: safeGet('#modality')?.value || 'remoto',
             pageSize: Math.max(5, parseInt(safeGet('#max-results')?.value) || 20)
         };
-    }
-
-    function buildSearchParams(query, maxResults) {
-        const params = new URLSearchParams();
-        if (query.keywords) params.set('keywords', query.keywords);
-        params.set('location', query.location);
-        params.set('modality', query.modality);
-        params.set('max_results', maxResults);
-        return params;
     }
 
     function mergeJobs(existingJobs, incomingJobs) {
@@ -1518,8 +1512,16 @@
     }
 
     async function requestSearchBatch(query, maxResults) {
-        const params = buildSearchParams(query, maxResults);
-        const res = await fetch(`${API}/api/search?${params}`);
+        const res = await fetch(`${API}/api/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                keywords: query.keywords,
+                location: query.location,
+                modality: query.modality,
+                max_results: maxResults
+            })
+        });
         const rawText = await res.text();
         let json = null;
         try {
@@ -1533,7 +1535,8 @@
             status: res.status,
             json_status: json?.status || null,
             data_count: Array.isArray(json?.data) ? json.data.length : 0,
-            requested_max_results: maxResults
+            requested_max_results: maxResults,
+            keyword_count: Array.isArray(query.keywords) ? query.keywords.length : 0
         });
 
         if (!res.ok) {
@@ -1719,7 +1722,7 @@
                 error: String(err?.message || err || 'unknown'),
                 location: query.location,
                 modality: query.modality,
-                has_keywords: Boolean(query.keywords)
+                has_keywords: Array.isArray(query.keywords) ? query.keywords.length > 0 : Boolean(query.keywords)
             });
             // #endregion
             console.error('Search error:', err);
@@ -1734,7 +1737,8 @@
                 if (spinner) spinner.classList.add('hidden');
             }
 
-            const fallbackJobs = ENABLE_CLIENT_FALLBACK ? getFallbackJobs(query.keywords || 'desarrollador', query.location, query.modality) : [];
+            const fallbackSeed = Array.isArray(query.keywords) ? (query.keywords[0] || 'desarrollador') : (query.keywords || 'desarrollador');
+            const fallbackJobs = ENABLE_CLIENT_FALLBACK ? getFallbackJobs(fallbackSeed, query.location, query.modality) : [];
             if (fallbackJobs.length) {
                 // #region debug-point C:frontend-fallback-jobs
                 debugEmit('C', 'frontend fallback jobs generated', {

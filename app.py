@@ -109,19 +109,45 @@ def upload_cv():
             "message": "Tipo de archivo no permitido. Solo se permiten PDFs."
         }), 400
 
-@app.route('/api/search', methods=['GET'])
+def _normalize_search_keywords(raw_keywords, max_keywords=12):
+    if isinstance(raw_keywords, str):
+        keywords = [k.strip() for k in raw_keywords.split(',') if k.strip()]
+    elif isinstance(raw_keywords, list):
+        keywords = [str(k).strip() for k in raw_keywords if str(k).strip()]
+    else:
+        keywords = []
+    seen = set()
+    output = []
+    for keyword in keywords:
+        lowered = keyword.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        output.append(keyword)
+        if len(output) >= max_keywords:
+            break
+    return output or None
+
+
+@app.route('/api/search', methods=['GET', 'POST'])
 def search():
     global CURRENT_PROFILE
-    keywords_raw = request.args.get('keywords', '')
-    location = request.args.get('location', 'veracruz')
-    modality = request.args.get('modality', 'any')
-    max_results = request.args.get('max_results', 20, type=int)
-    
-    # Process keywords
-    if keywords_raw:
-        keywords = [k.strip() for k in keywords_raw.split(',') if k.strip()]
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        keywords = _normalize_search_keywords(payload.get('keywords'))
+        location = str(payload.get('location') or 'México').strip() or 'México'
+        modality = str(payload.get('modality') or 'any').strip() or 'any'
+        try:
+            max_results = int(payload.get('max_results', 20))
+        except (TypeError, ValueError):
+            max_results = 20
     else:
-        keywords = None
+        keywords = _normalize_search_keywords(request.args.get('keywords', ''))
+        location = request.args.get('location', 'México')
+        modality = request.args.get('modality', 'any')
+        max_results = request.args.get('max_results', 20, type=int)
+
+    max_results = max(5, min(max_results or 20, 100))
         
     try:
         import time
