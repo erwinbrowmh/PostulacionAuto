@@ -3,12 +3,14 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from backend.parser import parse_cv
 from backend.latex_generator import generate_latex_from_image, LatexGenerationError
+from backend.ats_cv_generator import generate_ats_docx, generate_ats_plain_text
 from backend.search_manager import search_jobs
 from backend.job_analyzer import analyze_job_detail
 from werkzeug.utils import secure_filename
 import json
 import csv
 import io
+import base64
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
@@ -273,6 +275,65 @@ def generate_cv_latex():
             "status": "error",
             "message": f"Error interno al generar LaTeX: {str(e)}"
         }), 500
+
+@app.route('/api/generate-latex-from-text', methods=['POST'])
+def generate_from_text():
+    """
+    Endpoint llamado por el frontend (sección Generar CV ATS).
+    Recibe el texto extraído por OCR y devuelve un CV estructurado
+    en formato Word (.docx) codificado en base64, más una versión
+    en texto plano para copiar-pegar en formularios ATS.
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        raw_text = data.get('text', '').strip()
+
+        if not raw_text:
+            return jsonify({'status': 'error', 'message': 'No se recibió texto del CV.'}), 400
+
+        # Texto plano ATS (para mostrar en el textarea del frontend)
+        plain = generate_ats_plain_text(raw_text)
+
+        # DOCX ATS (para descarga)
+        try:
+            docx_bytes = generate_ats_docx(raw_text)
+            docx_b64   = base64.b64encode(docx_bytes).decode('utf-8')
+        except RuntimeError:
+            docx_b64 = None  # python-docx no disponible
+
+        return jsonify({
+            'status': 'success',
+            'message': 'CV ATS generado correctamente.',
+            'data': {
+                'latex': plain,          # reutilizamos el campo "latex" del frontend
+                'plain_text': plain,
+                'docx_base64': docx_b64,
+                'suggested_filename': 'cv_ats_optimizado.docx'
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/generate-ats-cv', methods=['POST'])
+def generate_ats_cv_endpoint():
+    """Endpoint alternativo: acepta texto y devuelve DOCX directamente como descarga."""
+    try:
+        data = request.get_json(force=True) or {}
+        raw_text = data.get('text', '').strip()
+        if not raw_text:
+            return jsonify({'status': 'error', 'message': 'Sin texto.'}), 400
+
+        docx_bytes = generate_ats_docx(raw_text)
+        return Response(
+            docx_bytes,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            headers={'Content-Disposition': 'attachment; filename=cv_ats_optimizado.docx'}
+        )
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 if __name__ == "__main__":
     print("Starting flask server on http://localhost:5000")

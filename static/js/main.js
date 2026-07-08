@@ -23,7 +23,9 @@
         currentJob: null,
         chips: { modality: ['remoto', 'hibrido', 'presencial'], level: ['junior', 'semi', 'senior', 'lead'] },
         latexFile: null,
-        latexFilename: 'cv_latex.tex',
+        latexFilename: 'cv_ats_optimizado.docx',
+        latexDocxB64: null,   // base64 del DOCX generado por el servidor
+        latexPlainText: '',   // texto plano ATS
         analysisToken: 0,
         searching: false,
         currentSection: 'profile'
@@ -646,7 +648,7 @@
         }
     }
 
-    // ─── LATEX GENERATOR CON TESSERACT.JS Y PDF.JS ──────────────
+    // ─── CV ATS GENERATOR CON TESSERACT.JS Y PDF.JS ──────────────
     function initLatex() {
         const zone = safeGet('#latex-zone');
         const input = safeGet('#latex-input');
@@ -682,7 +684,10 @@
         if (copyBtn) copyBtn.addEventListener('click', copyLatex);
 
         const dlBtn = safeGet('#latex-download');
-        if (dlBtn) dlBtn.addEventListener('click', downloadLatex);
+        if (dlBtn) dlBtn.addEventListener('click', downloadLatexDocx);
+
+        const dlTxtBtn = safeGet('#latex-download-txt');
+        if (dlTxtBtn) dlTxtBtn.addEventListener('click', downloadLatexTxt);
     }
 
     function handleLatexFile(file) {
@@ -693,7 +698,9 @@
         }
 
         state.latexFile = file;
-        state.latexFilename = `${file.name.replace(/\.[^.]+$/, '') || 'cv_latex'}.tex`;
+        state.latexFilename = `${file.name.replace(/\.[^.]+$/, '') || 'cv_ats'}.docx`;
+        state.latexDocxB64 = null;
+        state.latexPlainText = '';
 
         const nameEl = safeGet('#latex-filename');
         if (nameEl) nameEl.textContent = file.name;
@@ -707,7 +714,7 @@
         const textEl = safeGet('#latex-text');
         if (textEl) textEl.value = '';
 
-        toast('info', 'Imagen lista', 'Ahora puedes generar el LaTeX con OCR en navegador.');
+        toast('info', 'Archivo listo', 'Ahora puedes generar el CV ATS con OCR en navegador.');
     }
 
     function setLatexProcessing(isProcessing) {
@@ -837,16 +844,23 @@
 
             if (json.status === 'success') {
                 const textEl = safeGet('#latex-text');
-                if (textEl) textEl.value = json.data?.latex || '';
+                const plainText = json.data?.plain_text || json.data?.latex || '';
+                if (textEl) textEl.value = plainText;
 
+                state.latexPlainText = plainText;
+                state.latexDocxB64 = json.data?.docx_base64 || null;
                 state.latexFilename = json.data?.suggested_filename || state.latexFilename;
 
                 const outputEl = safeGet('#latex-output');
                 if (outputEl) outputEl.classList.remove('hidden');
 
-                toast('success', 'CV LaTeX listo', `Documento generado desde ${imagesToProcess.length} página(s).`);
+                // Mostrar/ocultar botón DOCX según disponibilidad
+                const dlBtn = safeGet('#latex-download');
+                if (dlBtn) dlBtn.style.display = state.latexDocxB64 ? '' : 'none';
+
+                toast('success', 'CV ATS listo', `Documento generado desde ${imagesToProcess.length} página(s).`);
             } else {
-                toast('error', 'Error', json.message || 'No se pudo generar el LaTeX.');
+                toast('error', 'Error', json.message || 'No se pudo generar el CV ATS.');
             }
 
         } catch (error) {
@@ -862,26 +876,51 @@
         const textEl = safeGet('#latex-text');
         if (!textEl || !textEl.value) return;
         navigator.clipboard.writeText(textEl.value).then(() => {
-            toast('success', 'Copiado', 'Código LaTeX copiado al portapapeles.');
+            toast('success', 'Copiado', 'Texto ATS copiado al portapapeles.');
         }).catch(() => {
             toast('error', 'No se pudo copiar', 'Copia manualmente.');
         });
     }
 
-    function downloadLatex() {
-        const textEl = safeGet('#latex-text');
-        if (!textEl || !textEl.value) return;
-        const blob = new Blob([textEl.value], { type: 'application/x-tex;charset=utf-8' });
+    function downloadLatexDocx() {
+        if (!state.latexDocxB64) {
+            toast('warning', 'Sin DOCX', 'El servidor no devolvió el archivo Word. Descarga el .txt.');
+            return;
+        }
+        const binary = atob(state.latexDocxB64);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], {
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = state.latexFilename;
+        const a   = document.createElement('a');
+        a.href     = url;
+        a.download = state.latexFilename || 'cv_ats_optimizado.docx';
         document.body.appendChild(a);
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-        toast('success', 'Descargado', `Archivo ${state.latexFilename} descargado.`);
+        toast('success', 'Descargado', `${a.download} listo.`);
     }
+
+    function downloadLatexTxt() {
+        const text = state.latexPlainText || safeGet('#latex-text')?.value || '';
+        if (!text) { toast('warning', 'Sin contenido', 'Genera el CV primero.'); return; }
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = (state.latexFilename || 'cv_ats').replace(/\.docx$/, '.txt');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('success', 'Descargado', `${a.download} listo.`);
+    }
+
+    // alias legacy
+    function downloadLatex() { downloadLatexDocx(); }
 
     // ─── SEARCH ──────────────────────────────────────────────────
     function initSearch() {

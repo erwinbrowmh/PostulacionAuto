@@ -46,7 +46,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" data-section="latex" href="#">
-                            <i class="bi bi-file-code"></i> Generar LaTeX
+                            <i class="bi bi-file-earmark-check"></i> Generar CV ATS
                         </a>
                     </li>
                     <li class="nav-item">
@@ -397,14 +397,14 @@
             <div id="jobs-container" class="jobs-grid hidden"></div>
         </section>
 
-        <!-- ═══ SECCIÓN: GENERAR LATEX ═══ -->
+        <!-- ═══ SECCIÓN: GENERAR CV ATS ═══ -->
         <section id="section-latex" class="section-content hidden">
             <div class="row g-4">
                 <div class="col-lg-6">
                     <div class="card glass-card">
                         <div class="card-body">
-                            <h5 class="card-title"><i class="bi bi-file-code"></i> Generar CV LaTeX</h5>
-                            <p class="text-muted small">Sube una imagen o PDF de tu CV para convertirlo a LaTeX con OCR en el navegador.</p>
+                            <h5 class="card-title"><i class="bi bi-file-earmark-check"></i> Generar CV Optimizado para ATS</h5>
+                            <p class="text-muted small">Sube tu CV en PDF o imagen. El OCR extrae el texto y generamos un <strong>documento Word (.docx) limpio</strong>, sin columnas ni gráficos, que cualquier sistema ATS puede leer correctamente.</p>
                             
                             <div class="upload-zone large" id="latex-zone">
                                 <i class="bi bi-cloud-upload fs-1"></i>
@@ -414,9 +414,9 @@
                             </div>
                             
                             <div class="d-flex align-items-center gap-3 mt-3">
-                                <span id="latex-filename" class="text-muted small">Sin imagen seleccionada</span>
+                                <span id="latex-filename" class="text-muted small">Sin archivo seleccionado</span>
                                 <button id="latex-generate" class="btn btn-primary">
-                                    <i class="bi bi-wand-2"></i> Generar LaTeX
+                                    <i class="bi bi-wand-2"></i> Generar CV ATS
                                 </button>
                             </div>
 
@@ -428,11 +428,12 @@
                             </div>
 
                             <div id="latex-output" class="latex-output hidden mt-3">
-                                <label class="form-label small">Código LaTeX generado:</label>
+                                <label class="form-label small">Vista previa del CV estructurado (texto plano ATS):</label>
                                 <textarea id="latex-text" class="form-control font-monospace" rows="12" readonly></textarea>
-                                <div class="d-flex gap-2 mt-2">
-                                    <button id="latex-copy" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard"></i> Copiar</button>
-                                    <button id="latex-download" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Descargar .tex</button>
+                                <div class="d-flex gap-2 mt-2 flex-wrap">
+                                    <button id="latex-copy" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard"></i> Copiar texto</button>
+                                    <button id="latex-download" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Descargar .docx</button>
+                                    <button id="latex-download-txt" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-text"></i> Descargar .txt</button>
                                 </div>
                             </div>
                         </div>
@@ -442,18 +443,21 @@
                 <div class="col-lg-6">
                     <div class="card glass-card">
                         <div class="card-body">
-                            <h5 class="card-title"><i class="bi bi-info-circle"></i> ¿Cómo funciona?</h5>
-                            <ol class="text-muted small">
-                                <li>Sube tu CV en formato PDF o imagen (PNG, JPG, WEBP).</li>
-                                <li>El OCR se ejecuta en tu navegador usando Tesseract.js.</li>
-                                <li>El texto extraído se envía al servidor para generar el documento LaTeX.</li>
-                                <li>El código LaTeX generado es compatible con Overleaf y compiladores LaTeX.</li>
-                            </ol>
-                            <div class="alert alert-info mt-3">
-                                <i class="bi bi-shield-check"></i> El OCR se ejecuta en tu navegador. No se envía tu documento a servicios externos.
+                            <h5 class="card-title"><i class="bi bi-info-circle"></i> ¿Por qué este formato?</h5>
+                            <p class="text-muted small mb-3">Los sistemas ATS (Applicant Tracking Systems) son software que las empresas usan para filtrar CVs automáticamente. Un CV mal formateado puede ser rechazado antes de que lo lea un humano.</p>
+                            <h6 class="text-success"><i class="bi bi-check-circle-fill"></i> Lo que hace nuestro generador</h6>
+                            <ul class="text-muted small">
+                                <li>Extrae el texto de tu CV con OCR en el navegador (sin enviar tu archivo a servidores externos).</li>
+                                <li>Genera un documento Word con <strong>fuente Calibri estándar</strong>, sin tablas complejas ni columnas.</li>
+                                <li>Estructura las secciones con encabezados claros que los ATS reconocen.</li>
+                                <li>Elimina íconos, gráficos y elementos visuales que confunden a los ATS.</li>
+                                <li>Márgenes de 1 pulgada, formato de una columna.</li>
+                            </ul>
+                            <div class="alert alert-success mt-3">
+                                <i class="bi bi-shield-check"></i> <strong>Privacidad:</strong> El OCR corre en tu navegador. Tu CV no se envía a ningún servicio externo.
                             </div>
-                            <div class="alert alert-warning">
-                                <i class="bi bi-exclamation-triangle"></i> Para archivos PDF, se renderizan las páginas como imágenes antes del OCR.
+                            <div class="alert alert-info">
+                                <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Después de descargar el .docx, revisa y personaliza el contenido. El documento es tu punto de partida optimizado para ATS.
                             </div>
                         </div>
                     </div>
